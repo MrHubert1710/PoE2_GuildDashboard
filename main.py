@@ -1,7 +1,7 @@
 import csv
 from collections import defaultdict
 import re
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os
 import json
 import time
@@ -14,6 +14,7 @@ import math
 # Configuration
 LOG_DIR = 'logs'
 LEAGUE_NAME = 'Runes of Aldur'
+DISPLAY_TIMEZONE = timezone(timedelta(hours=2), 'CEST')
 TARGET_STASHES = {'$$$', 'Deli', 'Ess', 'Aug', 'Ritual', 'Abbys/Expedition'}
 STASH_ALIASES = {
     'Abbys/Expediton': 'Abbys/Expedition',
@@ -33,6 +34,7 @@ player_summary = defaultdict(lambda: defaultdict(lambda: {'added': 0, 'removed':
 stash_summary = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {'added': 0, 'removed': 0})))
 coordinate_state = {}  # (stash, x, y) -> (current_quantity, item_name)
 log_events = []
+movement_log = []
 final_stash_state = {}
 valuation_summary = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {
     'added_qty': 0,
@@ -111,6 +113,17 @@ def parse_event_id(id_string):
         return int(id_string)
     except ValueError:
         return 0
+
+
+def display_event_datetime(date_value):
+    """Convert a parsed event datetime from UTC to the dashboard display timezone."""
+    if date_value == datetime.min:
+        return date_value
+    
+    if date_value.tzinfo is None:
+        date_value = date_value.replace(tzinfo=timezone.utc)
+    
+    return date_value.astimezone(DISPLAY_TIMEZONE)
 
 
 def normalize_price_key(item_name):
@@ -273,12 +286,29 @@ def calculate_valuation_summary():
     state = {}
     player_cumulative = defaultdict(float)
     stash_cumulative = defaultdict(float)
+    movement_log.clear()
     
     def apply_value_change(event, item_name, quantity, direction):
         value = add_valuation_entry(
             event['account'], event['stash'], item_name, quantity,
             event['parsed_date'], direction, price_index, latest_event_date
         )
+        signed_value = value if direction == 'added' else -value
+        movement_log.append({
+            'date': event['date'],
+            'parsed_date': event['parsed_date'],
+            'parsed_id': event['parsed_id'],
+            'account': event['account'],
+            'stash': event['stash'],
+            'action': direction,
+            'source_action': event['action'],
+            'item_name': item_name,
+            'quantity': quantity,
+            'x': event['x'],
+            'y': event['y'],
+            'rate': value / quantity if quantity else 0.0,
+            'value': signed_value,
+        })
         if value <= 0:
             return
         
@@ -439,6 +469,7 @@ def reset_report_data():
     stash_summary.clear()
     coordinate_state.clear()
     log_events.clear()
+    movement_log.clear()
     final_stash_state.clear()
     valuation_summary.clear()
     unpriced_summary.clear()
@@ -633,6 +664,55 @@ def format_axis_value(value, tick_step):
     return f'{value:.3f}'
 
 
+def ceil_to_hour_multiple(date_value, hour_step):
+    """Round a datetime up to the next local hour multiple."""
+    rounded = date_value.replace(minute=0, second=0, microsecond=0)
+    if rounded < date_value:
+        rounded += timedelta(hours=1)
+    
+    remainder = rounded.hour % hour_step
+    if remainder:
+        rounded += timedelta(hours=hour_step - remainder)
+    
+    return rounded
+
+
+def append_time_axis(svg, min_ts, max_ts, scale_x, margin_top, plot_height, hour_step=6):
+    """Append day ticks and hour sub-ticks for the chart time axis."""
+    min_local = datetime.fromtimestamp(min_ts, DISPLAY_TIMEZONE)
+    max_local = datetime.fromtimestamp(max_ts, DISPLAY_TIMEZONE)
+    day_tick = min_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    if day_tick.timestamp() < min_ts:
+        day_tick += timedelta(days=1)
+    
+    minor_tick = ceil_to_hour_multiple(min_local, hour_step)
+    while minor_tick.timestamp() <= max_ts:
+        if minor_tick.timestamp() >= min_ts and minor_tick.hour != 0:
+            x = scale_x(minor_tick)
+            svg.append(
+                f'<line class="subgrid" x1="{x:.2f}" y1="{margin_top}" '
+                f'x2="{x:.2f}" y2="{margin_top + plot_height}"/>'
+            )
+            svg.append(
+                f'<text class="subtick" x="{x:.2f}" y="{margin_top + plot_height + 22}" '
+                f'text-anchor="middle">{html.escape(minor_tick.strftime("%H"))}</text>'
+            )
+        minor_tick += timedelta(hours=hour_step)
+    
+    while day_tick.timestamp() <= max_ts:
+        if day_tick.timestamp() >= min_ts:
+            x = scale_x(day_tick)
+            svg.append(
+                f'<line class="grid day-grid" x1="{x:.2f}" y1="{margin_top}" '
+                f'x2="{x:.2f}" y2="{margin_top + plot_height}"/>'
+            )
+            svg.append(
+                f'<text class="tick" x="{x:.2f}" y="{margin_top + plot_height + 42}" '
+                f'text-anchor="middle">{html.escape(day_tick.strftime("%d-%m"))}</text>'
+            )
+        day_tick += timedelta(days=1)
+
+
 def print_player_value_chart():
     """Generate one SVG chart with cumulative net value over time for each player."""
     if not player_value_timeline:
@@ -647,14 +727,14 @@ def print_player_value_chart():
         '#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c',
         '#0891b2', '#be123c', '#4f46e5', '#65a30d', '#c026d3',
     ]
-    width = 1400
-    height = 820
+    width = 1600
+    height = 720
     margin_left = 90
     margin_top = 70
-    margin_bottom = 90
-    plot_width = 980
-    plot_height = 620
-    legend_x = margin_left + plot_width + 60
+    margin_bottom = 82
+    margin_right = 40
+    plot_width = width - margin_left - margin_right
+    plot_height = height - margin_top - margin_bottom
     
     all_points = [
         point
@@ -690,12 +770,16 @@ def print_player_value_chart():
         'text { font-family: Segoe UI, Arial, sans-serif; fill: #111827; }',
         '.axis { stroke: #111827; stroke-width: 1.5; }',
         '.grid { stroke: #e5e7eb; stroke-width: 1; }',
+        '.day-grid { stroke: #cbd5e1; stroke-width: 1.2; }',
+        '.subgrid { stroke: #f1f5f9; stroke-width: 1; }',
         '.tick { font-size: 12px; fill: #4b5563; }',
+        '.subtick { font-size: 10px; fill: #9ca3af; }',
         '.title { font-size: 24px; font-weight: 700; }',
         '.subtitle { font-size: 13px; fill: #6b7280; }',
         '.legend { font-size: 13px; }',
+        '.legend-box { fill: rgba(255,255,255,0.86); stroke: #d1d5db; stroke-width: 1; }',
         '</style>',
-        f'<text class="title" x="{margin_left}" y="34">Total stash value over time by player</text>',
+        f'<text class="title" x="{margin_left}" y="34">Total value over time by player</text>',
         f'<text class="subtitle" x="{margin_left}" y="56">Cumulative net value in Divine Orb, estimated from cached poe.ninja data</text>',
     ]
     
@@ -707,48 +791,51 @@ def print_player_value_chart():
             f'<text class="tick" x="{margin_left - 12}" y="{y + 4:.2f}" text-anchor="end">{html.escape(format_axis_value(value, tick_step))}</text>'
         )
     
-    # X-axis grid and labels
-    for i in range(6):
-        ts = min_ts + ((max_ts - min_ts) * i / 5)
-        date_value = datetime.fromtimestamp(ts, tz=min_time.tzinfo)
-        x = margin_left + (plot_width * i / 5)
-        label = date_value.strftime('%m-%d %H:%M')
-        svg.append(f'<line class="grid" x1="{x:.2f}" y1="{margin_top}" x2="{x:.2f}" y2="{margin_top + plot_height}"/>')
-        svg.append(
-            f'<text class="tick" x="{x:.2f}" y="{margin_top + plot_height + 28}" text-anchor="middle">{html.escape(label)}</text>'
-        )
+    append_time_axis(svg, min_ts, max_ts, scale_x, margin_top, plot_height)
     
     svg.extend([
         f'<line class="axis" x1="{margin_left}" y1="{margin_top}" x2="{margin_left}" y2="{margin_top + plot_height}"/>',
         f'<line class="axis" x1="{margin_left}" y1="{margin_top + plot_height}" x2="{margin_left + plot_width}" y2="{margin_top + plot_height}"/>',
         f'<text class="tick" x="{margin_left - 60}" y="{margin_top + plot_height / 2}" transform="rotate(-90 {margin_left - 60} {margin_top + plot_height / 2})" text-anchor="middle">Net value (Divine Orb)</text>',
         f'<text class="tick" x="{margin_left + plot_width / 2}" y="{margin_top + plot_height + 62}" text-anchor="middle">Time</text>',
-        f'<text class="legend" x="{legend_x}" y="{margin_top}" font-weight="700">Player</text>',
     ])
     
-    for index, player in enumerate(sorted(player_value_timeline.keys())):
+    players_with_points = [
+        player
+        for player in sorted(player_value_timeline.keys())
+        if player_value_timeline[player]
+    ]
+    legend_x = margin_left + 14
+    legend_y = margin_top + 14
+    legend_width = 290
+    legend_height = 28 + (len(players_with_points) * 24)
+    legend_svg = [
+        f'<rect class="legend-box" x="{legend_x}" y="{legend_y}" width="{legend_width}" '
+        f'height="{legend_height}" rx="6"/>',
+        f'<text class="legend" x="{legend_x + 12}" y="{legend_y + 20}" font-weight="700">Player</text>',
+    ]
+    
+    for index, player in enumerate(players_with_points):
         points = player_value_timeline[player]
-        if not points:
-            continue
-        
         color = colors[index % len(colors)]
         point_string = ' '.join(
             f'{scale_x(date_value):.2f},{scale_y(value):.2f}'
             for date_value, value in points
         )
         final_value = points[-1][1]
-        legend_y = margin_top + 28 + (index * 26)
+        legend_item_y = legend_y + 46 + (index * 24)
         
         svg.append(
             f'<polyline points="{point_string}" fill="none" stroke="{color}" stroke-width="2.5" '
             'stroke-linecap="round" stroke-linejoin="round"/>'
         )
-        svg.append(f'<line x1="{legend_x}" y1="{legend_y - 5}" x2="{legend_x + 28}" y2="{legend_y - 5}" stroke="{color}" stroke-width="3"/>')
-        svg.append(
-            f'<text class="legend" x="{legend_x + 38}" y="{legend_y}">'
+        legend_svg.append(f'<line x1="{legend_x + 12}" y1="{legend_item_y - 5}" x2="{legend_x + 40}" y2="{legend_item_y - 5}" stroke="{color}" stroke-width="3"/>')
+        legend_svg.append(
+            f'<text class="legend" x="{legend_x + 50}" y="{legend_item_y}">'
             f'{html.escape(player)} ({final_value:.2f} div)</text>'
         )
     
+    svg.extend(legend_svg)
     svg.append('</svg>')
     
     with open(chart_file, 'w', encoding='utf-8') as chart_f:
@@ -763,6 +850,142 @@ def print_player_value_chart():
     print()
 
 
+def print_stash_value_chart():
+    """Generate one SVG chart with cumulative net value over time for each stash."""
+    if not stash_value_timeline:
+        print("No stash value timeline data to chart")
+        return
+    
+    if not os.path.exists(CHART_DIR):
+        os.makedirs(CHART_DIR)
+    
+    chart_file = chart_output_path('VALUE_OVER_TIME_BY_STASH.svg')
+    colors = [
+        '#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c',
+        '#0891b2', '#be123c', '#4f46e5', '#65a30d', '#c026d3',
+    ]
+    width = 1600
+    height = 720
+    margin_left = 90
+    margin_top = 70
+    margin_bottom = 82
+    margin_right = 40
+    plot_width = width - margin_left - margin_right
+    plot_height = height - margin_top - margin_bottom
+    
+    all_points = [
+        point
+        for points in stash_value_timeline.values()
+        for point in points
+        if point[0] != datetime.min
+    ]
+    
+    if not all_points:
+        print("No dated stash value timeline data to chart")
+        return
+    
+    min_time = min(point[0] for point in all_points)
+    max_time = max(point[0] for point in all_points)
+    min_value, max_value, tick_values, tick_step = calculate_value_axis([point[1] for point in all_points])
+    
+    min_ts = min_time.timestamp()
+    max_ts = max_time.timestamp()
+    if min_ts == max_ts:
+        min_ts -= 1
+        max_ts += 1
+    
+    def scale_x(date_value):
+        return margin_left + ((date_value.timestamp() - min_ts) / (max_ts - min_ts)) * plot_width
+    
+    def scale_y(value):
+        return margin_top + ((max_value - value) / (max_value - min_value)) * plot_height
+    
+    svg = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        '<style>',
+        'text { font-family: Segoe UI, Arial, sans-serif; fill: #111827; }',
+        '.axis { stroke: #111827; stroke-width: 1.5; }',
+        '.grid { stroke: #e5e7eb; stroke-width: 1; }',
+        '.day-grid { stroke: #cbd5e1; stroke-width: 1.2; }',
+        '.subgrid { stroke: #f1f5f9; stroke-width: 1; }',
+        '.tick { font-size: 12px; fill: #4b5563; }',
+        '.subtick { font-size: 10px; fill: #9ca3af; }',
+        '.title { font-size: 24px; font-weight: 700; }',
+        '.subtitle { font-size: 13px; fill: #6b7280; }',
+        '.legend { font-size: 13px; }',
+        '.legend-box { fill: rgba(255,255,255,0.86); stroke: #d1d5db; stroke-width: 1; }',
+        '</style>',
+        f'<text class="title" x="{margin_left}" y="34">Total value over time by stash</text>',
+        f'<text class="subtitle" x="{margin_left}" y="56">Cumulative net value in Divine Orb, estimated from cached poe.ninja data</text>',
+    ]
+    
+    for value in tick_values:
+        y = scale_y(value)
+        svg.append(f'<line class="grid" x1="{margin_left}" y1="{y:.2f}" x2="{margin_left + plot_width}" y2="{y:.2f}"/>')
+        svg.append(
+            f'<text class="tick" x="{margin_left - 12}" y="{y + 4:.2f}" text-anchor="end">{html.escape(format_axis_value(value, tick_step))}</text>'
+        )
+    
+    append_time_axis(svg, min_ts, max_ts, scale_x, margin_top, plot_height)
+    
+    svg.extend([
+        f'<line class="axis" x1="{margin_left}" y1="{margin_top}" x2="{margin_left}" y2="{margin_top + plot_height}"/>',
+        f'<line class="axis" x1="{margin_left}" y1="{margin_top + plot_height}" x2="{margin_left + plot_width}" y2="{margin_top + plot_height}"/>',
+        f'<text class="tick" x="{margin_left - 60}" y="{margin_top + plot_height / 2}" transform="rotate(-90 {margin_left - 60} {margin_top + plot_height / 2})" text-anchor="middle">Net value (Divine Orb)</text>',
+        f'<text class="tick" x="{margin_left + plot_width / 2}" y="{margin_top + plot_height + 62}" text-anchor="middle">Time</text>',
+    ])
+    
+    stashes_with_points = [
+        stash
+        for stash in sorted(stash_value_timeline.keys())
+        if stash_value_timeline[stash]
+    ]
+    legend_x = margin_left + 14
+    legend_y = margin_top + 14
+    legend_width = 260
+    legend_height = 28 + (len(stashes_with_points) * 24)
+    legend_svg = [
+        f'<rect class="legend-box" x="{legend_x}" y="{legend_y}" width="{legend_width}" '
+        f'height="{legend_height}" rx="6"/>',
+        f'<text class="legend" x="{legend_x + 12}" y="{legend_y + 20}" font-weight="700">Stash</text>',
+    ]
+    
+    for index, stash in enumerate(stashes_with_points):
+        points = stash_value_timeline[stash]
+        color = colors[index % len(colors)]
+        point_string = ' '.join(
+            f'{scale_x(date_value):.2f},{scale_y(value):.2f}'
+            for date_value, value in points
+        )
+        final_value = points[-1][1]
+        legend_item_y = legend_y + 46 + (index * 24)
+        
+        svg.append(
+            f'<polyline points="{point_string}" fill="none" stroke="{color}" stroke-width="2.5" '
+            'stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+        legend_svg.append(f'<line x1="{legend_x + 12}" y1="{legend_item_y - 5}" x2="{legend_x + 40}" y2="{legend_item_y - 5}" stroke="{color}" stroke-width="3"/>')
+        legend_svg.append(
+            f'<text class="legend" x="{legend_x + 50}" y="{legend_item_y}">'
+            f'{html.escape(stash)} ({final_value:.2f} div)</text>'
+        )
+    
+    svg.extend(legend_svg)
+    svg.append('</svg>')
+    
+    with open(chart_file, 'w', encoding='utf-8') as chart_f:
+        chart_f.write('\n'.join(svg))
+    
+    print()
+    print("=" * 80)
+    print("STASH VALUE CHART CREATED SUCCESSFULLY")
+    print("=" * 80)
+    print(f"Stash value chart: {chart_file}")
+    print("=" * 80)
+    print()
+
+
 def write_single_value_chart(chart_file, title, subtitle, points, color='#2563eb'):
     """Write one SVG chart for a single cumulative value timeline."""
     dated_points = [
@@ -773,8 +996,8 @@ def write_single_value_chart(chart_file, title, subtitle, points, color='#2563eb
     if not dated_points:
         return False
     
-    width = 1100
-    height = 560
+    width = 1280
+    height = 520
     margin_left = 82
     margin_top = 70
     margin_right = 38
@@ -811,7 +1034,10 @@ def write_single_value_chart(chart_file, title, subtitle, points, color='#2563eb
         'text { font-family: Segoe UI, Arial, sans-serif; fill: #111827; }',
         '.axis { stroke: #111827; stroke-width: 1.4; }',
         '.grid { stroke: #e5e7eb; stroke-width: 1; }',
+        '.day-grid { stroke: #cbd5e1; stroke-width: 1.2; }',
+        '.subgrid { stroke: #f1f5f9; stroke-width: 1; }',
         '.tick { font-size: 12px; fill: #4b5563; }',
+        '.subtick { font-size: 10px; fill: #9ca3af; }',
         '.title { font-size: 22px; font-weight: 700; }',
         '.subtitle { font-size: 13px; fill: #6b7280; }',
         '</style>',
@@ -826,15 +1052,7 @@ def write_single_value_chart(chart_file, title, subtitle, points, color='#2563eb
             f'<text class="tick" x="{margin_left - 12}" y="{y + 4:.2f}" text-anchor="end">{html.escape(format_axis_value(value, tick_step))}</text>'
         )
     
-    for i in range(6):
-        ts = min_ts + ((max_ts - min_ts) * i / 5)
-        date_value = datetime.fromtimestamp(ts, tz=min_time.tzinfo)
-        x = margin_left + (plot_width * i / 5)
-        label = date_value.strftime('%m-%d %H:%M')
-        svg.append(f'<line class="grid" x1="{x:.2f}" y1="{margin_top}" x2="{x:.2f}" y2="{margin_top + plot_height}"/>')
-        svg.append(
-            f'<text class="tick" x="{x:.2f}" y="{margin_top + plot_height + 28}" text-anchor="middle">{html.escape(label)}</text>'
-        )
+    append_time_axis(svg, min_ts, max_ts, scale_x, margin_top, plot_height)
     
     svg.extend([
         f'<line class="axis" x1="{margin_left}" y1="{margin_top}" x2="{margin_left}" y2="{margin_top + plot_height}"/>',
@@ -898,10 +1116,11 @@ def print_individual_value_charts():
     print()
 
 
-def html_table(headers, rows, class_name=''):
+def html_table(headers, rows, class_name='', default_sort=True):
     """Render a simple HTML table."""
     class_attr = f' class="{class_name}"' if class_name else ''
-    output = ['<div class="table-scroll">', f'<table{class_attr}>', '<thead><tr>']
+    default_sort_attr = '' if default_sort else ' data-default-sort="none"'
+    output = ['<div class="table-scroll">', f'<table{class_attr}{default_sort_attr}>', '<thead><tr>']
     
     for header in headers:
         output.append(f'<th>{html.escape(str(header))}</th>')
@@ -926,6 +1145,66 @@ def format_signed(value):
 def format_value(value):
     """Format divine values for reports."""
     return f'{value:.4f}'
+
+
+def format_signed_value(value):
+    """Format signed divine values for movement logs."""
+    if value > 0:
+        return f'+{value:.4f}'
+    if value < 0:
+        return f'{value:.4f}'
+    return '0.0000'
+
+
+def format_log_date(date_value):
+    """Format an event date for compact chronological tables."""
+    parsed = parse_event_date(date_value)
+    if parsed == datetime.min:
+        return date_value
+    return display_event_datetime(parsed).strftime('%Y-%m-%d %H:%M:%S')
+
+
+def render_filtered_log_table(filter_name, filter_value):
+    """Render chronological add/remove movement rows for one player or stash."""
+    rows = []
+    for entry in sorted(movement_log, key=lambda item: (item['parsed_date'], item['parsed_id']), reverse=True):
+        if entry.get(filter_name) != filter_value:
+            continue
+        if entry['rate'] <= 0:
+            continue
+        
+        quantity = entry['quantity'] if entry['action'] == 'added' else -entry['quantity']
+        rows.append([
+            format_log_date(entry['date']),
+            entry['account'],
+            entry['item_name'],
+            format_signed(quantity),
+            format_value(entry['rate']),
+            format_signed_value(entry['value']),
+        ])
+    
+    return html_table(
+        ["Date", "Player", "Item", "Qty", "Rate", "Value"],
+        rows,
+        class_name='log-table',
+        default_sort=False,
+    )
+
+
+def render_toggle_panel(summary_html, log_html):
+    """Render summary/log view toggle with summary selected by default."""
+    return (
+        '<div class="view-toggle" role="group" aria-label="Table view">'
+        '<button class="view-button active" data-view="summary" type="button">Summary</button>'
+        '<button class="view-button" data-view="log" type="button">Log</button>'
+        '</div>'
+        '<div class="view-panel active" data-view-panel="summary">'
+        f'{summary_html}'
+        '</div>'
+        '<div class="view-panel" data-view-panel="log">'
+        f'{log_html}'
+        '</div>'
+    )
 
 
 def collect_value_totals():
@@ -998,14 +1277,34 @@ def get_current_item_rate(item_name):
     return 1.0 if price_data.get('name') == 'Divine Orb' else price_data['primary_value']
 
 
+def embed_svg_file(filename):
+    """Read SVG file and return embedded content, or empty string if not found."""
+    if not filename:
+        return ''
+    
+    filepath = chart_output_path(filename)
+    if not os.path.exists(filepath):
+        return ''
+    
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception:
+        return ''
+
+
 def render_inline_chart(filename, alt_text):
-    """Render a detail chart image when its SVG exists."""
+    """Render a detail chart by embedding SVG content directly into HTML."""
     if not filename or not os.path.exists(chart_output_path(filename)):
+        return ''
+    
+    svg_content = embed_svg_file(filename)
+    if not svg_content:
         return ''
     
     return (
         '<div class="detail-chart">'
-        f'<img class="chart" src="{html.escape(chart_asset_src(filename))}" alt="{html.escape(alt_text)}">'
+        f'{svg_content}'
         '</div>'
     )
 
@@ -1041,11 +1340,13 @@ def render_player_sections():
             f'<span class="subtab-value">{format_value(player_value)} div</span>'
             '</button>'
         )
+        summary_table = html_table(["Stash", "Item", "Added", "Removed", "Net", "Rate", "Value"], rows)
+        log_table = render_filtered_log_table("account", player)
         panels.append(
             f'<section id="{target_id}" class="subtab-panel{active_class}">'
             f'<div class="subtab-title">{html.escape(player)}</div>'
             f'{render_inline_chart(player_chart_files.get(player), f"{player} value over time")}'
-            f'{html_table(["Stash", "Item", "Added", "Removed", "Net", "Rate", "Value"], rows)}'
+            f'{render_toggle_panel(summary_table, log_table)}'
             '</section>'
         )
     
@@ -1059,7 +1360,8 @@ def render_player_sections():
 
 
 def render_stash_sections():
-    """Render stash detail sections for the HTML dashboard."""
+    """Render stash detail sections for the HTML dashboard.
+    Note: Uses historical weighted average item rates calculated from all transactions in each stash."""
     buttons = []
     panels = []
     
@@ -1082,11 +1384,13 @@ def render_stash_sections():
             f'<span class="subtab-value">{format_value(stash_value)} div</span>'
             '</button>'
         )
+        summary_table = html_table(["Player", "Item", "Added", "Removed", "Net", "Rate", "Value"], rows)
+        log_table = render_filtered_log_table("stash", stash)
         panels.append(
             f'<section id="{target_id}" class="subtab-panel{active_class}">'
-            f'<div class="subtab-title">{html.escape(stash)}</div>'
+            f'<div class="subtab-title">{html.escape(stash)} <span class="subtab-meta">Pricing: historical average from transactions</span></div>'
             f'{render_inline_chart(stash_chart_files.get(stash), f"{stash} value over time")}'
-            f'{html_table(["Player", "Item", "Added", "Removed", "Net", "Rate", "Value"], rows)}'
+            f'{render_toggle_panel(summary_table, log_table)}'
             '</section>'
         )
     
@@ -1100,12 +1404,13 @@ def render_stash_sections():
 
 
 def render_final_state_sections():
-    """Render final stash contents for the HTML dashboard."""
+    """Render final stash contents for the HTML dashboard.
+    Note: Uses current poe.ninja rates for final inventory valuation (different from historical rates in 'By stash' tab)."""
     buttons = []
     panels = []
     current_rates = {}
     latest_event_date = max((event['parsed_date'] for event in log_events), default=datetime.min)
-    latest_label = latest_event_date.strftime('%Y-%m-%d %H:%M:%S') if latest_event_date != datetime.min else 'unknown'
+    latest_label = display_event_datetime(latest_event_date).strftime('%Y-%m-%d %H:%M:%S CEST') if latest_event_date != datetime.min else 'unknown'
     
     for index, stash in enumerate(sorted(TARGET_STASHES)):
         item_totals = defaultdict(lambda: {'quantity': 0, 'stacks': 0})
@@ -1138,10 +1443,12 @@ def render_final_state_sections():
             f'<span class="subtab-value">{format_value(stash_value)} div</span>'
             '</button>'
         )
+        summary_table = html_table(["Item", "Quantity", "Stacks", "Rate", "Value"], rows)
+        log_table = render_filtered_log_table("stash", stash)
         panels.append(
             f'<section id="{target_id}" class="subtab-panel{active_class}">'
-            f'<div class="subtab-title">{html.escape(stash)} <span class="subtab-meta">Last transaction: {html.escape(latest_label)}</span></div>'
-            f'{html_table(["Item", "Quantity", "Stacks", "Rate", "Value"], rows)}'
+            f'<div class="subtab-title">{html.escape(stash)} <span class="subtab-meta">Last transaction: {html.escape(latest_label)} | Pricing: current poe.ninja rates</span></div>'
+            f'{render_toggle_panel(summary_table, log_table)}'
             '</section>'
         )
     
@@ -1155,19 +1462,29 @@ def render_final_state_sections():
 
 
 def render_chart_sections():
-    """Render the combined timeline chart for the dashboard."""
-    sections = ['<h2>Total value over time</h2>']
-    combined_chart = 'VALUE_OVER_TIME_BY_PLAYER.svg'
+    """Render combined timeline charts for the dashboard totals tab."""
+    sections = []
+    charts = [
+        ('VALUE_OVER_TIME_BY_STASH.svg', 'Total value over time by stash'),
+        ('VALUE_OVER_TIME_BY_PLAYER.svg', 'Total value over time by player'),
+    ]
     
-    if os.path.exists(chart_output_path(combined_chart)):
+    for filename, alt_text in charts:
+        if not os.path.exists(chart_output_path(filename)):
+            continue
+        svg_content = embed_svg_file(filename)
+        if not svg_content:
+            continue
         sections.append(
             '<div class="card chart-card">'
-            '<h3>All players</h3>'
-            f'<img class="chart" src="{chart_asset_src(combined_chart)}" alt="Total stash value over time by player">'
+            f'{svg_content}'
             '</div>'
         )
     
-    return '\n'.join(section for section in sections if section)
+    if not sections:
+        return ''
+    
+    return '<div class="total-chart-grid">' + ''.join(sections) + '</div>'
 
 
 def print_html_dashboard():
@@ -1371,6 +1688,34 @@ def print_html_dashboard():
             font-size: 12px;
             font-weight: 400;
         }}
+        .view-toggle {{
+            display: inline-flex;
+            gap: 2px;
+            margin-bottom: 8px;
+            padding: 2px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #f9fafb;
+        }}
+        .view-button {{
+            border: 0;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text);
+            cursor: pointer;
+            padding: 5px 10px;
+            font-size: 12px;
+        }}
+        .view-button.active {{
+            background: var(--accent);
+            color: #ffffff;
+        }}
+        .view-panel {{
+            display: none;
+        }}
+        .view-panel.active {{
+            display: block;
+        }}
         .table-scroll {{
             min-height: 180px;
             height: calc((100vh - var(--header-height) - var(--tabs-height) - 220px) * 2);
@@ -1444,17 +1789,99 @@ def print_html_dashboard():
             background: #ffffff;
             border: 1px solid var(--line);
             border-radius: 8px;
+            cursor: zoom-in;
+        }}
+        svg {{
+            display: block;
         }}
         .chart-card {{
-            margin-bottom: 18px;
+            margin-bottom: 20px;
+        }}
+        .total-chart-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }}
+        #totals .chart-card {{
+            max-width: none;
+            margin: 0;
+            padding: 12px;
+        }}
+        #totals .chart-card svg {{
+            display: block;
+            max-height: 38vh;
+            width: auto;
+            height: auto;
+            margin: 0 auto;
         }}
         .detail-chart {{
             margin-bottom: 12px;
-            overflow: auto;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 12px;
         }}
-        .detail-chart .chart {{
-            max-height: 360px;
+        .detail-chart svg {{
+            max-height: 500px;
+            max-width: 100%;
+            width: auto;
+            height: auto;
+        }}
+        .chart-modal {{
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            background: rgba(17, 24, 39, 0.78);
+        }}
+        .chart-modal.active {{
+            display: flex;
+        }}
+        .chart-modal-panel {{
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            padding: 14px;
+            border-radius: 0;
+            background: var(--panel);
+            overflow: hidden;
+        }}
+        .chart-modal-title {{
+            height: 28px;
+            margin: 0 44px 8px 2px;
+            font-size: 14px;
+            font-weight: 700;
+        }}
+        .chart-modal-close {{
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #ffffff;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+        }}
+        .chart-modal-image {{
+            display: block;
+            width: 100%;
+            height: calc(100vh - 50px);
             object-fit: contain;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #ffffff;
         }}
         footer {{
             display: flex;
@@ -1501,6 +1928,9 @@ def print_html_dashboard():
                 width: auto;
                 min-width: 120px;
             }}
+            .total-chart-grid {{
+                grid-template-columns: 1fr;
+            }}
             .table-scroll,
             .card .table-scroll {{
                 height: 110vh;
@@ -1511,18 +1941,18 @@ def print_html_dashboard():
 <body>
     <header>
         <h1>Poe2Logger Reports</h1>
-        <div class="subtitle">League: {html.escape(LEAGUE_NAME)} | Stashes: {html.escape(target_stash_label())}</div>
+        <div class="subtitle">League: {html.escape(LEAGUE_NAME)} | Stashes: {html.escape(target_stash_label())} | Time: CEST</div>
     </header>
     <nav class="tabs" aria-label="Report tabs">
         <button class="tab-button active" data-tab="totals">Totals</button>
         <button class="tab-button" data-tab="by-player">By player</button>
         <button class="tab-button" data-tab="by-stash">By stash</button>
         <button class="tab-button" data-tab="final-state">Final state</button>
-        <button class="tab-button" data-tab="chart">Chart</button>
         <button class="tab-button" data-tab="unpriced">Unpriced</button>
     </nav>
     <main>
         <section id="totals" class="tab-panel active">
+            {render_chart_sections()}
             <div class="grid">
                 <div class="card"><h2>Value by stash</h2>{html_table(["Stash", "Added Div", "Removed Div", "Net Div"], stash_value_rows)}</div>
                 <div class="card"><h2>Value by player</h2>{html_table(["Player", "Added Div", "Removed Div", "Net Div"], player_value_rows)}</div>
@@ -1531,13 +1961,19 @@ def print_html_dashboard():
         <section id="by-player" class="tab-panel">{render_player_sections()}</section>
         <section id="by-stash" class="tab-panel">{render_stash_sections()}</section>
         <section id="final-state" class="tab-panel">{render_final_state_sections()}</section>
-        <section id="chart" class="tab-panel">{render_chart_sections()}</section>
         <section id="unpriced" class="tab-panel"><h2>Unpriced items</h2><div class="card">{html_table(["Item", "Added Qty", "Removed Qty"], unpriced_rows)}</div></section>
     </main>
     <footer>
         <strong>Price cache</strong>
         <div class="cache-items">{cache_footer_items}</div>
     </footer>
+    <div class="chart-modal" id="chart-modal" aria-hidden="true">
+        <div class="chart-modal-panel" role="dialog" aria-modal="true" aria-labelledby="chart-modal-title">
+            <button class="chart-modal-close" type="button" aria-label="Close enlarged chart">&times;</button>
+            <div class="chart-modal-title" id="chart-modal-title"></div>
+            <img class="chart-modal-image" alt="">
+        </div>
+    </div>
     <script>
         const buttons = Array.from(document.querySelectorAll('.tab-button'));
         const panels = Array.from(document.querySelectorAll('.tab-panel'));
@@ -1564,6 +2000,59 @@ def print_html_dashboard():
                 }});
             }});
         }});
+        document.querySelectorAll('.subtab-panel').forEach((panel) => {{
+            const viewButtons = Array.from(panel.querySelectorAll('.view-button'));
+            const viewPanels = Array.from(panel.querySelectorAll('.view-panel'));
+            viewButtons.forEach((button) => {{
+                button.addEventListener('click', () => {{
+                    viewButtons.forEach((item) => item.classList.remove('active'));
+                    viewPanels.forEach((item) => item.classList.remove('active'));
+                    button.classList.add('active');
+                    const target = panel.querySelector(`[data-view-panel="${{button.dataset.view}}"]`);
+                    if (target) {{
+                        target.classList.add('active');
+                    }}
+                }});
+            }});
+        }});
+        const chartModal = document.getElementById('chart-modal');
+        const chartModalImage = chartModal?.querySelector('.chart-modal-image');
+        const chartModalTitle = chartModal?.querySelector('.chart-modal-title');
+        const chartModalClose = chartModal?.querySelector('.chart-modal-close');
+        function closeChartModal() {{
+            if (!chartModal || !chartModalImage || !chartModalTitle) {{
+                return;
+            }}
+            chartModal.classList.remove('active');
+            chartModal.setAttribute('aria-hidden', 'true');
+            chartModalImage.removeAttribute('src');
+            chartModalImage.alt = '';
+            chartModalTitle.textContent = '';
+        }}
+        document.querySelectorAll('img.chart').forEach((chart) => {{
+            chart.addEventListener('click', () => {{
+                if (!chartModal || !chartModalImage || !chartModalTitle) {{
+                    return;
+                }}
+                chartModalImage.src = chart.src;
+                chartModalImage.alt = chart.alt || 'Enlarged chart';
+                chartModalTitle.textContent = chart.alt || 'Chart';
+                chartModal.classList.add('active');
+                chartModal.setAttribute('aria-hidden', 'false');
+                chartModalClose?.focus();
+            }});
+        }});
+        chartModalClose?.addEventListener('click', closeChartModal);
+        chartModal?.addEventListener('click', (event) => {{
+            if (event.target === chartModal) {{
+                closeChartModal();
+            }}
+        }});
+        document.addEventListener('keydown', (event) => {{
+            if (event.key === 'Escape' && chartModal?.classList.contains('active')) {{
+                closeChartModal();
+            }}
+        }});
         document.querySelectorAll('table').forEach((table) => {{
             const headers = Array.from(table.querySelectorAll('th'));
             const tbody = table.querySelector('tbody');
@@ -1585,7 +2074,7 @@ def print_html_dashboard():
                 }});
             }});
             const defaultColumnIndex = getDefaultSortColumn(headers);
-            if (defaultColumnIndex >= 0) {{
+            if (defaultColumnIndex >= 0 && table.dataset.defaultSort !== 'none') {{
                 applyTableSort(table, defaultColumnIndex, 'desc', false);
             }}
         }});
@@ -1605,9 +2094,16 @@ def print_html_dashboard():
             const panel = table.closest('.tab-panel');
             return panel?.id || 'global';
         }}
+        function getTableSignature(table) {{
+            return Array.from(table.querySelectorAll('th')).map((header) => header.textContent.trim()).join('|');
+        }}
         function updateSortGroup(table, columnIndex, state) {{
             const group = getTableSortGroup(table);
+            const signature = getTableSignature(table);
             document.querySelectorAll(`.tab-panel#${{group}} table`).forEach((groupTable) => {{
+                if (getTableSignature(groupTable) !== signature) {{
+                    return;
+                }}
                 groupTable.dataset.sortColumn = state === 'normal' ? '' : String(columnIndex);
                 groupTable.dataset.sortState = state;
                 applyTableSort(groupTable, columnIndex, state, false);
@@ -1672,5 +2168,6 @@ def print_html_dashboard():
 if __name__ == '__main__':
     process_log()
     print_player_value_chart()
+    print_stash_value_chart()
     print_individual_value_charts()
     print_html_dashboard()
