@@ -9,6 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import html
+import math
 
 # Configuration
 LOG_FILE = 'log.csv'
@@ -42,6 +43,9 @@ valuation_summary = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 
 unpriced_summary = defaultdict(lambda: {'added_qty': 0, 'removed_qty': 0})
 price_metadata = {}
 player_value_timeline = defaultdict(list)
+stash_value_timeline = defaultdict(list)
+player_chart_files = {}
+stash_chart_files = {}
 
 
 def extract_quantity(item_string):
@@ -73,6 +77,12 @@ def normalize_stash_name(stash_name):
 def safe_filename(value):
     """Make report filenames safe for Windows paths."""
     return re.sub(r'[<>:"/\\|?*]+', '_', value)
+
+
+def safe_chart_filename(prefix, value):
+    """Make chart filenames safe for filesystem paths and HTML src attributes."""
+    safe_value = re.sub(r'[^A-Za-z0-9._$-]+', '_', value).strip('_')
+    return f'{prefix}_{safe_value or "unnamed"}.svg'
 
 
 def target_stash_label():
@@ -191,6 +201,10 @@ def build_price_index():
 def estimate_price_at_event(price_data, event_date, latest_event_date):
     """Estimate historical divine value using poe.ninja's short sparkline when available."""
     current_value = price_data['primary_value']
+    
+    if price_data.get('name') == 'Divine Orb':
+        return 1.0
+    
     sparkline = price_data.get('sparkline') or []
     
     if not sparkline or latest_event_date == datetime.min or event_date == datetime.min:
@@ -205,7 +219,7 @@ def estimate_price_at_event(price_data, event_date, latest_event_date):
     current_change = sparkline[-1]
     event_change = sparkline[index]
     
-    if current_change is None or event_change is None or current_change <= -100:
+    if current_change is None or event_change is None or current_change <= -100 or event_change <= -100:
         return current_value
     
     return current_value * ((1 + event_change / 100) / (1 + current_change / 100))
@@ -251,6 +265,7 @@ def calculate_valuation_summary():
     latest_event_date = max((event['parsed_date'] for event in log_events), default=datetime.min)
     state = {}
     player_cumulative = defaultdict(float)
+    stash_cumulative = defaultdict(float)
     
     def apply_value_change(event, item_name, quantity, direction):
         value = add_valuation_entry(
@@ -262,13 +277,19 @@ def calculate_valuation_summary():
         
         if direction == 'added':
             player_cumulative[event['account']] += value
+            stash_cumulative[event['stash']] += value
         else:
             player_cumulative[event['account']] -= value
+            stash_cumulative[event['stash']] -= value
         
         if event['parsed_date'] != datetime.min:
             player_value_timeline[event['account']].append((
                 event['parsed_date'],
                 player_cumulative[event['account']],
+            ))
+            stash_value_timeline[event['stash']].append((
+                event['parsed_date'],
+                stash_cumulative[event['stash']],
             ))
     
     for event in sorted(log_events, key=lambda e: (e['parsed_date'], e['parsed_id'])):
@@ -308,6 +329,62 @@ def calculate_valuation_summary():
                 state[coord_key] = {'quantity': quantity, 'item_name': item_name}
             else:
                 state.pop(coord_key, None)
+
+
+def add_operation_entry(account, stash, item_name, quantity, direction):
+    """Add one quantity movement into player and stash operation summaries."""
+    if quantity <= 0:
+        return
+    
+    if direction == 'added':
+        player_summary[account][item_name]['added'] += quantity
+        stash_summary[stash][account][item_name]['added'] += quantity
+    else:
+        player_summary[account][item_name]['removed'] += quantity
+        stash_summary[stash][account][item_name]['removed'] += quantity
+
+
+def calculate_operation_summaries():
+    """Replay log events chronologically to calculate per-item add/remove quantities."""
+    player_summary.clear()
+    stash_summary.clear()
+    coordinate_state.clear()
+    
+    for event in sorted(log_events, key=lambda e: (e['parsed_date'], e['parsed_id'])):
+        coord_key = (event['stash'], event['x'], event['y'])
+        current_quantity, current_item = coordinate_state.get(coord_key, (0, ''))
+        action = event['action']
+        quantity = event['quantity']
+        item_name = event['item_name']
+        
+        if action == 'added':
+            if current_item and current_item != item_name:
+                add_operation_entry(event['account'], event['stash'], current_item, current_quantity, 'removed')
+                current_quantity = 0
+            add_operation_entry(event['account'], event['stash'], item_name, quantity, 'added')
+            coordinate_state[coord_key] = (current_quantity + quantity, item_name)
+        elif action == 'removed':
+            add_operation_entry(event['account'], event['stash'], item_name, quantity, 'removed')
+            new_quantity = current_quantity - quantity if current_item == item_name else 0
+            if new_quantity > 0:
+                coordinate_state[coord_key] = (new_quantity, item_name)
+            else:
+                coordinate_state.pop(coord_key, None)
+        elif action == 'modified':
+            if current_item and current_item != item_name:
+                add_operation_entry(event['account'], event['stash'], current_item, current_quantity, 'removed')
+                current_quantity = 0
+            
+            delta = quantity - current_quantity
+            if delta > 0:
+                add_operation_entry(event['account'], event['stash'], item_name, delta, 'added')
+            elif delta < 0:
+                add_operation_entry(event['account'], event['stash'], item_name, abs(delta), 'removed')
+            
+            if quantity > 0:
+                coordinate_state[coord_key] = (quantity, item_name)
+            else:
+                coordinate_state.pop(coord_key, None)
 
 
 def calculate_final_stash_state():
@@ -385,7 +462,6 @@ def process_log():
                     print(f"Warning: Row {row_count} has invalid X or Y coordinates, skipping")
                     continue
                 
-                coord_key = (stash, x, y)
                 quantity, item_name = extract_quantity(item)
                 date_value = get_csv_value(row, 'Date').strip()
                 id_value = get_csv_value(row, 'Id').strip()
@@ -401,33 +477,9 @@ def process_log():
                     'x': x,
                     'y': y,
                 })
-                
-                if action == 'added':
-                    player_summary[account][item_name]['added'] += quantity
-                    stash_summary[stash][account][item_name]['added'] += quantity
-                    coordinate_state[coord_key] = (coordinate_state.get(coord_key, (0, ''))[0] + quantity, item_name)
-                    
-                elif action == 'removed':
-                    player_summary[account][item_name]['removed'] += quantity
-                    stash_summary[stash][account][item_name]['removed'] += quantity
-                    old_qty, old_name = coordinate_state.get(coord_key, (0, ''))
-                    coordinate_state[coord_key] = (old_qty - quantity, item_name)
-                    
-                elif action == 'modified':
-                    old_quantity, old_name = coordinate_state.get(coord_key, (0, ''))
-                    new_quantity = quantity
-                    delta = new_quantity - old_quantity
-                    
-                    if delta > 0:
-                        player_summary[account][item_name]['added'] += delta
-                        stash_summary[stash][account][item_name]['added'] += delta
-                    elif delta < 0:
-                        player_summary[account][item_name]['removed'] += abs(delta)
-                        stash_summary[stash][account][item_name]['removed'] += abs(delta)
-                    
-                    coordinate_state[coord_key] = (new_quantity, item_name)
             
             print(f"Processed {row_count} rows from log file")
+            calculate_operation_summaries()
             calculate_final_stash_state()
             calculate_valuation_summary()
             
@@ -452,8 +504,6 @@ def print_summary():
     # Create summary file
     summary_file = os.path.join(OUTPUT_DIR, '_SUMMARY.txt')
     
-    total_added = 0
-    total_removed = 0
     files_created = []
     
     # Get all unique players
@@ -462,19 +512,15 @@ def print_summary():
         all_players.update(stash.keys())
     
     with open(summary_file, 'w', encoding='utf-8') as summary_f:
-        # Write header
         summary_f.write("=" * 130 + "\n")
-        summary_f.write("STASH OPERATIONS SUMMARY - ALL PLAYERS\n")
+        summary_f.write("LEGACY SUMMARY NOTICE\n")
         summary_f.write(f"Stashes counted: {target_stash_label()}\n")
         summary_f.write("=" * 130 + "\n\n")
-        summary_f.write(f"{'Player':<30} {'Added':>12} {'Removed':>12} {'Net Change':>12}\n")
-        summary_f.write("-" * 130 + "\n")
+        summary_f.write("Generic typeless item-count totals have been removed.\n")
+        summary_f.write("Use the individual player reports or REPORT_DASHBOARD.html for detailed per-item counts.\n")
         
         # Write each player to individual file and summary
         for player in sorted(all_players):
-            player_added = 0
-            player_removed = 0
-            
             # Create player file
             player_file = os.path.join(OUTPUT_DIR, f"{player}.txt")
             
@@ -490,8 +536,6 @@ def print_summary():
                         continue
                     
                     items_data = stash_summary[stash][player]
-                    stash_added = 0
-                    stash_removed = 0
                     
                     # Write stash section
                     player_f.write(f"Stash: {stash}\n")
@@ -506,40 +550,17 @@ def print_summary():
                         removed = item_stats['removed']
                         net = added - removed
                         
-                        stash_added += added
-                        stash_removed += removed
-                        player_added += added
-                        player_removed += removed
-                        
                         net_display = f"{net:+d}" if net != 0 else "0"
                         player_f.write(f"{item_name:<50} {added:>12} {removed:>12} {net_display:>12}\n")
                     
-                    stash_net = stash_added - stash_removed
-                    stash_net_display = f"{stash_net:+d}"
                     player_f.write("-" * 130 + "\n")
-                    player_f.write(f"{'  STASH TOTAL':<50} {stash_added:>12} {stash_removed:>12} {stash_net_display:>12}\n")
                     player_f.write("\n")
                 
-                player_net = player_added - player_removed
-                player_net_display = f"{player_net:+d}"
                 player_f.write("=" * 130 + "\n")
-                player_f.write(f"{'PLAYER TOTAL':<50} {player_added:>12} {player_removed:>12} {player_net_display:>12}\n")
+                player_f.write("End of detailed per-item report\n")
                 player_f.write("=" * 130 + "\n")
             
             files_created.append(player_file)
-            total_added += player_added
-            total_removed += player_removed
-            
-            # Add to summary
-            player_net = player_added - player_removed
-            player_net_display = f"{player_net:+d}"
-            summary_f.write(f"{player:<30} {player_added:>12} {player_removed:>12} {player_net_display:>12}\n")
-        
-        # Write summary totals
-        summary_f.write("-" * 130 + "\n")
-        total_net = total_added - total_removed
-        total_net_display = f"{total_net:+d}"
-        summary_f.write(f"{'TOTAL':<30} {total_added:>12} {total_removed:>12} {total_net_display:>12}\n")
         summary_f.write("=" * 130 + "\n")
     
     files_created.append(summary_file)
@@ -570,23 +591,18 @@ def print_stash_summary():
     # Create master stash summary file
     master_file = os.path.join(OUTPUT_DIR, '0_STASH_MASTER_SUMMARY.txt')
     
-    total_added = 0
-    total_removed = 0
     files_created = []
     
     with open(master_file, 'w', encoding='utf-8') as master_f:
-        # Write header
         master_f.write("=" * 130 + "\n")
-        master_f.write("STASH OPERATIONS SUMMARY - ALL STASHES\n")
+        master_f.write("LEGACY STASH SUMMARY NOTICE\n")
         master_f.write("=" * 130 + "\n\n")
-        master_f.write(f"{'Stash':<20} {'Added':>12} {'Removed':>12} {'Net Change':>12}\n")
-        master_f.write("-" * 130 + "\n")
+        master_f.write("Generic typeless item-count totals have been removed.\n")
+        master_f.write("Use STASH_*.txt or REPORT_DASHBOARD.html for detailed per-item counts.\n")
         
         # Write each stash to individual file and master summary
         for stash in sorted(stash_summary.keys()):
             accounts_data = stash_summary[stash]
-            stash_added = 0
-            stash_removed = 0
             
             # Create stash file
             stash_file = os.path.join(OUTPUT_DIR, f"STASH_{safe_filename(stash)}.txt")
@@ -599,8 +615,6 @@ def print_stash_summary():
                 # Write player sections
                 for account in sorted(accounts_data.keys()):
                     items_data = accounts_data[account]
-                    account_added = 0
-                    account_removed = 0
                     
                     stash_f.write(f"Player: {account}\n")
                     stash_f.write("-" * 130 + "\n")
@@ -614,40 +628,17 @@ def print_stash_summary():
                         removed = item_stats['removed']
                         net = added - removed
                         
-                        account_added += added
-                        account_removed += removed
-                        stash_added += added
-                        stash_removed += removed
-                        
                         net_display = f"{net:+d}" if net != 0 else "0"
                         stash_f.write(f"{item_name:<50} {added:>12} {removed:>12} {net_display:>12}\n")
                     
-                    account_net = account_added - account_removed
-                    account_net_display = f"{account_net:+d}"
                     stash_f.write("-" * 130 + "\n")
-                    stash_f.write(f"{'  PLAYER TOTAL':<50} {account_added:>12} {account_removed:>12} {account_net_display:>12}\n")
                     stash_f.write("\n")
                 
-                stash_net = stash_added - stash_removed
-                stash_net_display = f"{stash_net:+d}"
                 stash_f.write("=" * 130 + "\n")
-                stash_f.write(f"{'STASH TOTAL':<50} {stash_added:>12} {stash_removed:>12} {stash_net_display:>12}\n")
+                stash_f.write("End of detailed per-item report\n")
                 stash_f.write("=" * 130 + "\n")
             
             files_created.append(stash_file)
-            total_added += stash_added
-            total_removed += stash_removed
-            
-            # Add to master summary
-            stash_net = stash_added - stash_removed
-            stash_net_display = f"{stash_net:+d}"
-            master_f.write(f"{stash:<20} {stash_added:>12} {stash_removed:>12} {stash_net_display:>12}\n")
-        
-        # Write master totals
-        master_f.write("-" * 130 + "\n")
-        total_net = total_added - total_removed
-        total_net_display = f"{total_net:+d}"
-        master_f.write(f"{'TOTAL':<20} {total_added:>12} {total_removed:>12} {total_net_display:>12}\n")
         master_f.write("=" * 130 + "\n")
     
     files_created.append(master_file)
@@ -681,10 +672,9 @@ def print_final_state_summary():
         master_f.write("=" * 130 + "\n")
         master_f.write("FINAL STASH STATE SUMMARY - ALL STASHES\n")
         master_f.write("=" * 130 + "\n\n")
-        master_f.write(f"{'Stash':<20} {'Total Quantity':>16} {'Stacks':>12} {'Unique Items':>14}\n")
+        master_f.write(f"{'Stash':<20} {'Stacks':>12} {'Unique Items':>14}\n")
         master_f.write("-" * 130 + "\n")
         
-        grand_quantity = 0
         grand_stacks = 0
         grand_unique_items = set()
         
@@ -700,11 +690,9 @@ def print_final_state_summary():
                 item_totals[data['item_name']]['quantity'] += data['quantity']
                 item_totals[data['item_name']]['stacks'] += 1
             
-            stash_quantity = sum(data['quantity'] for data in positions.values())
             stash_stacks = len(positions)
             stash_unique_items = len(item_totals)
             
-            grand_quantity += stash_quantity
             grand_stacks += stash_stacks
             grand_unique_items.update(item_totals.keys())
             
@@ -724,7 +712,6 @@ def print_final_state_summary():
                     stash_f.write(f"{item_name:<70} {totals['quantity']:>12} {totals['stacks']:>12}\n")
                 
                 stash_f.write("-" * 130 + "\n")
-                stash_f.write(f"{'STASH TOTAL':<70} {stash_quantity:>12} {stash_stacks:>12}\n")
                 stash_f.write("\n")
                 
                 stash_f.write("Coordinate details\n")
@@ -741,10 +728,10 @@ def print_final_state_summary():
                 stash_f.write("=" * 130 + "\n")
             
             files_created.append(final_state_file)
-            master_f.write(f"{stash:<20} {stash_quantity:>16} {stash_stacks:>12} {stash_unique_items:>14}\n")
+            master_f.write(f"{stash:<20} {stash_stacks:>12} {stash_unique_items:>14}\n")
         
         master_f.write("-" * 130 + "\n")
-        master_f.write(f"{'TOTAL':<20} {grand_quantity:>16} {grand_stacks:>12} {len(grand_unique_items):>14}\n")
+        master_f.write(f"{'TOTAL':<20} {grand_stacks:>12} {len(grand_unique_items):>14}\n")
         master_f.write("=" * 130 + "\n")
     
     files_created.append(master_file)
@@ -779,6 +766,74 @@ def write_value_table_row(file_handle, label, added_value, removed_value, divine
         f"{label:<30} {added_value:>14.4f} {removed_value:>14.4f} {net_value:>14.4f} "
         f"{added_ex:>14.2f} {removed_ex:>14.2f} {net_ex:>14.2f}\n"
     )
+
+
+def nice_number(value, should_round):
+    """Return a rounded 1/2/5/10-style number for chart axes."""
+    if value <= 0:
+        return 1.0
+    
+    exponent = math.floor(math.log10(value))
+    fraction = value / (10 ** exponent)
+    
+    if should_round:
+        if fraction < 1.5:
+            nice_fraction = 1
+        elif fraction < 3:
+            nice_fraction = 2
+        elif fraction < 7:
+            nice_fraction = 5
+        else:
+            nice_fraction = 10
+    else:
+        if fraction <= 1:
+            nice_fraction = 1
+        elif fraction <= 2:
+            nice_fraction = 2
+        elif fraction <= 5:
+            nice_fraction = 5
+        else:
+            nice_fraction = 10
+    
+    return nice_fraction * (10 ** exponent)
+
+
+def calculate_value_axis(values, target_ticks=6):
+    """Return rounded chart bounds and tick values for net divine value."""
+    raw_min = min(0.0, min(values))
+    raw_max = max(0.0, max(values))
+    
+    if raw_min == raw_max:
+        spread = max(abs(raw_min) * 0.2, 1.0)
+        raw_min -= spread
+        raw_max += spread
+    
+    nice_range = nice_number(raw_max - raw_min, False)
+    tick_step = nice_number(nice_range / max(target_ticks - 1, 1), True)
+    axis_min = math.floor(raw_min / tick_step) * tick_step
+    axis_max = math.ceil(raw_max / tick_step) * tick_step
+    
+    tick_values = []
+    value = axis_min
+    while value <= axis_max + (tick_step * 0.5):
+        tick_values.append(0.0 if abs(value) < tick_step / 1000 else value)
+        value += tick_step
+    
+    return axis_min, axis_max, tick_values, tick_step
+
+
+def format_axis_value(value, tick_step):
+    """Format a rounded chart tick value without noisy decimals."""
+    if abs(value) < tick_step / 1000:
+        value = 0.0
+    
+    if tick_step >= 1:
+        return f'{value:.0f}'
+    if tick_step >= 0.1:
+        return f'{value:.1f}'
+    if tick_step >= 0.01:
+        return f'{value:.2f}'
+    return f'{value:.3f}'
 
 
 def print_player_value_chart():
@@ -817,16 +872,7 @@ def print_player_value_chart():
     
     min_time = min(point[0] for point in all_points)
     max_time = max(point[0] for point in all_points)
-    min_value = min(0.0, min(point[1] for point in all_points))
-    max_value = max(0.0, max(point[1] for point in all_points))
-    
-    if min_value == max_value:
-        min_value -= 1
-        max_value += 1
-    else:
-        padding = (max_value - min_value) * 0.08
-        min_value -= padding
-        max_value += padding
+    min_value, max_value, tick_values, tick_step = calculate_value_axis([point[1] for point in all_points])
     
     min_ts = min_time.timestamp()
     max_ts = max_time.timestamp()
@@ -839,13 +885,6 @@ def print_player_value_chart():
     
     def scale_y(value):
         return margin_top + ((max_value - value) / (max_value - min_value)) * plot_height
-    
-    def fmt_value(value):
-        if abs(value) >= 100:
-            return f'{value:.0f}'
-        if abs(value) >= 10:
-            return f'{value:.1f}'
-        return f'{value:.2f}'
     
     svg = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
@@ -864,12 +903,11 @@ def print_player_value_chart():
     ]
     
     # Y-axis grid and labels
-    for i in range(6):
-        value = min_value + ((max_value - min_value) * i / 5)
+    for value in tick_values:
         y = scale_y(value)
         svg.append(f'<line class="grid" x1="{margin_left}" y1="{y:.2f}" x2="{margin_left + plot_width}" y2="{y:.2f}"/>')
         svg.append(
-            f'<text class="tick" x="{margin_left - 12}" y="{y + 4:.2f}" text-anchor="end">{html.escape(fmt_value(value))}</text>'
+            f'<text class="tick" x="{margin_left - 12}" y="{y + 4:.2f}" text-anchor="end">{html.escape(format_axis_value(value, tick_step))}</text>'
         )
     
     # X-axis grid and labels
@@ -928,6 +966,141 @@ def print_player_value_chart():
     print()
 
 
+def write_single_value_chart(chart_file, title, subtitle, points, color='#2563eb'):
+    """Write one SVG chart for a single cumulative value timeline."""
+    dated_points = [
+        (date_value, value)
+        for date_value, value in points
+        if date_value != datetime.min
+    ]
+    if not dated_points:
+        return False
+    
+    width = 1100
+    height = 560
+    margin_left = 82
+    margin_top = 70
+    margin_right = 38
+    margin_bottom = 82
+    plot_width = width - margin_left - margin_right
+    plot_height = height - margin_top - margin_bottom
+    
+    min_time = min(point[0] for point in dated_points)
+    max_time = max(point[0] for point in dated_points)
+    min_value, max_value, tick_values, tick_step = calculate_value_axis([point[1] for point in dated_points])
+    
+    min_ts = min_time.timestamp()
+    max_ts = max_time.timestamp()
+    if min_ts == max_ts:
+        min_ts -= 1
+        max_ts += 1
+    
+    def scale_x(date_value):
+        return margin_left + ((date_value.timestamp() - min_ts) / (max_ts - min_ts)) * plot_width
+    
+    def scale_y(value):
+        return margin_top + ((max_value - value) / (max_value - min_value)) * plot_height
+    
+    point_string = ' '.join(
+        f'{scale_x(date_value):.2f},{scale_y(value):.2f}'
+        for date_value, value in dated_points
+    )
+    final_value = dated_points[-1][1]
+    
+    svg = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        '<style>',
+        'text { font-family: Segoe UI, Arial, sans-serif; fill: #111827; }',
+        '.axis { stroke: #111827; stroke-width: 1.4; }',
+        '.grid { stroke: #e5e7eb; stroke-width: 1; }',
+        '.tick { font-size: 12px; fill: #4b5563; }',
+        '.title { font-size: 22px; font-weight: 700; }',
+        '.subtitle { font-size: 13px; fill: #6b7280; }',
+        '</style>',
+        f'<text class="title" x="{margin_left}" y="34">{html.escape(title)}</text>',
+        f'<text class="subtitle" x="{margin_left}" y="56">{html.escape(subtitle)} Final: {final_value:.4f} div</text>',
+    ]
+    
+    for value in tick_values:
+        y = scale_y(value)
+        svg.append(f'<line class="grid" x1="{margin_left}" y1="{y:.2f}" x2="{margin_left + plot_width}" y2="{y:.2f}"/>')
+        svg.append(
+            f'<text class="tick" x="{margin_left - 12}" y="{y + 4:.2f}" text-anchor="end">{html.escape(format_axis_value(value, tick_step))}</text>'
+        )
+    
+    for i in range(6):
+        ts = min_ts + ((max_ts - min_ts) * i / 5)
+        date_value = datetime.fromtimestamp(ts, tz=min_time.tzinfo)
+        x = margin_left + (plot_width * i / 5)
+        label = date_value.strftime('%m-%d %H:%M')
+        svg.append(f'<line class="grid" x1="{x:.2f}" y1="{margin_top}" x2="{x:.2f}" y2="{margin_top + plot_height}"/>')
+        svg.append(
+            f'<text class="tick" x="{x:.2f}" y="{margin_top + plot_height + 28}" text-anchor="middle">{html.escape(label)}</text>'
+        )
+    
+    svg.extend([
+        f'<line class="axis" x1="{margin_left}" y1="{margin_top}" x2="{margin_left}" y2="{margin_top + plot_height}"/>',
+        f'<line class="axis" x1="{margin_left}" y1="{margin_top + plot_height}" x2="{margin_left + plot_width}" y2="{margin_top + plot_height}"/>',
+        f'<text class="tick" x="{margin_left - 58}" y="{margin_top + plot_height / 2}" transform="rotate(-90 {margin_left - 58} {margin_top + plot_height / 2})" text-anchor="middle">Net value (Divine Orb)</text>',
+        f'<text class="tick" x="{margin_left + plot_width / 2}" y="{margin_top + plot_height + 58}" text-anchor="middle">Time</text>',
+        f'<polyline points="{point_string}" fill="none" stroke="{color}" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>',
+        f'<circle cx="{scale_x(dated_points[-1][0]):.2f}" cy="{scale_y(final_value):.2f}" r="4" fill="{color}"/>',
+        '</svg>',
+    ])
+    
+    with open(chart_file, 'w', encoding='utf-8') as chart_f:
+        chart_f.write('\n'.join(svg))
+    
+    return True
+
+
+def print_individual_value_charts():
+    """Generate individual cumulative value charts for each player and stash."""
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+    
+    colors = [
+        '#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c',
+        '#0891b2', '#be123c', '#4f46e5', '#65a30d', '#c026d3',
+    ]
+    player_chart_files.clear()
+    stash_chart_files.clear()
+    
+    for index, player in enumerate(sorted(player_value_timeline.keys())):
+        filename = safe_chart_filename('CHART_PLAYER', player)
+        chart_file = os.path.join(OUTPUT_DIR, filename)
+        if write_single_value_chart(
+            chart_file,
+            f'{player} value over time',
+            'Cumulative net value in Divine Orb.',
+            player_value_timeline[player],
+            colors[index % len(colors)],
+        ):
+            player_chart_files[player] = filename
+    
+    for index, stash in enumerate(sorted(stash_value_timeline.keys())):
+        filename = safe_chart_filename('CHART_STASH', stash)
+        chart_file = os.path.join(OUTPUT_DIR, filename)
+        if write_single_value_chart(
+            chart_file,
+            f'{stash} value over time',
+            'Cumulative net value in Divine Orb.',
+            stash_value_timeline[stash],
+            colors[index % len(colors)],
+        ):
+            stash_chart_files[stash] = filename
+    
+    print()
+    print("=" * 80)
+    print("INDIVIDUAL VALUE CHARTS CREATED SUCCESSFULLY")
+    print("=" * 80)
+    print(f"Player charts: {len(player_chart_files)}")
+    print(f"Stash charts: {len(stash_chart_files)}")
+    print("=" * 80)
+    print()
+
+
 def html_table(headers, rows, class_name=''):
     """Render a simple HTML table."""
     class_attr = f' class="{class_name}"' if class_name else ''
@@ -959,19 +1132,8 @@ def format_value(value):
 
 
 def collect_quantity_totals():
-    """Collect quantity totals by player and stash."""
-    player_totals = defaultdict(lambda: {'added': 0, 'removed': 0})
-    stash_totals = defaultdict(lambda: {'added': 0, 'removed': 0})
-    
-    for stash, accounts in stash_summary.items():
-        for account, items in accounts.items():
-            for stats in items.values():
-                player_totals[account]['added'] += stats['added']
-                player_totals[account]['removed'] += stats['removed']
-                stash_totals[stash]['added'] += stats['added']
-                stash_totals[stash]['removed'] += stats['removed']
-    
-    return player_totals, stash_totals
+    """Deprecated: generic typeless quantity totals are intentionally not reported."""
+    return {}, {}
 
 
 def collect_value_totals():
@@ -990,16 +1152,84 @@ def collect_value_totals():
     return player_totals, stash_totals
 
 
+def render_cache_footer_items():
+    """Render compact price cache timestamps for the dashboard footer."""
+    items = []
+    
+    for price_type in PRICE_TYPES:
+        path = price_cache_path(price_type)
+        status = price_metadata.get(price_type, 'not loaded')
+        
+        if os.path.exists(path):
+            fetched_at = datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y-%m-%d %H:%M')
+            label = f'{price_type}: {fetched_at}'
+        else:
+            label = f'{price_type}: {status}'
+        
+        items.append(f'<span>{html.escape(label)}</span>')
+    
+    return '\n'.join(items)
+
+
+def get_row_value_stats(stash, account, item_name, net_quantity):
+    """Return effective rate and net value in divine for one item row."""
+    stats = valuation_summary.get(stash, {}).get(account, {}).get(item_name)
+    if not stats:
+        return '0.0000', '0.0000'
+    
+    added_qty = stats['priced_added_qty']
+    removed_qty = stats['priced_removed_qty']
+    total_priced_qty = added_qty + removed_qty
+    added_value = stats['added_value']
+    removed_value = stats['removed_value']
+    net_value = added_value - removed_value
+    
+    if total_priced_qty > 0:
+        rate = (added_value + removed_value) / total_priced_qty
+    else:
+        rate = 0.0
+    
+    if net_quantity != 0:
+        net_value = net_quantity * rate
+    
+    return format_value(rate), format_value(net_value)
+
+
+def get_current_item_rate(item_name):
+    """Return current item rate in divine from cached poe.ninja data."""
+    price_index = build_price_index()
+    price_data = price_index.get(normalize_price_key(item_name))
+    
+    if not price_data or price_data['primary_value'] <= 0:
+        return 0.0
+    
+    return 1.0 if price_data.get('name') == 'Divine Orb' else price_data['primary_value']
+
+
+def render_inline_chart(filename, alt_text):
+    """Render a detail chart image when its SVG exists."""
+    if not filename or not os.path.exists(os.path.join(OUTPUT_DIR, filename)):
+        return ''
+    
+    return (
+        '<div class="detail-chart">'
+        f'<img class="chart" src="{html.escape(filename)}" alt="{html.escape(alt_text)}">'
+        '</div>'
+    )
+
+
 def render_player_sections():
     """Render player detail sections for the HTML dashboard."""
-    sections = []
+    buttons = []
+    panels = []
     
     all_players = set()
     for accounts in stash_summary.values():
         all_players.update(accounts.keys())
     
-    for player in sorted(all_players):
+    for index, player in enumerate(sorted(all_players)):
         rows = []
+        player_value = 0.0
         for stash in sorted(stash_summary.keys()):
             if player not in stash_summary[stash]:
                 continue
@@ -1007,61 +1237,181 @@ def render_player_sections():
             for item_name in sorted(stash_summary[stash][player].keys()):
                 stats = stash_summary[stash][player][item_name]
                 net = stats['added'] - stats['removed']
-                rows.append([stash, item_name, stats['added'], stats['removed'], format_signed(net)])
+                rate, value = get_row_value_stats(stash, player, item_name, net)
+                player_value += float(value)
+                rows.append([stash, item_name, stats['added'], stats['removed'], format_signed(net), rate, value])
         
-        sections.append(
-            f'<details><summary>{html.escape(player)}</summary>'
-            f'{html_table(["Stash", "Item", "Added", "Removed", "Net"], rows)}'
-            '</details>'
+        active_class = ' active' if index == 0 else ''
+        target_id = f'player-subtab-{index}'
+        buttons.append(
+            f'<button class="subtab-button{active_class}" data-subtab-target="{target_id}" data-subtab-value="{format_value(player_value)}">'
+            f'<span class="subtab-label">{html.escape(player)}</span>'
+            f'<span class="subtab-value">{format_value(player_value)} div</span>'
+            '</button>'
+        )
+        panels.append(
+            f'<section id="{target_id}" class="subtab-panel{active_class}">'
+            f'<div class="subtab-title">{html.escape(player)}</div>'
+            f'{render_inline_chart(player_chart_files.get(player), f"{player} value over time")}'
+            f'{html_table(["Stash", "Item", "Added", "Removed", "Net", "Rate", "Value"], rows)}'
+            '</section>'
         )
     
-    return '\n'.join(sections)
+    return (
+        '<h2>By player</h2>'
+        '<div class="subtab-layout">'
+        f'<nav class="subtab-nav" aria-label="Players">{"".join(buttons)}</nav>'
+        f'<div class="subtab-content">{"".join(panels)}</div>'
+        '</div>'
+    )
 
 
 def render_stash_sections():
     """Render stash detail sections for the HTML dashboard."""
-    sections = []
+    buttons = []
+    panels = []
     
-    for stash in sorted(stash_summary.keys()):
+    for index, stash in enumerate(sorted(stash_summary.keys())):
         rows = []
+        stash_value = 0.0
         for account in sorted(stash_summary[stash].keys()):
             for item_name in sorted(stash_summary[stash][account].keys()):
                 stats = stash_summary[stash][account][item_name]
                 net = stats['added'] - stats['removed']
-                rows.append([account, item_name, stats['added'], stats['removed'], format_signed(net)])
+                rate, value = get_row_value_stats(stash, account, item_name, net)
+                stash_value += float(value)
+                rows.append([account, item_name, stats['added'], stats['removed'], format_signed(net), rate, value])
         
-        sections.append(
-            f'<details><summary>{html.escape(stash)}</summary>'
-            f'{html_table(["Player", "Item", "Added", "Removed", "Net"], rows)}'
-            '</details>'
+        active_class = ' active' if index == 0 else ''
+        target_id = f'stash-subtab-{index}'
+        buttons.append(
+            f'<button class="subtab-button{active_class}" data-subtab-target="{target_id}" data-subtab-value="{format_value(stash_value)}">'
+            f'<span class="subtab-label">{html.escape(stash)}</span>'
+            f'<span class="subtab-value">{format_value(stash_value)} div</span>'
+            '</button>'
+        )
+        panels.append(
+            f'<section id="{target_id}" class="subtab-panel{active_class}">'
+            f'<div class="subtab-title">{html.escape(stash)}</div>'
+            f'{render_inline_chart(stash_chart_files.get(stash), f"{stash} value over time")}'
+            f'{html_table(["Player", "Item", "Added", "Removed", "Net", "Rate", "Value"], rows)}'
+            '</section>'
         )
     
-    return '\n'.join(sections)
+    return (
+        '<h2>By stash</h2>'
+        '<div class="subtab-layout">'
+        f'<nav class="subtab-nav" aria-label="Stashes">{"".join(buttons)}</nav>'
+        f'<div class="subtab-content">{"".join(panels)}</div>'
+        '</div>'
+    )
 
 
 def render_final_state_sections():
     """Render final stash contents for the HTML dashboard."""
-    sections = []
+    buttons = []
+    panels = []
+    current_rates = {}
+    latest_event_date = max((event['parsed_date'] for event in log_events), default=datetime.min)
+    latest_label = latest_event_date.strftime('%Y-%m-%d %H:%M:%S') if latest_event_date != datetime.min else 'unknown'
     
-    for stash in sorted(TARGET_STASHES):
+    for index, stash in enumerate(sorted(TARGET_STASHES)):
         item_totals = defaultdict(lambda: {'quantity': 0, 'stacks': 0})
+        stash_value = 0.0
         for (state_stash, x, y), data in final_stash_state.items():
             if state_stash != stash:
                 continue
             item_totals[data['item_name']]['quantity'] += data['quantity']
             item_totals[data['item_name']]['stacks'] += 1
         
-        rows = [
-            [item_name, totals['quantity'], totals['stacks']]
-            for item_name, totals in sorted(item_totals.items())
-        ]
-        sections.append(
-            f'<details><summary>{html.escape(stash)}</summary>'
-            f'{html_table(["Item", "Quantity", "Stacks"], rows)}'
-            '</details>'
+        rows = []
+        for item_name, totals in sorted(item_totals.items()):
+            if item_name not in current_rates:
+                current_rates[item_name] = get_current_item_rate(item_name)
+            rate = current_rates[item_name]
+            value = totals['quantity'] * rate
+            stash_value += value
+            rows.append([
+                item_name,
+                totals['quantity'],
+                totals['stacks'],
+                format_value(rate),
+                format_value(value),
+            ])
+        active_class = ' active' if index == 0 else ''
+        target_id = f'final-state-subtab-{index}'
+        buttons.append(
+            f'<button class="subtab-button{active_class}" data-subtab-target="{target_id}" data-subtab-value="{format_value(stash_value)}">'
+            f'<span class="subtab-label">{html.escape(stash)}</span>'
+            f'<span class="subtab-value">{format_value(stash_value)} div</span>'
+            '</button>'
+        )
+        panels.append(
+            f'<section id="{target_id}" class="subtab-panel{active_class}">'
+            f'<div class="subtab-title">{html.escape(stash)} <span class="subtab-meta">Last transaction: {html.escape(latest_label)}</span></div>'
+            f'{html_table(["Item", "Quantity", "Stacks", "Rate", "Value"], rows)}'
+            '</section>'
         )
     
-    return '\n'.join(sections)
+    return (
+        '<h2>Final state</h2>'
+        '<div class="subtab-layout">'
+        f'<nav class="subtab-nav" aria-label="Final state stashes">{"".join(buttons)}</nav>'
+        f'<div class="subtab-content">{"".join(panels)}</div>'
+        '</div>'
+    )
+
+
+def render_time_chart_subtabs(title, aria_label, chart_files, timelines, id_prefix):
+    """Render chart images in compact left-side sub-tabs."""
+    if not chart_files:
+        return ''
+    
+    buttons = []
+    panels = []
+    
+    for index, name in enumerate(sorted(chart_files.keys())):
+        points = timelines.get(name, [])
+        final_value = points[-1][1] if points else 0.0
+        active_class = ' active' if index == 0 else ''
+        target_id = f'{id_prefix}-chart-subtab-{index}'
+        filename = chart_files[name]
+        buttons.append(
+            f'<button class="subtab-button{active_class}" data-subtab-target="{target_id}" data-subtab-value="{format_value(final_value)}">'
+            f'<span class="subtab-label">{html.escape(name)}</span>'
+            f'<span class="subtab-value">{format_value(final_value)} div</span>'
+            '</button>'
+        )
+        panels.append(
+            f'<section id="{target_id}" class="subtab-panel{active_class}">'
+            f'<div class="subtab-title">{html.escape(name)}</div>'
+            f'<img class="chart" src="{html.escape(filename)}" alt="{html.escape(name)} value over time">'
+            '</section>'
+        )
+    
+    return (
+        f'<h3>{html.escape(title)}</h3>'
+        '<div class="subtab-layout chart-subtabs">'
+        f'<nav class="subtab-nav" aria-label="{html.escape(aria_label)}">{"".join(buttons)}</nav>'
+        f'<div class="subtab-content">{"".join(panels)}</div>'
+        '</div>'
+    )
+
+
+def render_chart_sections():
+    """Render the combined timeline chart for the dashboard."""
+    sections = ['<h2>Total value over time</h2>']
+    combined_chart = 'VALUE_OVER_TIME_BY_PLAYER.svg'
+    
+    if os.path.exists(os.path.join(OUTPUT_DIR, combined_chart)):
+        sections.append(
+            '<div class="card chart-card">'
+            '<h3>All players</h3>'
+            f'<img class="chart" src="{combined_chart}" alt="Total stash value over time by player">'
+            '</div>'
+        )
+    
+    return '\n'.join(section for section in sections if section)
 
 
 def render_value_sections():
@@ -1100,18 +1450,7 @@ def print_html_dashboard():
         os.makedirs(OUTPUT_DIR)
     
     dashboard_file = os.path.join(OUTPUT_DIR, 'REPORT_DASHBOARD.html')
-    player_quantity_totals, stash_quantity_totals = collect_quantity_totals()
     player_value_totals, stash_value_totals = collect_value_totals()
-    
-    stash_quantity_rows = []
-    for stash in sorted(stash_quantity_totals.keys()):
-        stats = stash_quantity_totals[stash]
-        stash_quantity_rows.append([stash, stats['added'], stats['removed'], format_signed(stats['added'] - stats['removed'])])
-    
-    player_quantity_rows = []
-    for player in sorted(player_quantity_totals.keys()):
-        stats = player_quantity_totals[player]
-        player_quantity_rows.append([player, stats['added'], stats['removed'], format_signed(stats['added'] - stats['removed'])])
     
     stash_value_rows = []
     for stash in sorted(stash_value_totals.keys()):
@@ -1127,16 +1466,11 @@ def print_html_dashboard():
         removed = stats['removed_value']
         player_value_rows.append([player, format_value(added), format_value(removed), format_value(added - removed)])
     
-    cache_rows = [[price_type, price_metadata.get(price_type, 'not loaded')] for price_type in PRICE_TYPES]
+    cache_footer_items = render_cache_footer_items()
     unpriced_rows = [
         [item_name, stats['added_qty'], stats['removed_qty']]
         for item_name, stats in sorted(unpriced_summary.items())
     ]
-    
-    chart_path = 'VALUE_OVER_TIME_BY_PLAYER.svg'
-    chart_html = ''
-    if os.path.exists(os.path.join(OUTPUT_DIR, chart_path)):
-        chart_html = f'<img class="chart" src="{chart_path}" alt="Total stash value over time by player">'
     
     page = f'''<!doctype html>
 <html lang="en">
@@ -1172,6 +1506,17 @@ def print_html_dashboard():
         h1 {{ margin: 0 0 6px; font-size: 28px; }}
         h2 {{ margin: 0 0 16px; font-size: 20px; }}
         h3 {{ margin: 24px 0 10px; font-size: 16px; }}
+        .section-total {{
+            display: inline-block;
+            margin-left: 8px;
+            padding: 2px 7px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 500;
+            vertical-align: middle;
+        }}
         .subtitle {{ color: var(--muted); }}
         .tabs {{
             display: flex;
@@ -1213,6 +1558,91 @@ def print_html_dashboard():
             padding: 16px;
             overflow: auto;
         }}
+        .subtab-layout {{
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 12px;
+            align-items: start;
+        }}
+        .subtab-nav {{
+            position: sticky;
+            top: 140px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 280px;
+            min-width: 260px;
+            max-width: min(520px, 45vw);
+            max-height: calc(100vh - 170px);
+            resize: horizontal;
+            overflow-y: auto;
+            overflow-x: auto;
+            padding: 6px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+        }}
+        .subtab-button {{
+            width: 100%;
+            min-width: 240px;
+            border: 0;
+            border-radius: 5px;
+            background: transparent;
+            color: var(--text);
+            cursor: pointer;
+            padding: 6px 8px;
+            text-align: left;
+            font-size: 12px;
+            line-height: 1.25;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+        }}
+        .subtab-button:hover {{
+            background: #eef2ff;
+        }}
+        .subtab-button.active {{
+            background: var(--accent);
+            color: #ffffff;
+        }}
+        .subtab-label {{
+            min-width: 0;
+            white-space: nowrap;
+        }}
+        .subtab-value {{
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }}
+        .subtab-button.active .subtab-value {{
+            color: #dbeafe;
+        }}
+        .subtab-content {{
+            min-width: 0;
+            overflow: auto;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+        }}
+        .subtab-panel {{
+            display: none;
+            padding: 10px 12px 12px;
+        }}
+        .subtab-panel.active {{
+            display: block;
+        }}
+        .subtab-title {{
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 700;
+        }}
+        .subtab-meta {{
+            margin-left: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 400;
+        }}
         table {{
             width: 100%;
             border-collapse: collapse;
@@ -1233,6 +1663,23 @@ def print_html_dashboard():
             top: 0;
             background: #f9fafb;
             font-weight: 600;
+        }}
+        th.sortable {{
+            cursor: pointer;
+            user-select: none;
+        }}
+        th.sortable::after {{
+            content: "";
+            display: inline-block;
+            margin-left: 6px;
+            color: var(--muted);
+            font-size: 10px;
+        }}
+        th.sortable[data-sort-state="asc"]::after {{
+            content: "^";
+        }}
+        th.sortable[data-sort-state="desc"]::after {{
+            content: "v";
         }}
         details {{
             background: var(--panel);
@@ -1258,10 +1705,66 @@ def print_html_dashboard():
             border: 1px solid var(--line);
             border-radius: 8px;
         }}
+        .chart-card {{
+            margin-bottom: 18px;
+        }}
+        .detail-chart {{
+            margin-bottom: 12px;
+            overflow: auto;
+        }}
+        .detail-chart .chart {{
+            max-height: 360px;
+            object-fit: contain;
+        }}
+        .chart-subtabs {{
+            margin-bottom: 18px;
+        }}
         .legacy {{
             color: var(--muted);
             margin-top: 10px;
             font-size: 13px;
+        }}
+        footer {{
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 10px 32px;
+            border-top: 1px solid var(--line);
+            background: var(--panel);
+            color: var(--muted);
+            font-size: 12px;
+        }}
+        footer strong {{
+            color: var(--text);
+            font-weight: 600;
+        }}
+        .cache-items {{
+            display: flex;
+            gap: 8px 12px;
+            flex-wrap: wrap;
+        }}
+        .cache-items span {{
+            white-space: nowrap;
+        }}
+        @media (max-width: 800px) {{
+            .subtab-layout {{
+                grid-template-columns: 1fr;
+            }}
+            .subtab-nav {{
+                position: static;
+                flex-direction: row;
+                width: auto;
+                min-width: 0;
+                max-width: none;
+                resize: none;
+                max-height: none;
+                overflow-x: auto;
+            }}
+            .subtab-button {{
+                width: auto;
+                min-width: 120px;
+            }}
         }}
     </style>
 </head>
@@ -1275,7 +1778,6 @@ def print_html_dashboard():
         <button class="tab-button active" data-tab="totals">Totals</button>
         <button class="tab-button" data-tab="by-player">By player</button>
         <button class="tab-button" data-tab="by-stash">By stash</button>
-        <button class="tab-button" data-tab="values">Values</button>
         <button class="tab-button" data-tab="final-state">Final state</button>
         <button class="tab-button" data-tab="chart">Chart</button>
         <button class="tab-button" data-tab="unpriced">Unpriced</button>
@@ -1283,20 +1785,20 @@ def print_html_dashboard():
     <main>
         <section id="totals" class="tab-panel active">
             <div class="grid">
-                <div class="card"><h2>Quantity by stash</h2>{html_table(["Stash", "Added", "Removed", "Net"], stash_quantity_rows)}</div>
-                <div class="card"><h2>Quantity by player</h2>{html_table(["Player", "Added", "Removed", "Net"], player_quantity_rows)}</div>
                 <div class="card"><h2>Value by stash</h2>{html_table(["Stash", "Added Div", "Removed Div", "Net Div"], stash_value_rows)}</div>
                 <div class="card"><h2>Value by player</h2>{html_table(["Player", "Added Div", "Removed Div", "Net Div"], player_value_rows)}</div>
-                <div class="card"><h2>Price cache</h2>{html_table(["Category", "Status"], cache_rows)}</div>
             </div>
         </section>
-        <section id="by-player" class="tab-panel"><h2>By player</h2>{render_player_sections()}</section>
-        <section id="by-stash" class="tab-panel"><h2>By stash</h2>{render_stash_sections()}</section>
-        <section id="values" class="tab-panel"><h2>Values</h2>{render_value_sections()}</section>
-        <section id="final-state" class="tab-panel"><h2>Final state</h2>{render_final_state_sections()}</section>
-        <section id="chart" class="tab-panel"><h2>Total value over time</h2>{chart_html}</section>
+        <section id="by-player" class="tab-panel">{render_player_sections()}</section>
+        <section id="by-stash" class="tab-panel">{render_stash_sections()}</section>
+        <section id="final-state" class="tab-panel">{render_final_state_sections()}</section>
+        <section id="chart" class="tab-panel">{render_chart_sections()}</section>
         <section id="unpriced" class="tab-panel"><h2>Unpriced items</h2><div class="card">{html_table(["Item", "Added Qty", "Removed Qty"], unpriced_rows)}</div></section>
     </main>
+    <footer>
+        <strong>Price cache</strong>
+        <div class="cache-items">{cache_footer_items}</div>
+    </footer>
     <script>
         const buttons = Array.from(document.querySelectorAll('.tab-button'));
         const panels = Array.from(document.querySelectorAll('.tab-panel'));
@@ -1308,6 +1810,91 @@ def print_html_dashboard():
                 document.getElementById(button.dataset.tab).classList.add('active');
             }});
         }});
+        document.querySelectorAll('.subtab-layout').forEach((layout) => {{
+            const subtabButtons = Array.from(layout.querySelectorAll('.subtab-button'));
+            const subtabPanels = Array.from(layout.querySelectorAll('.subtab-panel'));
+            subtabButtons.forEach((button) => {{
+                button.addEventListener('click', () => {{
+                    subtabButtons.forEach((item) => item.classList.remove('active'));
+                    subtabPanels.forEach((item) => item.classList.remove('active'));
+                    button.classList.add('active');
+                    const target = layout.querySelector(`#${{button.dataset.subtabTarget}}`);
+                    if (target) {{
+                        target.classList.add('active');
+                    }}
+                }});
+            }});
+        }});
+        document.querySelectorAll('table').forEach((table) => {{
+            const headers = Array.from(table.querySelectorAll('th'));
+            const tbody = table.querySelector('tbody');
+            if (!tbody) {{
+                return;
+            }}
+            Array.from(tbody.querySelectorAll('tr')).forEach((row, index) => {{
+                row.dataset.originalIndex = index;
+            }});
+            table.dataset.sortColumn = '';
+            table.dataset.sortState = 'normal';
+            headers.forEach((header, columnIndex) => {{
+                header.classList.add('sortable');
+                header.dataset.sortState = 'normal';
+                header.addEventListener('click', () => {{
+                    const currentState = header.dataset.sortState;
+                    const nextState = currentState === 'normal' ? 'asc' : currentState === 'asc' ? 'desc' : 'normal';
+                    applyTableSort(table, columnIndex, nextState);
+                }});
+            }});
+        }});
+        function getTableSortGroup(table) {{
+            const panel = table.closest('.tab-panel');
+            return panel?.id || 'global';
+        }}
+        function updateSortGroup(table, columnIndex, state) {{
+            const group = getTableSortGroup(table);
+            document.querySelectorAll(`.tab-panel#${{group}} table`).forEach((groupTable) => {{
+                groupTable.dataset.sortColumn = state === 'normal' ? '' : String(columnIndex);
+                groupTable.dataset.sortState = state;
+                applyTableSort(groupTable, columnIndex, state, false);
+            }});
+        }}
+        function applyTableSort(table, columnIndex, state, syncGroup = true) {{
+            if (syncGroup) {{
+                updateSortGroup(table, columnIndex, state);
+                return;
+            }}
+            const headers = Array.from(table.querySelectorAll('th'));
+            const tbody = table.querySelector('tbody');
+            if (!tbody) {{
+                return;
+            }}
+            headers.forEach((item) => {{
+                item.dataset.sortState = 'normal';
+            }});
+            if (state !== 'normal' && headers[columnIndex]) {{
+                headers[columnIndex].dataset.sortState = state;
+            }}
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            if (state === 'normal') {{
+                rows.sort((a, b) => Number(a.dataset.originalIndex) - Number(b.dataset.originalIndex));
+            }} else {{
+                rows.sort((a, b) => {{
+                    const aText = (a.children[columnIndex]?.textContent || '').trim();
+                    const bText = (b.children[columnIndex]?.textContent || '').trim();
+                    const aNumber = Number(aText.replace(/,/g, ''));
+                    const bNumber = Number(bText.replace(/,/g, ''));
+                    const bothNumeric = aText !== '' && bText !== '' && !Number.isNaN(aNumber) && !Number.isNaN(bNumber);
+                    let result;
+                    if (bothNumeric) {{
+                        result = aNumber - bNumber;
+                    }} else {{
+                        result = aText.localeCompare(bText, undefined, {{ numeric: true, sensitivity: 'base' }});
+                    }}
+                    return state === 'asc' ? result : -result;
+                }});
+            }}
+            rows.forEach((row) => tbody.appendChild(row));
+        }}
     </script>
 </body>
 </html>
@@ -1495,3 +2082,5 @@ if __name__ == '__main__':
     print_final_state_summary()
     print_value_summary()
     print_player_value_chart()
+    print_individual_value_charts()
+    print_html_dashboard()
