@@ -19,6 +19,8 @@ STASH_ALIASES = {
     'Abbys/Expediton': 'Abbys/Expedition',
 }
 OUTPUT_DIR = 'stash_reports'
+CHART_DIR = os.path.join(OUTPUT_DIR, 'charts')
+DASHBOARD_FILE = 'REPORT_DASHBOARD.html'
 PRICE_CACHE_DIR = os.path.join(OUTPUT_DIR, 'price_cache')
 PRICE_CACHE_MAX_AGE_HOURS = 12
 POE_NINJA_PRICE_URL = 'https://poe.ninja/poe2/api/economy/exchange/current/overview'
@@ -83,6 +85,16 @@ def safe_chart_filename(prefix, value):
     """Make chart filenames safe for filesystem paths and HTML src attributes."""
     safe_value = re.sub(r'[^A-Za-z0-9._$-]+', '_', value).strip('_')
     return f'{prefix}_{safe_value or "unnamed"}.svg'
+
+
+def chart_output_path(filename):
+    """Return the filesystem path for a chart asset."""
+    return os.path.join(CHART_DIR, filename)
+
+
+def chart_asset_src(filename):
+    """Return the dashboard-relative src path for a chart asset."""
+    return '/'.join([OUTPUT_DIR, 'charts', filename])
 
 
 def target_stash_label():
@@ -842,10 +854,10 @@ def print_player_value_chart():
         print("No player value timeline data to chart")
         return
     
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
+    if not os.path.exists(CHART_DIR):
+        os.makedirs(CHART_DIR)
     
-    chart_file = os.path.join(OUTPUT_DIR, 'VALUE_OVER_TIME_BY_PLAYER.svg')
+    chart_file = chart_output_path('VALUE_OVER_TIME_BY_PLAYER.svg')
     colors = [
         '#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c',
         '#0891b2', '#be123c', '#4f46e5', '#65a30d', '#c026d3',
@@ -1057,8 +1069,8 @@ def write_single_value_chart(chart_file, title, subtitle, points, color='#2563eb
 
 def print_individual_value_charts():
     """Generate individual cumulative value charts for each player and stash."""
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
+    if not os.path.exists(CHART_DIR):
+        os.makedirs(CHART_DIR)
     
     colors = [
         '#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c',
@@ -1069,7 +1081,7 @@ def print_individual_value_charts():
     
     for index, player in enumerate(sorted(player_value_timeline.keys())):
         filename = safe_chart_filename('CHART_PLAYER', player)
-        chart_file = os.path.join(OUTPUT_DIR, filename)
+        chart_file = chart_output_path(filename)
         if write_single_value_chart(
             chart_file,
             f'{player} value over time',
@@ -1081,7 +1093,7 @@ def print_individual_value_charts():
     
     for index, stash in enumerate(sorted(stash_value_timeline.keys())):
         filename = safe_chart_filename('CHART_STASH', stash)
-        chart_file = os.path.join(OUTPUT_DIR, filename)
+        chart_file = chart_output_path(filename)
         if write_single_value_chart(
             chart_file,
             f'{stash} value over time',
@@ -1104,7 +1116,7 @@ def print_individual_value_charts():
 def html_table(headers, rows, class_name=''):
     """Render a simple HTML table."""
     class_attr = f' class="{class_name}"' if class_name else ''
-    output = [f'<table{class_attr}>', '<thead><tr>']
+    output = ['<div class="table-scroll">', f'<table{class_attr}>', '<thead><tr>']
     
     for header in headers:
         output.append(f'<th>{html.escape(str(header))}</th>')
@@ -1117,7 +1129,7 @@ def html_table(headers, rows, class_name=''):
             output.append(f'<td>{html.escape(str(cell))}</td>')
         output.append('</tr>')
     
-    output.append('</tbody></table>')
+    output.append('</tbody></table></div>')
     return '\n'.join(output)
 
 
@@ -1208,12 +1220,12 @@ def get_current_item_rate(item_name):
 
 def render_inline_chart(filename, alt_text):
     """Render a detail chart image when its SVG exists."""
-    if not filename or not os.path.exists(os.path.join(OUTPUT_DIR, filename)):
+    if not filename or not os.path.exists(chart_output_path(filename)):
         return ''
     
     return (
         '<div class="detail-chart">'
-        f'<img class="chart" src="{html.escape(filename)}" alt="{html.escape(alt_text)}">'
+        f'<img class="chart" src="{html.escape(chart_asset_src(filename))}" alt="{html.escape(alt_text)}">'
         '</div>'
     )
 
@@ -1385,7 +1397,7 @@ def render_time_chart_subtabs(title, aria_label, chart_files, timelines, id_pref
         panels.append(
             f'<section id="{target_id}" class="subtab-panel{active_class}">'
             f'<div class="subtab-title">{html.escape(name)}</div>'
-            f'<img class="chart" src="{html.escape(filename)}" alt="{html.escape(name)} value over time">'
+            f'<img class="chart" src="{html.escape(chart_asset_src(filename))}" alt="{html.escape(name)} value over time">'
             '</section>'
         )
     
@@ -1403,11 +1415,11 @@ def render_chart_sections():
     sections = ['<h2>Total value over time</h2>']
     combined_chart = 'VALUE_OVER_TIME_BY_PLAYER.svg'
     
-    if os.path.exists(os.path.join(OUTPUT_DIR, combined_chart)):
+    if os.path.exists(chart_output_path(combined_chart)):
         sections.append(
             '<div class="card chart-card">'
             '<h3>All players</h3>'
-            f'<img class="chart" src="{combined_chart}" alt="Total stash value over time by player">'
+            f'<img class="chart" src="{chart_asset_src(combined_chart)}" alt="Total stash value over time by player">'
             '</div>'
         )
     
@@ -1449,7 +1461,7 @@ def print_html_dashboard():
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
     
-    dashboard_file = os.path.join(OUTPUT_DIR, 'REPORT_DASHBOARD.html')
+    dashboard_file = DASHBOARD_FILE
     player_value_totals, stash_value_totals = collect_value_totals()
     
     stash_value_rows = []
@@ -1487,6 +1499,8 @@ def print_html_dashboard():
             --muted: #6b7280;
             --line: #d1d5db;
             --accent: #2563eb;
+            --header-height: 92px;
+            --tabs-height: 58px;
         }}
         * {{ box-sizing: border-box; }}
         body {{
@@ -1525,7 +1539,7 @@ def print_html_dashboard():
             border-bottom: 1px solid var(--line);
             background: #eef2ff;
             position: sticky;
-            top: 78px;
+            top: var(--header-height);
             z-index: 2;
             overflow-x: auto;
         }}
@@ -1556,7 +1570,7 @@ def print_html_dashboard():
             border: 1px solid var(--line);
             border-radius: 8px;
             padding: 16px;
-            overflow: auto;
+            overflow: hidden;
         }}
         .subtab-layout {{
             display: grid;
@@ -1566,7 +1580,7 @@ def print_html_dashboard():
         }}
         .subtab-nav {{
             position: sticky;
-            top: 140px;
+            top: calc(var(--header-height) + var(--tabs-height) + 12px);
             display: flex;
             flex-direction: column;
             gap: 4px;
@@ -1620,7 +1634,7 @@ def print_html_dashboard():
         }}
         .subtab-content {{
             min-width: 0;
-            overflow: auto;
+            overflow: hidden;
             border: 1px solid var(--line);
             border-radius: 8px;
             background: var(--panel);
@@ -1643,6 +1657,17 @@ def print_html_dashboard():
             font-size: 12px;
             font-weight: 400;
         }}
+        .table-scroll {{
+            min-height: 180px;
+            height: calc((100vh - var(--header-height) - var(--tabs-height) - 220px) * 2);
+            overflow: auto;
+            resize: vertical;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }}
+        .card .table-scroll {{
+            height: 640px;
+        }}
         table {{
             width: 100%;
             border-collapse: collapse;
@@ -1663,6 +1688,7 @@ def print_html_dashboard():
             top: 0;
             background: #f9fafb;
             font-weight: 600;
+            z-index: 1;
         }}
         th.sortable {{
             cursor: pointer;
@@ -1719,11 +1745,6 @@ def print_html_dashboard():
         .chart-subtabs {{
             margin-bottom: 18px;
         }}
-        .legacy {{
-            color: var(--muted);
-            margin-top: 10px;
-            font-size: 13px;
-        }}
         footer {{
             display: flex;
             gap: 12px;
@@ -1748,6 +1769,10 @@ def print_html_dashboard():
             white-space: nowrap;
         }}
         @media (max-width: 800px) {{
+            header,
+            .tabs {{
+                position: static;
+            }}
             .subtab-layout {{
                 grid-template-columns: 1fr;
             }}
@@ -1765,6 +1790,10 @@ def print_html_dashboard():
                 width: auto;
                 min-width: 120px;
             }}
+            .table-scroll,
+            .card .table-scroll {{
+                height: 110vh;
+            }}
         }}
     </style>
 </head>
@@ -1772,7 +1801,6 @@ def print_html_dashboard():
     <header>
         <h1>Poe2Logger Reports</h1>
         <div class="subtitle">League: {html.escape(LEAGUE_NAME)} | Stashes: {html.escape(target_stash_label())}</div>
-        <div class="legacy">Text reports are still generated for now, but this dashboard is the phase-out path.</div>
     </header>
     <nav class="tabs" aria-label="Report tabs">
         <button class="tab-button active" data-tab="totals">Totals</button>
@@ -1845,7 +1873,23 @@ def print_html_dashboard():
                     applyTableSort(table, columnIndex, nextState);
                 }});
             }});
+            const defaultColumnIndex = getDefaultSortColumn(headers);
+            if (defaultColumnIndex >= 0) {{
+                applyTableSort(table, defaultColumnIndex, 'desc', false);
+            }}
         }});
+        function getDefaultSortColumn(headers) {{
+            const labels = headers.map((header) => header.textContent.trim());
+            const valueIndex = labels.indexOf('Value');
+            if (valueIndex >= 0) {{
+                return valueIndex;
+            }}
+            const netDivIndex = labels.indexOf('Net Div');
+            if (netDivIndex >= 0) {{
+                return netDivIndex;
+            }}
+            return -1;
+        }}
         function getTableSortGroup(table) {{
             const panel = table.closest('.tab-panel');
             return panel?.id || 'global';
@@ -1868,6 +1912,8 @@ def print_html_dashboard():
             if (!tbody) {{
                 return;
             }}
+            table.dataset.sortColumn = state === 'normal' ? '' : String(columnIndex);
+            table.dataset.sortState = state;
             headers.forEach((item) => {{
                 item.dataset.sortState = 'normal';
             }});
@@ -2075,12 +2121,55 @@ def print_value_summary():
     print()
 
 
+def cleanup_legacy_text_reports():
+    """Remove generated text reports now that the dashboard is the report surface."""
+    if not os.path.exists(OUTPUT_DIR):
+        return
+    
+    removed_count = 0
+    for filename in os.listdir(OUTPUT_DIR):
+        if not filename.lower().endswith('.txt'):
+            continue
+        
+        path = os.path.join(OUTPUT_DIR, filename)
+        if not os.path.isfile(path):
+            continue
+        
+        os.remove(path)
+        removed_count += 1
+    
+    if removed_count:
+        print(f"Removed {removed_count} legacy text report files")
+
+
+def cleanup_stale_dashboard_assets():
+    """Remove dashboard assets from older output layouts."""
+    stale_files = [
+        os.path.join(OUTPUT_DIR, 'REPORT_DASHBOARD.html'),
+        os.path.join(OUTPUT_DIR, 'VALUE_OVER_TIME_BY_PLAYER.svg'),
+    ]
+    
+    if os.path.exists(OUTPUT_DIR):
+        stale_files.extend(
+            os.path.join(OUTPUT_DIR, filename)
+            for filename in os.listdir(OUTPUT_DIR)
+            if filename.startswith(('CHART_PLAYER_', 'CHART_STASH_')) and filename.lower().endswith('.svg')
+        )
+    
+    removed_count = 0
+    for path in stale_files:
+        if os.path.isfile(path):
+            os.remove(path)
+            removed_count += 1
+    
+    if removed_count:
+        print(f"Removed {removed_count} stale dashboard asset files")
+
+
 if __name__ == '__main__':
     process_log()
-    print_summary()
-    print_stash_summary()
-    print_final_state_summary()
-    print_value_summary()
+    cleanup_legacy_text_reports()
+    cleanup_stale_dashboard_assets()
     print_player_value_chart()
     print_individual_value_charts()
     print_html_dashboard()
