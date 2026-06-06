@@ -12,7 +12,7 @@ import html
 import math
 
 # Configuration
-LOG_FILE = 'log.csv'
+LOG_DIR = 'logs'
 LEAGUE_NAME = 'Runes of Aldur'
 TARGET_STASHES = {'$$$', 'Deli', 'Ess', 'Aug', 'Ritual', 'Abbys/Expedition'}
 STASH_ALIASES = {
@@ -433,69 +433,136 @@ def calculate_final_stash_state():
     final_stash_state = state
 
 
+def reset_report_data():
+    """Clear derived data before processing source log files."""
+    player_summary.clear()
+    stash_summary.clear()
+    coordinate_state.clear()
+    log_events.clear()
+    final_stash_state.clear()
+    valuation_summary.clear()
+    unpriced_summary.clear()
+    price_metadata.clear()
+    player_value_timeline.clear()
+    stash_value_timeline.clear()
+    player_chart_files.clear()
+    stash_chart_files.clear()
+
+
+def discover_log_files():
+    """Return all regular files in the log directory, independent of filename."""
+    if not os.path.exists(LOG_DIR):
+        os.makedirs(LOG_DIR)
+    
+    return [
+        os.path.join(LOG_DIR, filename)
+        for filename in sorted(os.listdir(LOG_DIR))
+        if os.path.isfile(os.path.join(LOG_DIR, filename))
+    ]
+
+
+def build_event_key(date_value, id_value, stash, account, action, item, x, y):
+    """Build a stable identity for de-duplicating overlapping log files."""
+    return (
+        date_value,
+        id_value,
+        stash,
+        account,
+        action,
+        item,
+        str(x),
+        str(y),
+    )
+
+
 def process_log():
-    """Process the log file and generate summary"""
-    try:
-        with open(LOG_FILE, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            
-            if reader.fieldnames is None:
-                print("Error: CSV file appears to be empty")
-                return
-            
-            row_count = 0
-            for row in reader:
-                row_count += 1
-                
-                # Validate required fields
-                if not all(key in row for key in ['Stash', 'Account', 'Action', 'Item', 'X', 'Y']):
-                    print(f"Warning: Row {row_count} missing required fields, skipping")
-                    continue
-                
-                stash = normalize_stash_name(row['Stash'].strip())
-                
-                # Filter for target stashes only
-                if stash not in TARGET_STASHES:
-                    continue
-                
-                account = row['Account'].strip()
-                action = row['Action'].strip()
-                item = row['Item'].strip()
-                
-                try:
-                    x = int(row['X'].strip())
-                    y = int(row['Y'].strip())
-                except ValueError:
-                    print(f"Warning: Row {row_count} has invalid X or Y coordinates, skipping")
-                    continue
-                
-                quantity, item_name = extract_quantity(item)
-                date_value = get_csv_value(row, 'Date').strip()
-                id_value = get_csv_value(row, 'Id').strip()
-                log_events.append({
-                    'date': date_value,
-                    'parsed_date': parse_event_date(date_value),
-                    'parsed_id': parse_event_id(id_value),
-                    'stash': stash,
-                    'account': account,
-                    'action': action,
-                    'quantity': quantity,
-                    'item_name': item_name,
-                    'x': x,
-                    'y': y,
-                })
-            
-            print(f"Processed {row_count} rows from log file")
-            calculate_operation_summaries()
-            calculate_final_stash_state()
-            calculate_valuation_summary()
-            
-    except FileNotFoundError:
-        print(f"Error: Log file '{LOG_FILE}' not found")
+    """Process all source log files and generate dashboard data."""
+    reset_report_data()
+    log_files = discover_log_files()
+    
+    if not log_files:
+        print(f"No log files found in '{LOG_DIR}'")
         return
-    except Exception as e:
-        print(f"Error processing log file: {e}")
-        return
+    
+    total_rows = 0
+    duplicate_rows = 0
+    accepted_events = 0
+    seen_events = set()
+    
+    for log_file in log_files:
+        try:
+            with open(log_file, 'r', encoding='utf-8-sig', newline='') as f:
+                reader = csv.DictReader(f)
+                
+                if reader.fieldnames is None:
+                    print(f"Warning: '{log_file}' appears to be empty, skipping")
+                    continue
+                
+                file_rows = 0
+                file_events = 0
+                file_duplicates = 0
+                for row in reader:
+                    file_rows += 1
+                    total_rows += 1
+                    
+                    if any(get_csv_value(row, key) == '' for key in ['Stash', 'Account', 'Action', 'Item', 'X', 'Y']):
+                        print(f"Warning: {log_file} row {file_rows} missing required fields, skipping")
+                        continue
+                    
+                    stash = normalize_stash_name(get_csv_value(row, 'Stash').strip())
+                    
+                    if stash not in TARGET_STASHES:
+                        continue
+                    
+                    account = get_csv_value(row, 'Account').strip()
+                    action = get_csv_value(row, 'Action').strip()
+                    item = get_csv_value(row, 'Item').strip()
+                    
+                    try:
+                        x = int(get_csv_value(row, 'X').strip())
+                        y = int(get_csv_value(row, 'Y').strip())
+                    except ValueError:
+                        print(f"Warning: {log_file} row {file_rows} has invalid X or Y coordinates, skipping")
+                        continue
+                    
+                    date_value = get_csv_value(row, 'Date').strip()
+                    id_value = get_csv_value(row, 'Id').strip()
+                    event_key = build_event_key(date_value, id_value, stash, account, action, item, x, y)
+                    if event_key in seen_events:
+                        duplicate_rows += 1
+                        file_duplicates += 1
+                        continue
+                    seen_events.add(event_key)
+                    
+                    quantity, item_name = extract_quantity(item)
+                    log_events.append({
+                        'date': date_value,
+                        'parsed_date': parse_event_date(date_value),
+                        'parsed_id': parse_event_id(id_value),
+                        'stash': stash,
+                        'account': account,
+                        'action': action,
+                        'quantity': quantity,
+                        'item_name': item_name,
+                        'x': x,
+                        'y': y,
+                    })
+                    accepted_events += 1
+                    file_events += 1
+                
+                print(
+                    f"Processed {file_rows} rows from {log_file} "
+                    f"({file_events} unique target events, {file_duplicates} duplicates)"
+                )
+        except OSError as e:
+            print(f"Warning: Could not read '{log_file}': {e}")
+    
+    print(f"Processed {total_rows} rows from {len(log_files)} log files")
+    print(f"Unique target events: {accepted_events} ({duplicate_rows} duplicates skipped)")
+    
+    calculate_operation_summaries()
+    calculate_final_stash_state()
+    calculate_valuation_summary()
 
 
 def nice_number(value, should_round):
