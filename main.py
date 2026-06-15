@@ -21,7 +21,6 @@ STASH_ALIASES = {
 }
 OUTPUT_DIR = 'stash_reports'
 CHART_DIR = os.path.join(OUTPUT_DIR, 'charts')
-DASHBOARD_FILE = 'REPORT_DASHBOARD.html'
 PRICE_CACHE_DIR = os.path.join(OUTPUT_DIR, 'price_cache')
 PRICE_CACHE_MAX_AGE_HOURS = 12
 POE_NINJA_PRICE_URL = 'https://poe.ninja/poe2/api/economy/exchange/current/overview'
@@ -71,6 +70,16 @@ def get_csv_value(row, field_name, default=''):
             return value
     
     return default
+
+
+def get_csv_league(row, fieldnames):
+    """Read the league from the CSV, falling back to the third column."""
+    league = get_csv_value(row, 'League').strip()
+    if league:
+        return league
+    if fieldnames and len(fieldnames) >= 3:
+        return row.get(fieldnames[2], '').strip()
+    return ''
 
 
 def normalize_stash_name(stash_name):
@@ -124,6 +133,26 @@ def display_event_datetime(date_value):
         date_value = date_value.replace(tzinfo=timezone.utc)
     
     return date_value.astimezone(DISPLAY_TIMEZONE)
+
+
+def latest_dashboard_date():
+    """Return the latest operation date in the dashboard display timezone."""
+    latest_event_date = max((event['parsed_date'] for event in log_events), default=datetime.now(DISPLAY_TIMEZONE))
+    if latest_event_date == datetime.min:
+        latest_event_date = datetime.now(DISPLAY_TIMEZONE)
+    return display_event_datetime(latest_event_date)
+
+
+def dashboard_filename():
+    """Return the dashboard filename based on the day/month of the latest operation."""
+    latest_event_date = latest_dashboard_date()
+    return f'GuildReport_{latest_event_date:%d%m}.html'
+
+
+def dashboard_title():
+    """Return the dashboard title based on the latest operation date."""
+    latest_event_date = latest_dashboard_date()
+    return f'Guild Report - {latest_event_date:%d.%m}'
 
 
 def normalize_price_key(item_name):
@@ -518,6 +547,7 @@ def process_log():
     total_rows = 0
     duplicate_rows = 0
     accepted_events = 0
+    skipped_league_rows = 0
     seen_events = set()
     
     for log_file in log_files:
@@ -532,9 +562,16 @@ def process_log():
                 file_rows = 0
                 file_events = 0
                 file_duplicates = 0
+                file_skipped_league = 0
                 for row in reader:
                     file_rows += 1
                     total_rows += 1
+                    
+                    row_league = get_csv_league(row, reader.fieldnames)
+                    if row_league != LEAGUE_NAME:
+                        skipped_league_rows += 1
+                        file_skipped_league += 1
+                        continue
                     
                     if any(get_csv_value(row, key) == '' for key in ['Stash', 'Account', 'Action', 'Item', 'X', 'Y']):
                         print(f"Warning: {log_file} row {file_rows} missing required fields, skipping")
@@ -583,13 +620,15 @@ def process_log():
                 
                 print(
                     f"Processed {file_rows} rows from {log_file} "
-                    f"({file_events} unique target events, {file_duplicates} duplicates)"
+                    f"({file_events} unique target events, {file_duplicates} duplicates, "
+                    f"{file_skipped_league} other-league rows skipped)"
                 )
         except OSError as e:
             print(f"Warning: Could not read '{log_file}': {e}")
     
     print(f"Processed {total_rows} rows from {len(log_files)} log files")
     print(f"Unique target events: {accepted_events} ({duplicate_rows} duplicates skipped)")
+    print(f"Skipped rows from other leagues: {skipped_league_rows}")
     
     calculate_operation_summaries()
     calculate_final_stash_state()
@@ -1120,7 +1159,12 @@ def html_table(headers, rows, class_name='', default_sort=True):
     """Render a simple HTML table."""
     class_attr = f' class="{class_name}"' if class_name else ''
     default_sort_attr = '' if default_sort else ' data-default-sort="none"'
-    output = ['<div class="table-scroll">', f'<table{class_attr}{default_sort_attr}>', '<thead><tr>']
+    output = [
+        '<div class="table-filter"><input class="table-filter-input" type="search" placeholder="Filter..." aria-label="Filter table"></div>',
+        '<div class="table-scroll">',
+        f'<table{class_attr}{default_sort_attr}>',
+        '<thead><tr>',
+    ]
     
     for header in headers:
         output.append(f'<th>{html.escape(str(header))}</th>')
@@ -1492,7 +1536,8 @@ def print_html_dashboard():
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
     
-    dashboard_file = DASHBOARD_FILE
+    dashboard_file = dashboard_filename()
+    page_title = dashboard_title()
     player_value_totals, stash_value_totals = collect_value_totals()
     
     stash_value_rows = []
@@ -1520,7 +1565,7 @@ def print_html_dashboard():
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Poe2Logger Reports</title>
+    <title>{html.escape(page_title)}</title>
     <style>
         :root {{
             color-scheme: light;
@@ -1716,6 +1761,22 @@ def print_html_dashboard():
         .view-panel.active {{
             display: block;
         }}
+        .table-filter {{
+            margin-bottom: 6px;
+        }}
+        .table-filter-input {{
+            width: min(100%, 360px);
+            padding: 6px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: #ffffff;
+            color: var(--text);
+            font-size: 12px;
+        }}
+        .table-filter-input:focus {{
+            outline: 2px solid #bfdbfe;
+            border-color: var(--accent);
+        }}
         .table-scroll {{
             min-height: 180px;
             height: calc((100vh - var(--header-height) - var(--tabs-height) - 220px) * 2);
@@ -1793,6 +1854,10 @@ def print_html_dashboard():
         }}
         svg {{
             display: block;
+        }}
+        .chart-card svg,
+        .detail-chart svg {{
+            cursor: zoom-in;
         }}
         .chart-card {{
             margin-bottom: 20px;
@@ -1940,7 +2005,7 @@ def print_html_dashboard():
 </head>
 <body>
     <header>
-        <h1>Poe2Logger Reports</h1>
+        <h1>{html.escape(page_title)}</h1>
         <div class="subtitle">League: {html.escape(LEAGUE_NAME)} | Stashes: {html.escape(target_stash_label())} | Time: CEST</div>
     </header>
     <nav class="tabs" aria-label="Report tabs">
@@ -2029,18 +2094,37 @@ def print_html_dashboard():
             chartModalImage.alt = '';
             chartModalTitle.textContent = '';
         }}
+        function openChartModalFromSvg(chart) {{
+            if (!chartModal || !chartModalImage || !chartModalTitle) {{
+                return;
+            }}
+            const chartClone = chart.cloneNode(true);
+            chartClone.removeAttribute('style');
+            const serialized = new XMLSerializer().serializeToString(chartClone);
+            const title = chart.querySelector('.title')?.textContent || 'Chart';
+            chartModalImage.src = `data:image/svg+xml;charset=utf-8,${{encodeURIComponent(serialized)}}`;
+            chartModalImage.alt = title;
+            chartModalTitle.textContent = title;
+            chartModal.classList.add('active');
+            chartModal.setAttribute('aria-hidden', 'false');
+            chartModalClose?.focus();
+        }}
+        function openChartModalFromImage(chart) {{
+            if (!chartModal || !chartModalImage || !chartModalTitle) {{
+                return;
+            }}
+            chartModalImage.src = chart.src;
+            chartModalImage.alt = chart.alt || 'Enlarged chart';
+            chartModalTitle.textContent = chart.alt || 'Chart';
+            chartModal.classList.add('active');
+            chartModal.setAttribute('aria-hidden', 'false');
+            chartModalClose?.focus();
+        }}
+        document.querySelectorAll('.chart-card svg, .detail-chart svg').forEach((chart) => {{
+            chart.addEventListener('click', () => openChartModalFromSvg(chart));
+        }});
         document.querySelectorAll('img.chart').forEach((chart) => {{
-            chart.addEventListener('click', () => {{
-                if (!chartModal || !chartModalImage || !chartModalTitle) {{
-                    return;
-                }}
-                chartModalImage.src = chart.src;
-                chartModalImage.alt = chart.alt || 'Enlarged chart';
-                chartModalTitle.textContent = chart.alt || 'Chart';
-                chartModal.classList.add('active');
-                chartModal.setAttribute('aria-hidden', 'false');
-                chartModalClose?.focus();
-            }});
+            chart.addEventListener('click', () => openChartModalFromImage(chart));
         }});
         chartModalClose?.addEventListener('click', closeChartModal);
         chartModal?.addEventListener('click', (event) => {{
@@ -2062,6 +2146,12 @@ def print_html_dashboard():
             Array.from(tbody.querySelectorAll('tr')).forEach((row, index) => {{
                 row.dataset.originalIndex = index;
             }});
+            const filterInput = table.closest('.table-scroll')?.previousElementSibling?.querySelector('.table-filter-input');
+            if (filterInput) {{
+                filterInput.addEventListener('input', () => {{
+                    applyTableFilter(table, filterInput.value);
+                }});
+            }}
             table.dataset.sortColumn = '';
             table.dataset.sortState = 'normal';
             headers.forEach((header, columnIndex) => {{
@@ -2078,6 +2168,18 @@ def print_html_dashboard():
                 applyTableSort(table, defaultColumnIndex, 'desc', false);
             }}
         }});
+        function applyTableFilter(table, query) {{
+            const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            rows.forEach((row) => {{
+                if (terms.length === 0) {{
+                    row.hidden = false;
+                    return;
+                }}
+                const rowText = row.textContent.toLowerCase();
+                row.hidden = !terms.every((term) => rowText.includes(term));
+            }});
+        }}
         function getDefaultSortColumn(headers) {{
             const labels = headers.map((header) => header.textContent.trim());
             const valueIndex = labels.indexOf('Value');

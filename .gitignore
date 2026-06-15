@@ -1,0 +1,5 @@
+*.html
+*.csv
+*.svg
+*.json
+__pycache__/**
