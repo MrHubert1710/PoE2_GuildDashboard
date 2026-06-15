@@ -2,4 +2,6 @@
 *.csv
 *.svg
 *.json
+*.pyc
+poe2logger/private_config.py
 __pycache__/**
