@@ -13,6 +13,8 @@ import math
 
 # Configuration
 LOG_DIR = 'logs'
+HISTORY_FILENAME = 'history.csv'
+CSV_FIELDNAMES = ['Date', 'Id', 'League', 'Account', 'Action', 'Stash', 'Item', 'X', 'Y']
 LEAGUE_NAME = 'Runes of Aldur'
 DISPLAY_TIMEZONE = timezone(timedelta(hours=2), 'CEST')
 TARGET_STASHES = {'$$$', 'Deli', 'Ess', 'Aug', 'Ritual', 'Abbys/Expedition'}
@@ -510,15 +512,126 @@ def reset_report_data():
 
 
 def discover_log_files():
-    """Return all regular files in the log directory, independent of filename."""
+    """Return all CSV files in the log directory, independent of filename."""
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR)
     
     return [
         os.path.join(LOG_DIR, filename)
         for filename in sorted(os.listdir(LOG_DIR))
-        if os.path.isfile(os.path.join(LOG_DIR, filename))
+        if os.path.isfile(os.path.join(LOG_DIR, filename)) and filename.lower().endswith('.csv')
     ]
+
+
+def history_file_path():
+    """Return the canonical merged history path."""
+    return os.path.join(LOG_DIR, HISTORY_FILENAME)
+
+
+def build_raw_event_key(row):
+    """Build a stable identity for de-duplicating raw CSV transactions."""
+    return tuple(row[field_name] for field_name in CSV_FIELDNAMES)
+
+
+def normalize_transaction_row(row, fieldnames):
+    """Return a canonical current-league CSV row, or None if it should not be kept."""
+    league = get_csv_league(row, fieldnames)
+    if league != LEAGUE_NAME:
+        return None
+    
+    normalized = {
+        'Date': get_csv_value(row, 'Date').strip(),
+        'Id': get_csv_value(row, 'Id').strip(),
+        'League': league,
+        'Account': get_csv_value(row, 'Account').strip(),
+        'Action': get_csv_value(row, 'Action').strip(),
+        'Stash': normalize_stash_name(get_csv_value(row, 'Stash').strip()),
+        'Item': get_csv_value(row, 'Item').strip(),
+        'X': get_csv_value(row, 'X').strip(),
+        'Y': get_csv_value(row, 'Y').strip(),
+    }
+    
+    if any(normalized[field_name] == '' for field_name in CSV_FIELDNAMES):
+        return None
+    
+    return normalized
+
+
+def merge_log_files():
+    """Merge source CSV files into history.csv and remove redundant CSV files."""
+    log_files = discover_log_files()
+    history_path = history_file_path()
+    
+    if not log_files:
+        return []
+    
+    if log_files == [history_path]:
+        return log_files
+    
+    merged_rows = {}
+    total_rows = 0
+    skipped_rows = 0
+    duplicate_rows = 0
+    read_failed = False
+    
+    for log_file in log_files:
+        try:
+            with open(log_file, 'r', encoding='utf-8-sig', newline='') as f:
+                reader = csv.DictReader(f)
+                
+                if reader.fieldnames is None:
+                    print(f"Warning: '{log_file}' appears to be empty, skipping")
+                    continue
+                
+                for row in reader:
+                    total_rows += 1
+                    normalized = normalize_transaction_row(row, reader.fieldnames)
+                    if normalized is None:
+                        skipped_rows += 1
+                        continue
+                    
+                    event_key = build_raw_event_key(normalized)
+                    if event_key in merged_rows:
+                        duplicate_rows += 1
+                        continue
+                    merged_rows[event_key] = normalized
+        except OSError as e:
+            print(f"Warning: Could not read '{log_file}': {e}")
+            read_failed = True
+    
+    if read_failed:
+        print("Warning: Log merge skipped because at least one source file could not be read")
+        return log_files
+    
+    ordered_rows = sorted(
+        merged_rows.values(),
+        key=lambda row: (parse_event_date(row['Date']), parse_event_id(row['Id']))
+    )
+    temp_history_path = f'{history_path}.tmp'
+    
+    with open(temp_history_path, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(ordered_rows)
+    
+    os.replace(temp_history_path, history_path)
+    
+    removed_files = 0
+    for log_file in log_files:
+        if os.path.abspath(log_file) == os.path.abspath(history_path):
+            continue
+        try:
+            os.remove(log_file)
+            removed_files += 1
+        except OSError as e:
+            print(f"Warning: Could not remove redundant log file '{log_file}': {e}")
+    
+    print(
+        f"Merged {len(ordered_rows)} unique {LEAGUE_NAME} transactions into {history_path} "
+        f"({duplicate_rows} duplicates skipped, {skipped_rows} rows skipped, {removed_files} redundant files removed)"
+    )
+    
+    return [history_path]
 
 
 def build_event_key(date_value, id_value, stash, account, action, item, x, y):
@@ -538,7 +651,7 @@ def build_event_key(date_value, id_value, stash, account, action, item, x, y):
 def process_log():
     """Process all source log files and generate dashboard data."""
     reset_report_data()
-    log_files = discover_log_files()
+    log_files = merge_log_files()
     
     if not log_files:
         print(f"No log files found in '{LOG_DIR}'")
