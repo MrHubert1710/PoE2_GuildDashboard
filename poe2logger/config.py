@@ -12,7 +12,22 @@ PRICE_CACHE_MAX_AGE_HOURS = 12
 POE_NINJA_PRICE_URL = 'https://poe.ninja/poe2/api/economy/exchange/current/overview'
 POE_GUILD_HISTORY_URL = 'https://www.pathofexile.com/api/guild/{guild_id}/stash/history'
 POE_API_USER_AGENT = 'OAuth Poe2Logger/1.0.0 (contact: local)'
-PRICE_TYPES = ['Currency', 'Essences', 'Runes', 'Ritual', 'Delirium', 'Abyss', 'Expedition', 'Verisium']
+PRICE_TYPES = [
+    'Currency',
+    'Fragments',
+    'Abyss',
+    'UncutGems',
+    'LineageSupportGems',
+    'Essences',
+    'SoulCores',
+    'Idols',
+    'Runes',
+    'Ritual',
+    'Expedition',
+    'Delirium',
+    'Breach',
+    'Verisium',
+]
 HISTORY_FETCH_OVERLAP_DAYS = 1
 HISTORY_FETCH_DELAY_SECONDS = 1.0
 HISTORY_FETCH_MAX_RETRIES = 5
