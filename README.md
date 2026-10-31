@@ -27,8 +27,8 @@ python3 service.py start
 ```
 
 Jeśli brakuje modułu `venv`, zainstaluj `sudo apt install python3-venv`.
-Instalator sam używa `sudo` do operacji systemowych. Przy uruchomieniu jako root
-podaj konto aplikacji: `python3 service.py install --user NAZWA_UZYTKOWNIKA`.
+Domyślnie instalowana jest **usługa bieżącego użytkownika**, bez `sudo`,
+w `~/.config/systemd/user/poe2logger.service` (lub w `XDG_CONFIG_HOME/systemd/user`).
 Konto musi mieć dostęp do projektu i możliwość zapisu raportów, logów CSV
 oraz stanu odświeżania. Istniejący katalog `venv` także jest wykrywany;
 inne środowisko wskaż przez `--venv /sciezka/do/venv`.
@@ -46,15 +46,29 @@ niezerowy kod systemctl. `logs` śledzi dziennik do przerwania przez Ctrl+C.
 Te same operacje są dostępne bez skryptu:
 
 ```sh
-sudo systemctl status poe2logger --no-pager
-sudo systemctl stop poe2logger
-sudo systemctl start poe2logger
-sudo systemctl restart poe2logger
-sudo journalctl -u poe2logger -n 100 -f
+systemctl --user status poe2logger --no-pager
+systemctl --user stop poe2logger
+systemctl --user start poe2logger
+systemctl --user restart poe2logger
+journalctl --user -u poe2logger -n 100 -f
 ```
 
-Instalacja tworzy `/etc/systemd/system/poe2logger.service` i włącza autostart
-po restarcie serwera; osobne `start` uruchamia usługę od razu. systemd ponawia
+Instalacja włącza usługę w menedżerze użytkownika; osobne `start` uruchamia ją
+od razu. Aby startowała także po restarcie serwera przed logowaniem i działała
+po wylogowaniu z SSH, włącz linger dla swojego konta:
+
+```sh
+loginctl enable-linger "$USER"
+loginctl show-user "$USER" -p Linger
+```
+
+Wynik powinien zawierać `Linger=yes`. Jeśli polityka serwera wymaga uprawnień
+administratora, administrator może jednorazowo wykonać
+`sudo loginctl enable-linger NAZWA_UZYTKOWNIKA`. Skrypt nie wywołuje `sudo`
+w trybie użytkownika. Polecenia uruchamiaj w zwykłej sesji SSH tego konta,
+w której dostępny jest menedżer `systemd --user`.
+
+systemd ponawia
 uruchomienie po awarii, a ręczne `stop` pozostawia usługę zatrzymaną.
 Gunicorn działa w katalogu rzeczywistym projektu (po rozwiązaniu symlinków)
 z dwoma procesami i czterema wątkami na proces.
@@ -70,7 +84,8 @@ python3 service.py restart
 Jeśli aplikacja jest obecnie uruchomiona inną metodą na tym samym porcie,
 zatrzymaj poprzedni proces przed pierwszym `start`.
 Konfiguracja `private_config.py` pozostaje używana. Zmienne środowiskowe usługi
-możesz dodatkowo zapisać w opcjonalnym `/etc/poe2logger.env`, np.
+możesz dodatkowo zapisać w opcjonalnym `~/.config/poe2logger/environment`
+(lub `XDG_CONFIG_HOME/poe2logger/environment`), np.
 `POESESSID=...` i `POE_GUILD_ID=...` (po jednej na wiersz). Usługa nie dziedziczy
 zmiennych z interaktywnej sesji SSH. Po zmianie konfiguracji wykonaj `restart`.
 
@@ -86,6 +101,35 @@ Po przeniesieniu projektu lub zmianie ustawień usługi wykonaj ponownie
 `install`, a następnie `restart`. `install --dry-run` pokazuje wygenerowaną
 konfigurację bez jej instalowania. Dostępność HTTP sprawdzisz przez
 `curl --fail http://127.0.0.1:8000/health` (nie wywołuje fetcha).
+
+### Opcjonalna usługa systemowa: `--root`
+
+Flaga `--root` przełącza każdą operację na usługę systemową. Może wystąpić
+przed lub po poleceniu. Tylko ten tryb korzysta z `sudo`, zapisuje jednostkę
+w `/etc/systemd/system/poe2logger.service` oraz odczytuje `/etc/poe2logger.env`.
+`--root` wybiera zasięg usługi; sama aplikacja działa jako konto z `--user`.
+
+```sh
+python3 service.py install --root --user NAZWA_UZYTKOWNIKA
+python3 service.py start --root
+python3 service.py status --root
+python3 service.py stop --root
+python3 service.py restart --root
+python3 service.py logs --root
+```
+
+Przy przejściu ze starszej usługi systemowej na usługę użytkownika zatrzymaj
+i wyłącz poprzedni autostart, aby dwie instancje nie zajmowały tego samego portu:
+
+```sh
+sudo systemctl disable --now poe2logger.service
+python3 service.py install
+python3 service.py start
+```
+
+Jeśli używałeś `/etc/poe2logger.env`, przenieś potrzebne ustawienia do pliku
+środowiskowego użytkownika. Zmiany właściciela istniejących danych i wyłączenie
+starej usługi wykonuje administrator; nowa instalacja nie zmienia ich automatycznie.
 
 ## Odświeżanie
 
