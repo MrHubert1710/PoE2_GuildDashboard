@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import app as web
@@ -153,6 +154,43 @@ class WebTests(unittest.TestCase):
 
 
 class ApiLimitTests(unittest.TestCase):
+    def test_first_fetch_includes_all_available_history(self):
+        with patch.object(fetcher, 'read_latest_history_row', return_value=None):
+            self.assertEqual(fetcher.default_history_fetch_bounds(1793444937), (1793444937, 0, ''))
+        with patch.object(fetcher, 'read_latest_history_row', return_value={'Date': 'invalid'}):
+            self.assertEqual(fetcher.default_history_fetch_bounds(1793444937), (1793444937, 0, ''))
+
+    def test_existing_history_keeps_incremental_overlap(self):
+        date = '2026-10-20T12:00:00Z'
+        with patch.object(fetcher, 'read_latest_history_row', return_value={'Date': date}):
+            bounds = fetcher.default_history_fetch_bounds(1793444937)
+        expected = fetcher.local_day_start_timestamp(fetcher.parse_event_date(date),
+                                                    fetcher.HISTORY_FETCH_OVERLAP_DAYS)
+        self.assertEqual(bounds, (1793444937, expected, ''))
+
+    def test_initial_import_paginates_beyond_last_day(self):
+        import csv
+        def entry(event_id, date, timestamp):
+            return {'Date': date, 'time': timestamp, 'Id': event_id,
+                    'League': fetcher.LEAGUE_NAME, 'Account': 'Test', 'Action': 'added',
+                    'Stash': 'Test stash', 'Item': 'Divine Orb', 'X': '0', 'Y': '0'}
+        pages = [({'entries': [entry('2', '2026-10-01T12:00:00Z', 1790856000)], 'truncated': True}, {}),
+                 ({'entries': [entry('1', '2026-09-01T12:00:00Z', 1788264000)], 'truncated': False}, {})]
+        args = SimpleNamespace(guild_id='test', session_id='test', from_timestamp='',
+                               end_timestamp='', from_id='')
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(fetcher, 'LOG_DIR', directory), \
+             patch.object(fetcher.time, 'time', return_value=1793444937), \
+             patch.object(fetcher.time, 'sleep'), \
+             patch.object(fetcher, 'fetch_guild_history_page_with_retries', side_effect=pages) as request:
+            output = fetcher.fetch_guild_history(args)
+            with open(output, encoding='utf-8') as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual([row['Id'] for row in rows], ['1', '2'])
+            self.assertEqual(request.call_count, 2)
+            self.assertTrue(all(call.args[3] == '0' for call in request.call_args_list))
+            self.assertEqual(request.call_args_list[1].args[2:], ('1790856000', '0', '2'))
+
     def test_error_payload_is_not_mistaken_for_empty_history(self):
         self.assertTrue(fetcher.has_history_entry_list({'entries': []}))
         self.assertTrue(fetcher.has_history_entry_list({'result': {'entries': []}}))

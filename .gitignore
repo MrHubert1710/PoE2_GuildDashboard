@@ -6,7 +6,7 @@
 venv**
 .venv/
 poe2logger/private_config.py
-stash_reports/refresh.lock
+stash_reports/**/refresh.lock
 .run/
 service.env
 logs/gunicorn.log

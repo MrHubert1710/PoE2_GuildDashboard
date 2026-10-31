@@ -212,6 +212,10 @@ Gunicorna pozostają wspólne. Zmiana ligi nie resetuje ograniczeń API.
 
 ### Zachowanie odświeżania
 
+- Gdy liga nie ma jeszcze lokalnej historii (lub nie ma poprawnej daty kursora),
+  pierwszy fetch pobiera całą historię dostępną w API, przechodząc kolejne strony
+  do końca. Zakres nie jest ograniczany do ostatniej doby. Dla istniejącej historii
+  kolejne odświeżenia pobierają nowe zdarzenia z zakładką `HISTORY_FETCH_OVERLAP_DAYS`.
 - Wejście na stronę natychmiast zwraca ostatni zapisany raport i uruchamia
   odświeżanie w tle, o ile limit na to pozwala.
 - Limit jest wspólny dla klientów i procesów: maksymalnie dwie automatyczne

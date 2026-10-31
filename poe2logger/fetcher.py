@@ -186,15 +186,14 @@ def local_day_start_timestamp(date_value, overlap_days=0):
 
 
 def default_history_fetch_bounds(fetch_timestamp):
-    """Return automatic history fetch bounds with date overlap."""
+    """Bootstrap all available history; use an overlap once a cursor exists."""
     latest_row = read_latest_history_row()
     if latest_row is None:
-        end_timestamp = fetch_timestamp - 24 * 60 * 60
-        return fetch_timestamp, end_timestamp, ''
+        return fetch_timestamp, 0, ''
     
     latest_date = parse_event_date(get_csv_value(latest_row, 'Date').strip())
     if latest_date == datetime.min:
-        end_timestamp = fetch_timestamp - 24 * 60 * 60
+        end_timestamp = 0
     else:
         end_timestamp = local_day_start_timestamp(latest_date, HISTORY_FETCH_OVERLAP_DAYS)
     
