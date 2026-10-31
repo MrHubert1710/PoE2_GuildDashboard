@@ -15,6 +15,78 @@ python -m flask --app app run
 
 Serwer produkcyjny na Linuxie może używać `gunicorn app:app`.
 
+## Usługa na Ubuntu (systemd)
+
+W katalogu projektu na serwerze przygotuj środowisko jako użytkownik aplikacji:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r required.txt
+python3 service.py install
+python3 service.py start
+```
+
+Jeśli brakuje modułu `venv`, zainstaluj `sudo apt install python3-venv`.
+Instalator sam używa `sudo` do operacji systemowych. Przy uruchomieniu jako root
+podaj konto aplikacji: `python3 service.py install --user NAZWA_UZYTKOWNIKA`.
+Konto musi mieć dostęp do projektu i możliwość zapisu raportów, logów CSV
+oraz stanu odświeżania. Istniejący katalog `venv` także jest wykrywany;
+inne środowisko wskaż przez `--venv /sciezka/do/venv`.
+
+```sh
+python3 service.py status
+python3 service.py stop
+python3 service.py start
+python3 service.py restart
+python3 service.py logs
+```
+
+`status` pokazuje stan procesu i ostatnie logi; dla zatrzymanej usługi zwraca
+niezerowy kod systemctl. `logs` śledzi dziennik do przerwania przez Ctrl+C.
+Te same operacje są dostępne bez skryptu:
+
+```sh
+sudo systemctl status poe2logger --no-pager
+sudo systemctl stop poe2logger
+sudo systemctl start poe2logger
+sudo systemctl restart poe2logger
+sudo journalctl -u poe2logger -n 100 -f
+```
+
+Instalacja tworzy `/etc/systemd/system/poe2logger.service` i włącza autostart
+po restarcie serwera; osobne `start` uruchamia usługę od razu. systemd ponawia
+uruchomienie po awarii, a ręczne `stop` pozostawia usługę zatrzymaną.
+Gunicorn działa w katalogu rzeczywistym projektu (po rozwiązaniu symlinków)
+z dwoma procesami i czterema wątkami na proces.
+
+Domyślny adres to `127.0.0.1:8000`, np. dla reverse proxy. Do bezpośredniego
+dostępu z sieci ustaw adres podczas instalacji:
+
+```sh
+python3 service.py install --bind 0.0.0.0:8000
+python3 service.py restart
+```
+
+Jeśli aplikacja jest obecnie uruchomiona inną metodą na tym samym porcie,
+zatrzymaj poprzedni proces przed pierwszym `start`.
+Konfiguracja `private_config.py` pozostaje używana. Zmienne środowiskowe usługi
+możesz dodatkowo zapisać w opcjonalnym `/etc/poe2logger.env`, np.
+`POESESSID=...` i `POE_GUILD_ID=...` (po jednej na wiersz). Usługa nie dziedziczy
+zmiennych z interaktywnej sesji SSH. Po zmianie konfiguracji wykonaj `restart`.
+
+Po aktualizacji projektu:
+
+```sh
+git pull
+.venv/bin/python -m pip install -r required.txt
+python3 service.py restart
+```
+
+Po przeniesieniu projektu lub zmianie ustawień usługi wykonaj ponownie
+`install`, a następnie `restart`. `install --dry-run` pokazuje wygenerowaną
+konfigurację bez jej instalowania. Dostępność HTTP sprawdzisz przez
+`curl --fail http://127.0.0.1:8000/health` (nie wywołuje fetcha).
+
 ## Odświeżanie
 
 - Wejście na stronę natychmiast zwraca ostatni zapisany raport i uruchamia
