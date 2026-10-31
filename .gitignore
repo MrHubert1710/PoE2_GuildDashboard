@@ -4,3 +4,6 @@
 *.json
 *.pyc
 venv**
+.venv/
+poe2logger/private_config.py
+stash_reports/refresh.lock
