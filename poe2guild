@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+# Local process management, suitable for a shell running inside screen.
+set -euo pipefail
+ROOT_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+RUN_DIR="$ROOT_DIR/.run"
+LOG_FILE="$ROOT_DIR/logs/gunicorn.log"
+PID_FILE="$RUN_DIR/gunicorn.pid"
+IDENTITY_FILE="$RUN_DIR/gunicorn.identity"
+ORIGINAL_ARGS=("$@")
+
+die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
+require() { command -v "$1" >/dev/null || die "Required command not found: $1"; }
+usage() {
+    cat <<'EOF'
+Usage: ./poe2guild COMMAND [--dry-run]
+
+  build      Create a virtualenv if needed and install application dependencies
+  start      Start Gunicorn in the background, recording its PID and logs
+  stop       Gracefully stop only this checkout's recorded Gunicorn process
+  restart    Stop and start the application (does not rebuild dependencies)
+  status     Show process, checkout, listen address and health status
+  logs       Follow logs (Ctrl+C closes the viewer)
+  install    Add/update this route in nginx services (sudo/root)
+  uninstall  Remove this route from nginx services (sudo/root)
+  help       Show this help
+
+Settings: service.ini beside this script. No systemd user units or linger.
+install/uninstall --dry-run prints the proposed nginx file without changing it.
+Only install/uninstall use root privileges; neither starts/stops the app.
+EOF
+}
+ACTION=${1:-help}; shift "$(( $# > 0 ? 1 : 0 ))"
+DRY_RUN=false
+while (($#)); do
+    case "$1" in --dry-run) DRY_RUN=true ;; *) die "Unknown option: $1" ;; esac
+    shift
+done
+case "$ACTION" in
+    help|-h|--help) usage; exit 0 ;;
+    build|start|stop|restart|status|logs|install|uninstall) ;;
+    *) usage >&2; exit 2 ;;
+esac
+if "$DRY_RUN" && [[ "$ACTION" != install && "$ACTION" != uninstall ]]; then
+    die '--dry-run is supported only for install/uninstall'
+fi
+[[ $(uname -s) == Linux ]] || die 'Linux is required'
+UID_NUMBER=$(id -u)
+if [[ "$ACTION" == install || "$ACTION" == uninstall ]]; then
+    if [[ "$UID_NUMBER" != 0 ]]; then
+        require sudo
+        exec sudo -- "$ROOT_DIR/poe2guild" "${ORIGINAL_ARGS[@]}"
+    fi
+elif [[ "$UID_NUMBER" == 0 ]]; then
+    die 'Run application commands as the application account, without sudo'
+fi
+
+trim() {
+    local value=$1
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    printf '%s' "$value"
+}
+BIND=127.0.0.1:9001 VENV='' URL_PREFIX=/poe2-guild
+NGINX_FILE=/etc/nginx/sites-enabled/services NGINX_SERVER=''
+section=''
+if [[ -f "$ROOT_DIR/service.ini" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line=$(trim "$line")
+        [[ -z "$line" || "$line" == \#* || "$line" == \;* ]] && continue
+        if [[ "$line" =~ ^\[([^]]+)\]$ ]]; then section=${BASH_REMATCH[1]}; continue; fi
+        [[ "$line" == *=* && -n "$section" ]] || die "Invalid service.ini line: $line"
+        [[ "$section" == service ]] || continue
+        key=$(trim "${line%%=*}") value=$(trim "${line#*=}")
+        case "$key" in
+            bind) BIND=$value ;; venv) VENV=$value ;; url_prefix) URL_PREFIX=$value ;;
+            nginx_file) NGINX_FILE=$value ;; nginx_server) NGINX_SERVER=$value ;;
+            *) die "Unknown service.ini setting: $key" ;;
+        esac
+    done < "$ROOT_DIR/service.ini"
+fi
+# Restrict values inserted into nginx directives to literal local addresses/paths.
+[[ "$BIND" =~ ^127\.0\.0\.1:([0-9]+)$ ]] || die 'bind must be 127.0.0.1:PORT'
+PORT=${BASH_REMATCH[1]}
+[[ ${#PORT} -le 5 ]] && ((10#$PORT >= 1 && 10#$PORT <= 65535)) || die 'Invalid port'
+[[ "$URL_PREFIX" =~ ^/[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$ ]] || die 'url_prefix must be a literal path without a trailing slash'
+[[ "$NGINX_SERVER" =~ ^[A-Za-z0-9._*-]*$ ]] || die 'nginx_server must be one literal server_name'
+
+nginx_edit() {
+    require nginx; require flock; require awk
+    [[ "$NGINX_FILE" == /* && -f "$NGINX_FILE" ]] || die 'nginx_file must name an existing absolute file'
+    # EXIT runs after function-local variables unwind on an errexit failure.
+    # Keep transaction state in the shell so rollback remains available then.
+    target='' candidate='' backup='' changed=false committed=false reload_attempted=false
+    target=$(readlink -f -- "$NGINX_FILE")
+    [[ $(stat -c %u -- "$target") == 0 ]] || die 'Nginx configuration must be owned by root'
+    # A root-owned lock shared across checkouts protects the shared services file.
+    exec 8>/run/lock/poe2guild-nginx.lock
+    flock -x 8
+    rollback_nginx() {
+        local result=$?
+        if "$changed" && ! "$committed"; then
+            printf 'Restoring previous nginx configuration.\n' >&2
+            mv -f -- "$backup" "$target" || return 1
+            backup=''
+            if "$reload_attempted"; then nginx -t && nginx -s reload || true; fi
+        fi
+        [[ -z "$candidate" ]] || rm -f -- "$candidate"
+        [[ -z "$backup" ]] || rm -f -- "$backup"
+        return "$result"
+    }
+    # Clear this handler on normal return; failures restore the previous file.
+    trap rollback_nginx EXIT
+    candidate=$(mktemp "$(dirname -- "$target")/.poe2guild-candidate.XXXXXX")
+    cp -p -- "$target" "$candidate"
+    awk -v action="$ACTION" -v prefix="$URL_PREFIX" -v bind="$BIND" \
+        -v server_name="$NGINX_SERVER" -f "$ROOT_DIR/scripts/nginx-route.awk" "$target" > "$candidate"
+    if "$DRY_RUN"; then
+        cat -- "$candidate"
+    elif cmp -s -- "$target" "$candidate"; then
+        printf 'Nginx configuration already matches; no changes.\n'
+    else
+        nginx -t
+        backup=$(mktemp "$(dirname -- "$target")/.poe2guild-backup.XXXXXX")
+        cp -p -- "$target" "$backup"
+        changed=true
+        mv -f -- "$candidate" "$target"; candidate=''
+        nginx -t
+        reload_attempted=true
+        nginx -s reload
+        committed=true
+        printf 'Nginx route %s: %s complete.\n' "$URL_PREFIX" "$ACTION"
+    fi
+    committed=true
+    rollback_nginx
+    trap - EXIT
+}
+if [[ "$ACTION" == install || "$ACTION" == uninstall ]]; then nginx_edit; exit 0; fi
+
+require flock
+mkdir -p -- "$RUN_DIR" "$ROOT_DIR/logs"
+exec 9>"$RUN_DIR/control.lock"
+flock -x 9
+
+resolve_venv() {
+    if [[ -z "$VENV" ]]; then
+        for candidate in .venv venv; do
+            if [[ -x "$ROOT_DIR/$candidate/bin/gunicorn" ]]; then VENV=$candidate; break; fi
+        done
+        VENV=${VENV:-.venv}
+    fi
+    if [[ "$VENV" != /* ]]; then VENV="$ROOT_DIR/$VENV"; fi
+    VENV=$(readlink -m -- "$VENV")
+}
+process_stamp() {
+    # starttime is field 22; strip the parenthesized comm field first.
+    local details
+    details=$(cat "/proc/$1/stat" 2>/dev/null) || return 1
+    details=${details##*) }
+    awk '{print $20}' <<< "$details"
+}
+owned_process() {
+    local pid=$1 cwd args
+    [[ "$pid" =~ ^[1-9][0-9]*$ ]] && kill -0 "$pid" 2>/dev/null || return 1
+    [[ $(stat -c %u "/proc/$pid" 2>/dev/null) == "$UID_NUMBER" ]] || return 1
+    cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null) || return 1
+    [[ "$cwd" == "$ROOT_DIR" ]] || return 1
+    args=$(ps -p "$pid" -o args= 2>/dev/null) || return 1
+    [[ "$args" == *gunicorn* && "$args" == *app:app* ]]
+}
+running_pid() {
+    local pid recorded stamp
+    [[ -f "$PID_FILE" && -f "$IDENTITY_FILE" ]] || return 1
+    read -r pid < "$PID_FILE" || return 1
+    read -r recorded stamp < "$IDENTITY_FILE" || return 1
+    [[ "$recorded" == "$pid" ]] && owned_process "$pid" || return 1
+    [[ $(process_stamp "$pid") == "$stamp" ]] || return 1
+    printf '%s' "$pid"
+}
+load_environment() {
+    local line key value
+    [[ -f "$ROOT_DIR/service.env" ]] || return 0
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line=${line%$'\r'}
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        [[ "$line" == *=* ]] || die 'service.env requires NAME=value lines'
+        key=${line%%=*}; value=${line#*=}
+        [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die 'Invalid environment variable name'
+        export "$key=$value"
+    done < "$ROOT_DIR/service.env"
+}
+start_app() {
+    local pid='' stamp deadline
+    if pid=$(running_pid); then printf 'Already running: PID %s\n' "$pid"; return; fi
+    # Adopt only a matching master if startup was interrupted before identity save.
+    if [[ -f "$PID_FILE" ]]; then
+        read -r pid < "$PID_FILE" || true
+        if owned_process "$pid"; then
+            [[ ! -f "$IDENTITY_FILE" ]] || die 'PID identity changed; inspect the recorded process before starting'
+            stamp=$(process_stamp "$pid")
+            printf '%s %s\n' "$pid" "$stamp" > "$IDENTITY_FILE"
+            printf 'Already running: PID %s\n' "$pid"; return
+        fi
+    fi
+    rm -f -- "$PID_FILE" "$IDENTITY_FILE"
+    resolve_venv
+    [[ -x "$VENV/bin/gunicorn" ]] || die 'Gunicorn is missing; run ./poe2guild build'
+    load_environment
+    # Gunicorn daemonizes itself. Close the management lock in the application.
+    "$VENV/bin/gunicorn" --daemon --chdir "$ROOT_DIR" --pid "$PID_FILE" \
+        --bind "$BIND" --workers 2 --worker-class gthread --threads 4 \
+        --graceful-timeout 30 --access-logfile "$LOG_FILE" --error-logfile "$LOG_FILE" app:app 9>&-
+    deadline=$((SECONDS + 20))
+    while ((SECONDS < deadline)); do
+        if [[ -f "$PID_FILE" ]]; then
+            read -r pid < "$PID_FILE" || true
+            if owned_process "$pid"; then
+                stamp=$(process_stamp "$pid")
+                printf '%s %s\n' "$pid" "$stamp" > "$IDENTITY_FILE"
+                if curl --noproxy '*' -fsS --max-time 1 "http://$BIND/health" >/dev/null 2>&1; then
+                    printf 'Started: PID %s, http://%s, logs: %s\n' "$pid" "$BIND" "$LOG_FILE"; return
+                fi
+            fi
+        fi
+        sleep 0.25
+    done
+    tail -n 30 "$LOG_FILE" >&2 || true
+    die 'Application did not become healthy; check ./poe2guild status and logs'
+}
+stop_app() {
+    local pid
+    if ! pid=$(running_pid); then
+        printf 'Not running (no matching recorded process).\n'
+        rm -f -- "$PID_FILE" "$IDENTITY_FILE"; return
+    fi
+    kill -TERM "$pid"
+    for _ in {1..140}; do
+        if ! running_pid >/dev/null; then
+            rm -f -- "$PID_FILE" "$IDENTITY_FILE"
+            printf 'Stopped.\n'; return
+        fi
+        sleep 0.25
+    done
+    die 'Gunicorn did not stop within 35 seconds; leaving process records for inspection'
+}
+case "$ACTION" in
+    build)
+        resolve_venv; require python3
+        if [[ ! -x "$VENV/bin/python" ]]; then python3 -m venv "$VENV"; fi
+        "$VENV/bin/python" -m pip install -r "$ROOT_DIR/required.txt" 9>&-
+        printf 'Build complete.\n' ;;
+    start) require curl; start_app ;;
+    stop) stop_app ;;
+    restart) require curl; stop_app; start_app ;;
+    status)
+        if pid=$(running_pid); then
+            printf 'Running: PID %s\nProject: %s\nListen: http://%s\nLogs: %s\n' "$pid" "$ROOT_DIR" "$BIND" "$LOG_FILE"
+            if curl --noproxy '*' -fsS --max-time 3 "http://$BIND/health" >/dev/null 2>&1; then printf 'Health: ok\n'; else printf 'Health: unavailable\n'; exit 1; fi
+        else printf 'Stopped (no matching recorded process).\n'; exit 3; fi ;;
+    logs) touch "$LOG_FILE"; flock -u 9; exec tail -n 100 -f "$LOG_FILE" ;;
+esac

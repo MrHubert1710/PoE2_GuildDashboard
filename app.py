@@ -46,7 +46,9 @@ def index():
                         '<h1>Guild Report</h1><p>No saved report yet. '
                         'Waiting for the first successful refresh.</p></body></html>')
     status = refresh_status()
-    status.update(revision=revision, status_url=url_for('status'), refresh_url=url_for('refresh'))
+    # Relative paths work at / and below a prefix stripped by nginx proxy_pass.
+    status.update(revision=revision, status_url=url_for('status').lstrip('/'),
+                  refresh_url=url_for('refresh').lstrip('/'))
     bootstrap = json.dumps(status).replace('<', '\\u003c')
     controls = '''
     <style>
@@ -65,7 +67,7 @@ def index():
     html_content = html_content.replace('<body>', '<body>' + controls, 1)
     html_content = html_content.replace('</body>',
         f'<script id="refresh-bootstrap" type="application/json">{bootstrap}</script>'
-        f'<script src="{url_for("static", filename="refresh.js")}"></script></body>', 1)
+        f'<script src="{url_for("static", filename="refresh.js").lstrip("/")}"></script></body>', 1)
     return Response(html_content, mimetype='text/html', headers={'Cache-Control': 'no-store'})
 
 

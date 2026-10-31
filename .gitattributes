@@ -1,0 +1,3 @@
+poe2guild text eol=lf
+tests/*.sh text eol=lf
+scripts/*.awk text eol=lf

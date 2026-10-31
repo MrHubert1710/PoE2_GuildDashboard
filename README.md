@@ -1,135 +1,164 @@
 # Poe2Logger
 
-Aplikacja Flask wyświetla zapisany raport gildii. Dane źródłowe są przechowywane
-w CSV w `logs/`, a raport HTML jest publikowany dopiero po zakończeniu generowania.
+Aplikacja Flask pobiera historię skrytki gildii i wyświetla raport HTML.
+Dane źródłowe są przechowywane w CSV w `logs/`. Nowy raport zastępuje
+poprzedni dopiero po zakończeniu generowania.
 
-## Uruchomienie
+## Wymagania
 
-Zainstaluj `required.txt`, ustaw konfigurację prywatną lub zmienne środowiskowe
-`POE_GUILD_ID` i `POESESSID` / `POE_SESSION_ID`, następnie uruchom aplikację:
+- Linux, Bash, Python 3 z modułem venv i pip.
+- Gunicorn i Flask z `required.txt` (instalowane przez `build`).
+- Narzędzia systemowe: `flock`, `curl`, `awk`, `readlink`, `ps`, `stat`.
+- Nginx dla publikacji przez reverse proxy; `sudo` tylko do jego konfiguracji.
 
-```sh
-python -m pip install -r required.txt
-python -m flask --app app run
-```
+Przygotuj `poe2logger/private_config.py` zgodnie z importami aplikacji.
+Identyfikator gildii i sesję można nadpisać zmiennymi `POE_GUILD_ID`
+i `POESESSID` / `POE_SESSION_ID`.
 
-Serwer produkcyjny na Linuxie może używać `gunicorn app:app`.
+## Zarządzanie lokalne
 
-## Usługa na Ubuntu (systemd)
-
-W katalogu projektu na serwerze przygotuj środowisko jako użytkownik aplikacji:
-
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r required.txt
-python3 service.py install
-python3 service.py start
-```
-
-Jeśli brakuje modułu `venv`, zainstaluj `sudo apt install python3-venv`.
-Domyślnie instalowana jest **usługa bieżącego użytkownika**, bez `sudo`,
-w `~/.config/systemd/user/poe2logger.service` (lub w `XDG_CONFIG_HOME/systemd/user`).
-Konto musi mieć dostęp do projektu i możliwość zapisu raportów, logów CSV
-oraz stanu odświeżania. Istniejący katalog `venv` także jest wykrywany;
-inne środowisko wskaż przez `--venv /sciezka/do/venv`.
+Skrypt Bash `poe2guild` zarządza Gunicornem bez systemd. Można go wywoływać
+z powłoki w istniejącej sesji screen lub ze skryptu startowego serwera,
+uruchomionego pod kontem aplikacji. Sam skrypt nie tworzy sesji screen.
+Autostart po restarcie systemu zapewnia zewnętrzny mechanizm startowy serwera.
+Linger ani jednostki systemd użytkownika nie są używane.
 
 ```sh
-python3 service.py status
-python3 service.py stop
-python3 service.py start
-python3 service.py restart
-python3 service.py logs
+./poe2guild build
+./poe2guild start
+./poe2guild status
 ```
 
-`status` pokazuje stan procesu i ostatnie logi; dla zatrzymanej usługi zwraca
-niezerowy kod systemctl. `logs` śledzi dziennik do przerwania przez Ctrl+C.
-Te same operacje są dostępne bez skryptu:
+| Polecenie | Działanie | Uprawnienia |
+| --- | --- | --- |
+| `./poe2guild build` | Tworzy virtualenv w razie potrzeby i instaluje `required.txt`. | Konto aplikacji |
+| `./poe2guild start` | Uruchamia Gunicorn w tle; ponowne wywołanie nie tworzy drugiej instancji. | Konto aplikacji |
+| `./poe2guild stop` | Wysyła TERM do zapisanego procesu Gunicorna i czeka na zakończenie. | Konto aplikacji |
+| `./poe2guild restart` | Zatrzymuje i uruchamia aplikację; nie przebudowuje zależności. | Konto aplikacji |
+| `./poe2guild status` | Pokazuje PID, katalog projektu, adres i wynik sprawdzenia `/health`. | Konto aplikacji |
+| `./poe2guild logs` | Pokazuje ostatnie 100 linii logu i śledzi kolejne; Ctrl+C kończy podgląd. | Konto aplikacji |
+| `./poe2guild install` | Dodaje brakujące wpisy trasy Nginx, testuje konfigurację i przeładowuje Nginx. | Root przez sudo |
+| `./poe2guild uninstall` | Usuwa wpisy tej trasy, testuje konfigurację i przeładowuje Nginx. | Root przez sudo |
+| `./poe2guild help` | Wyświetla pomoc. | Bez dodatkowych uprawnień |
+
+Tylko `install` i `uninstall` wywołują `sudo`, jeśli nie są już uruchomione
+jako root. Nie budują, nie uruchamiają ani nie zatrzymują aplikacji.
+Pozostałe operacje wykonuj jako konto aplikacji; skrypt odrzuca je jako root.
+
+Gunicorn daemonizuje się, zapisuje PID w `.run/gunicorn.pid`, tożsamość procesu
+w `.run/gunicorn.identity`, a logi w `logs/gunicorn.log`. Te pliki są lokalne
+i pomijane przez Git. Przed zatrzymaniem sprawdzany jest właściciel procesu,
+katalog roboczy, polecenie i czas jego uruchomienia, aby nie zatrzymać innego
+procesu po ponownym wykorzystaniu PID-u. Skrypt nie zabija procesów tylko
+dlatego, że zajmują skonfigurowany port.
+
+Gunicorn działa z dwoma procesami i czterema wątkami na proces. Operacje
+zarządzania są serializowane przez `flock`. `status` zwraca kod 3 dla
+zatrzymanej aplikacji, 1 dla nieudanego sprawdzenia HTTP i 0 dla działającej,
+zdrowej aplikacji. `stop` czeka do 35 sekund na łagodne zakończenie.
+
+## Konfiguracja
+
+Plik `service.ini` obok skryptu:
+
+```ini
+[service]
+bind = 127.0.0.1:9001
+venv =
+url_prefix = /poe2-guild
+nginx_file = /etc/nginx/sites-enabled/services
+nginx_server =
+```
+
+- `bind`: lokalny adres Gunicorna w formacie `127.0.0.1:PORT`.
+- `venv`: ścieżka virtualenv, względna względem projektu lub absolutna.
+  Pusta wartość wykrywa `.venv`, następnie `venv`, zawierające Gunicorna;
+  `build` tworzy `.venv`, jeśli nie znajdzie istniejącego środowiska.
+- `url_prefix`: ścieżka publiczna aplikacji bez końcowego ukośnika.
+- `nginx_file`: istniejący plik konfiguracji Nginx, którego właścicielem jest
+  root. Symlink jest rozwiązywany, a aktualizacja zachowuje jego cel.
+- `nginx_server`: pojedyncza wartość `server_name`, wskazująca blok do edycji.
+  Można pozostawić puste, jeśli plik zawiera dokładnie jeden blok `server`.
+  Niejednoznaczny wybór zatrzymuje operację bez zmian.
+
+Ustawienia są odczytywane jako dane, bez wykonywania poleceń powłoki.
+Po zmianie adresu wykonaj `restart` dla aplikacji i `install` dla Nginx.
+Przy zmianie prefiksu najpierw wykonaj `uninstall` ze starym prefiksem,
+a następnie zmień ustawienie i uruchom `install`.
+
+Opcjonalne zmienne środowiskowe aplikacji zapisz lokalnie w `service.env`:
+
+```text
+POE_GUILD_ID=...
+POESESSID=...
+```
+
+Format to `NAME=value`, bez cudzysłowów i rozwijania zmiennych lub poleceń.
+Plik jest pomijany przez Git i odczytywany przy starcie aplikacji.
+Po zmianach wykonaj `restart`. Konto aplikacji musi mieć dostęp do projektu
+oraz możliwość zapisu logów, raportów i `.run/`.
+
+## Instalacja trasy Nginx
+
+Najpierw ustaw `service.ini` odpowiednio do istniejącego pliku `services`.
+Skrypt oczekuje gotowego bloku `server`; nie tworzy hosta, certyfikatów ani
+konfiguracji nasłuchu. Podgląd i zastosowanie zmian:
 
 ```sh
-systemctl --user status poe2logger --no-pager
-systemctl --user stop poe2logger
-systemctl --user start poe2logger
-systemctl --user restart poe2logger
-journalctl --user -u poe2logger -n 100 -f
+./poe2guild install --dry-run
+./poe2guild install
 ```
 
-Instalacja włącza usługę w menedżerze użytkownika; osobne `start` uruchamia ją
-od razu. Aby startowała także po restarcie serwera przed logowaniem i działała
-po wylogowaniu z SSH, włącz linger dla swojego konta:
+Dla domyślnych ustawień dodawane są lokalizacje `/poe2-guild/` kierująca do
+`http://127.0.0.1:9001/` i `/poe2-guild` przekierowująca na wersję z ukośnikiem.
+Nginx usuwa prefiks przed przekazaniem żądania do aplikacji. Strona używa
+względnych adresów API i skryptu odświeżania, dzięki czemu działa pod prefiksem.
+
+Skrypt sprawdza istniejące lokalizacje. Zgodny wpis pozostawia bez zmian,
+wraz z jego dodatkowymi dyrektywami. Konflikt z innym upstreamem zatrzymuje
+operację. Dodane przez skrypt fragmenty są oznaczone komentarzami
+`BEGIN/END poe2guild`; ponowna instalacja ich nie dubluje.
+
+Edycja jest chroniona wspólną blokadą. Przed zmianą sprawdzana jest aktualna
+konfiguracja, a po zapisie wykonywane jest `nginx -t` i `nginx -s reload`.
+Błąd walidacji lub przeładowania przywraca poprzedni plik. Pozostałe usługi
+w pliku są zachowywane. Pliki tymczasowe pozostają pod uprawnieniami roota.
+
+Usunięcie trasy bez zatrzymywania aplikacji:
 
 ```sh
-loginctl enable-linger "$USER"
-loginctl show-user "$USER" -p Linger
+./poe2guild uninstall --dry-run
+./poe2guild uninstall
 ```
 
-Wynik powinien zawierać `Linger=yes`. Jeśli polityka serwera wymaga uprawnień
-administratora, administrator może jednorazowo wykonać
-`sudo loginctl enable-linger NAZWA_UZYTKOWNIKA`. Skrypt nie wywołuje `sudo`
-w trybie użytkownika. Polecenia uruchamiaj w zwykłej sesji SSH tego konta,
-w której dostępny jest menedżer `systemd --user`.
+Usuwane są zarządzane fragmenty oraz zgodne lokalizacje tej trasy w wybranym
+bloku `server`. Przy nieoznaczonej trasie upstream musi odpowiadać `bind`.
+Skrypt nie usuwa całego pliku `services`.
 
-systemd ponawia
-uruchomienie po awarii, a ręczne `stop` pozostawia usługę zatrzymaną.
-Gunicorn działa w katalogu rzeczywistym projektu (po rozwiązaniu symlinków)
-z dwoma procesami i czterema wątkami na proces.
-
-Domyślny adres to `127.0.0.1:8000`, np. dla reverse proxy. Do bezpośredniego
-dostępu z sieci ustaw adres podczas instalacji:
-
-```sh
-python3 service.py install --bind 0.0.0.0:8000
-python3 service.py restart
-```
-
-Jeśli aplikacja jest obecnie uruchomiona inną metodą na tym samym porcie,
-zatrzymaj poprzedni proces przed pierwszym `start`.
-Konfiguracja `private_config.py` pozostaje używana. Zmienne środowiskowe usługi
-możesz dodatkowo zapisać w opcjonalnym `~/.config/poe2logger/environment`
-(lub `XDG_CONFIG_HOME/poe2logger/environment`), np.
-`POESESSID=...` i `POE_GUILD_ID=...` (po jednej na wiersz). Usługa nie dziedziczy
-zmiennych z interaktywnej sesji SSH. Po zmianie konfiguracji wykonaj `restart`.
-
-Po aktualizacji projektu:
+## Aktualizacja i diagnostyka
 
 ```sh
 git pull
-.venv/bin/python -m pip install -r required.txt
-python3 service.py restart
+./poe2guild build
+./poe2guild restart
+./poe2guild status
+curl --fail http://127.0.0.1:9001/health
 ```
 
-Po przeniesieniu projektu lub zmianie ustawień usługi wykonaj ponownie
-`install`, a następnie `restart`. `install --dry-run` pokazuje wygenerowaną
-konfigurację bez jej instalowania. Dostępność HTTP sprawdzisz przez
-`curl --fail http://127.0.0.1:8000/health` (nie wywołuje fetcha).
+Dostosuj port do `bind`. `/health` nie wywołuje fetcha danych.
+Przy problemach uruchom `./poe2guild logs`. Po przeniesieniu projektu
+zatrzymaj proces ze starego katalogu i uruchom aplikację z nowego.
 
-### Opcjonalna usługa systemowa: `--root`
-
-Flaga `--root` przełącza każdą operację na usługę systemową. Może wystąpić
-przed lub po poleceniu. Tylko ten tryb korzysta z `sudo`, zapisuje jednostkę
-w `/etc/systemd/system/poe2logger.service` oraz odczytuje `/etc/poe2logger.env`.
-`--root` wybiera zasięg usługi; sama aplikacja działa jako konto z `--user`.
+Jeśli wcześniej aplikacja była uruchamiana przez systemd, administrator
+powinien jednorazowo zatrzymać i wyłączyć jej starą jednostkę przed `start`:
 
 ```sh
-python3 service.py install --root --user NAZWA_UZYTKOWNIKA
-python3 service.py start --root
-python3 service.py status --root
-python3 service.py stop --root
-python3 service.py restart --root
-python3 service.py logs --root
+sudo systemctl disable --now STARA_USLUGA.service
 ```
 
-Przy przejściu ze starszej usługi systemowej na usługę użytkownika zatrzymaj
-i wyłącz poprzedni autostart, aby dwie instancje nie zajmowały tego samego portu:
-
-```sh
-sudo systemctl disable --now poe2logger.service
-python3 service.py install
-python3 service.py start
-```
-
-Jeśli używałeś `/etc/poe2logger.env`, przenieś potrzebne ustawienia do pliku
-środowiskowego użytkownika. Zmiany właściciela istniejących danych i wyłączenie
-starej usługi wykonuje administrator; nowa instalacja nie zmienia ich automatycznie.
+Zastąp nazwę właściwą jednostką aplikacji. Skrypt nie migruje ani nie zatrzymuje
+starych procesów automatycznie. Nginx pozostaje zarządzany przez administratora;
+`install`/`uninstall` zmieniają wyłącznie trasę aplikacji i przeładowują konfigurację.
 
 ## Odświeżanie
 
@@ -164,6 +193,7 @@ raportów zamiast lokalnej blokady plikowej.
 
 ```sh
 python -m unittest discover -s tests -v
+bash tests/test_service.sh
 node --check static/refresh.js
 ```
 

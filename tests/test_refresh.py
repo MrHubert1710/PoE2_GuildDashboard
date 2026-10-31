@@ -135,6 +135,22 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/refresh').status_code, 400)
         self.assertEqual(self.client.get('/health').data, b'ok\n')
 
+    def test_links_work_below_nginx_prefix(self):
+        import re
+        from urllib.parse import urljoin
+        response = self.client.get('/?__snapshot=1')
+        text = response.get_data(as_text=True)
+        bootstrap = json.loads(re.search(
+            r'<script id="refresh-bootstrap" type="application/json">(.*?)</script>', text
+        ).group(1))
+        for base in ('https://example.test/poe2-guild/',
+                     'https://example.test/poe2-guild/GuildReport_Latest.html'):
+            self.assertEqual(urljoin(base, bootstrap['status_url']),
+                             'https://example.test/poe2-guild/api/refresh-status')
+            self.assertEqual(urljoin(base, bootstrap['refresh_url']),
+                             'https://example.test/poe2-guild/api/refresh')
+        self.assertIn('src="static/refresh.js"', text)
+
 
 class ApiLimitTests(unittest.TestCase):
     def test_error_payload_is_not_mistaken_for_empty_history(self):
