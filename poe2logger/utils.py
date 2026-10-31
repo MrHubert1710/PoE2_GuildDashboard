@@ -55,7 +55,7 @@ def chart_output_path(filename):
 
 def chart_asset_src(filename):
     """Return the dashboard-relative src path for a chart asset."""
-    return '/'.join([OUTPUT_DIR, 'charts', filename])
+    return '/'.join(['charts', filename])
 
 
 def target_stash_label():
@@ -101,7 +101,7 @@ def latest_dashboard_date():
 def dashboard_filename():
     """Return the dashboard filename based on the day/month of the latest operation."""
     latest_event_date = latest_dashboard_date()
-    return f'GuildReport_{latest_event_date:%d%m}.html'
+    return os.path.join(OUTPUT_DIR, f'GuildReport_{latest_event_date:%d%m}.html')
 
 
 def dashboard_title():

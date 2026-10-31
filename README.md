@@ -162,6 +162,56 @@ starych procesów automatycznie. Nginx pozostaje zarządzany przez administrator
 
 ## Odświeżanie
 
+### Dane osobno dla każdej ligi
+
+`LEAGUE_NAME` w `poe2logger/private_config.py` wybiera aktywną ligę.
+Historia, ceny, wykresy, raporty i stan odświeżania są zapisywane w jej katalogach:
+
+```text
+logs/
+  Example League/
+    history.csv
+    legacy_imports.json
+  Another League/
+    history.csv
+  api_cooldown.json
+  gunicorn.log
+stash_reports/
+  Example League/
+    GuildReport_Latest.html
+    GuildReport_0101.html
+    charts/
+    price_cache/
+    refresh_state.json
+    refresh.lock
+  Another League/
+    ...
+```
+
+Zwykłe nazwy lig pozostają czytelne. Znaki niedozwolone w ścieżkach są
+kodowane, np. `/` jako `%2F`, aby nazwa ligi nie tworzyła dodatkowych katalogów.
+Po zmianie `LEAGUE_NAME` wykonaj `./poe2guild restart`. Nowa liga zaczyna
+z własnym raportem i cache; powrót do poprzedniej przywraca jej zapisane dane.
+Adres strony oraz alias `/GuildReport_Latest.html` pozostają takie same
+i pokazują raport aktywnej ligi.
+
+Przy pierwszym generowaniu raportu w nowym układzie aplikacja importuje
+rekordy aktywnej ligi z dawnych CSV bezpośrednio w `logs/`. Mieszany plik
+jest filtrowany po polu `League`, a oryginał pozostaje nietknięty dla innych
+lig. Manifest zapobiega ponownemu importowi niezmienionych źródeł; zmieniony
+plik zostanie ponownie przetworzony, a transakcje zduplikowane przy scalaniu
+są pomijane.
+
+Dawny raport z katalogu głównego jest kopiowany tylko wtedy, gdy jego pole
+`League` odpowiada aktywnej lidze i nie ma jeszcze jej raportu. Dawny cache cen
+i stan odświeżania nie są importowane, ponieważ nie mają wiarygodnego przypisania
+do ligi. Nie usuwaj starych CSV przed zakończeniem importu potrzebnych lig.
+
+Odstęp wymagany przez API w `logs/api_cooldown.json` oraz techniczny dziennik
+Gunicorna pozostają wspólne. Zmiana ligi nie resetuje ograniczeń API.
+
+### Zachowanie odświeżania
+
 - Wejście na stronę natychmiast zwraca ostatni zapisany raport i uruchamia
   odświeżanie w tle, o ile limit na to pozwala.
 - Limit jest wspólny dla klientów i procesów: maksymalnie dwie automatyczne
@@ -181,9 +231,9 @@ starych procesów automatycznie. Nginx pozostaje zarządzany przez administrator
   wyliczana z daty zdarzeń w CSV.
 
 Wszystkie procesy WWW i CLI muszą pracować w tym samym katalogu projektu
-i korzystać ze wspólnego lokalnego dysku. Zachowaj `logs/`, `stash_reports/`
-oraz `GuildReport_Latest.html` między restartami. Stan limitu jest w
-`stash_reports/refresh_state.json`, a blokada systemowa w `refresh.lock`.
+i korzystać ze wspólnego lokalnego dysku. Zachowaj `logs/` oraz `stash_reports/`
+między restartami. Raport, stan limitu i blokada są w katalogu danej ligi
+w `stash_reports/`.
 Zadanie działa w wątku procesu WWW; zakończenie procesu przerywa zadanie,
 zwalnia blokadę i przy następnym odczycie statusu zgłasza nieudaną próbę.
 Wdrożenie na wielu niezależnych hostach wymaga wspólnej kolejki zadań i magazynu

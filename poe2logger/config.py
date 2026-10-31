@@ -1,11 +1,18 @@
 import os
+from .league_paths import league_paths
+from .private_config import LEAGUE_NAME
 
 
-LOG_DIR = 'logs'
+LEAGUE_PATHS = league_paths(LEAGUE_NAME)
+LEGACY_LOG_DIR = 'logs'
+LOG_DIR = os.fspath(LEAGUE_PATHS.logs)
 HISTORY_FILENAME = 'history.csv'
-LATEST_DASHBOARD_FILE = 'GuildReport_Latest.html'
+LATEST_DASHBOARD_NAME = 'GuildReport_Latest.html'
+LATEST_DASHBOARD_FILE = os.fspath(LEAGUE_PATHS.latest_dashboard)
+LEGACY_DASHBOARD_FILE = LATEST_DASHBOARD_NAME
+API_COOLDOWN_FILE = os.path.join(LEGACY_LOG_DIR, 'api_cooldown.json')
 CSV_FIELDNAMES = ['Date', 'Id', 'League', 'Account', 'Action', 'Stash', 'Item', 'X', 'Y']
-OUTPUT_DIR = 'stash_reports'
+OUTPUT_DIR = os.fspath(LEAGUE_PATHS.reports)
 CHART_DIR = os.path.join(OUTPUT_DIR, 'charts')
 PRICE_CACHE_DIR = os.path.join(OUTPUT_DIR, 'price_cache')
 PRICE_CACHE_MAX_AGE_HOURS = 12

@@ -4,7 +4,7 @@ import os
 from flask import Flask, Response, jsonify, request, url_for
 
 from poe2logger.cli import _generate_report
-from poe2logger.config import LATEST_DASHBOARD_FILE
+from poe2logger.config import LATEST_DASHBOARD_FILE, LATEST_DASHBOARD_NAME
 from poe2logger.refresh import manager
 
 
@@ -30,7 +30,7 @@ def start_refresh(automatic):
 
 
 @app.route('/')
-@app.route(f'/{LATEST_DASHBOARD_FILE}')
+@app.route(f'/{LATEST_DASHBOARD_NAME}')
 def index():
     """Serve the last good snapshot immediately; refresh outside the request."""
     if request.args.get('__snapshot') != '1':

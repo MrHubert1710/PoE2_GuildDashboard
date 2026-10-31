@@ -9,6 +9,7 @@ import urllib.request
 
 from .config import (
     CSV_FIELDNAMES,
+    API_COOLDOWN_FILE,
     HISTORY_FETCH_DELAY_SECONDS,
     HISTORY_FETCH_MAX_RETRIES,
     HISTORY_FETCH_OVERLAP_DAYS,
@@ -286,7 +287,7 @@ def build_guild_history_request(guild_id, session_id, from_timestamp, end_timest
 
 def request_guild_history_page(guild_id, session_id, from_timestamp, end_timestamp, from_id=''):
     """Fetch one page and return payload plus response headers."""
-    cooldown_path = os.path.join(LOG_DIR, 'api_cooldown.json')
+    cooldown_path = API_COOLDOWN_FILE
     try:
         with open(cooldown_path, encoding='utf-8') as stream:
             next_request = json.load(stream)

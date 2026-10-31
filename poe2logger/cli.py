@@ -4,7 +4,8 @@ from types import SimpleNamespace
 from .charts import print_individual_value_charts, print_player_value_chart, print_stash_value_chart
 from .dashboard import print_html_dashboard
 from .fetcher import fetch_guild_history
-from .processing import process_log
+from .processing import process_log, merge_log_files
+from .storage import migrate_legacy_data
 from . import state
 
 def parse_args():
@@ -32,6 +33,10 @@ def generate_report(fetch_history=False, fetch_prices=False, guild_id='', sessio
 def _generate_report(fetch_history=False, fetch_prices=False, guild_id='', session_id='', from_timestamp='', end_timestamp='', from_id=''):
     """Run optional fetch, then generate all report outputs."""
     state.force_price_fetch = fetch_prices
+
+    # Establish this league's local cursor before asking the API for history.
+    if migrate_legacy_data():
+        merge_log_files()
     
     if fetch_history:
         fetch_args = SimpleNamespace(

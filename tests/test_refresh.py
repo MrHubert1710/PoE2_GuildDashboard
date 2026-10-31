@@ -165,7 +165,7 @@ class ApiLimitTests(unittest.TestCase):
             response.__enter__.return_value = response
             response.read.return_value = b'{"entries": []}'
             response.headers = {'Retry-After': '60'}
-            with patch.object(fetcher, 'LOG_DIR', directory), \
+            with patch.object(fetcher, 'API_COOLDOWN_FILE', str(Path(directory) / 'api_cooldown.json')), \
                  patch.object(fetcher.urllib.request, 'urlopen', return_value=response), \
                  patch.object(fetcher.time, 'time', return_value=100), \
                  patch.object(fetcher.time, 'sleep') as sleep:
