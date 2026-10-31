@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from .config import LATEST_DASHBOARD_FILE, OUTPUT_DIR, PRICE_TYPES
+from .refresh import atomic_write
 from .private_config import LEAGUE_NAME, TARGET_STASHES
 from .prices import build_price_index, normalize_price_key, price_cache_path
 from .state import final_stash_state, log_events, movement_log, player_chart_files, player_summary, price_metadata, stash_chart_files, stash_summary, unpriced_summary, valuation_summary
@@ -1111,8 +1112,7 @@ def print_html_dashboard():
 '''
     
     for output_file in dashboard_files:
-        with open(output_file, 'w', encoding='utf-8') as dashboard_f:
-            dashboard_f.write(page)
+        atomic_write(output_file, page)
     
     print()
     print("=" * 80)

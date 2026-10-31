@@ -21,6 +21,15 @@ def parse_args():
 
 
 def generate_report(fetch_history=False, fetch_prices=False, guild_id='', session_id='', from_timestamp='', end_timestamp='', from_id=''):
+    """Coordinate report generation with other CLI and web workers."""
+    from .refresh import manager
+    return manager.run(lambda: _generate_report(
+        fetch_history, fetch_prices, guild_id, session_id,
+        from_timestamp, end_timestamp, from_id,
+    ), fetch_history=fetch_history)
+
+
+def _generate_report(fetch_history=False, fetch_prices=False, guild_id='', session_id='', from_timestamp='', end_timestamp='', from_id=''):
     """Run optional fetch, then generate all report outputs."""
     state.force_price_fetch = fetch_prices
     

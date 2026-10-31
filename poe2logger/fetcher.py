@@ -20,6 +20,7 @@ from .config import (
     RATE_LIMIT_SAFETY_MARGIN,
 )
 from .private_config import GUILD_ID, LEAGUE_NAME, SESSION_ID
+from .refresh import atomic_write
 from .utils import display_event_datetime, get_csv_value, get_csv_league, normalize_stash_name, parse_event_date, parse_event_id
 
 def first_present(mapping, keys, default=''):
@@ -49,6 +50,16 @@ def normalize_api_datetime(value):
         return parsed.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
     
     return value
+
+
+def has_history_entry_list(value):
+    """Recognize valid history envelopes, including an empty history list."""
+    if isinstance(value, list):
+        return True
+    return isinstance(value, dict) and not value.get('error') and any(
+        has_history_entry_list(value.get(key))
+        for key in ('entries', 'history', 'transactions', 'events', 'data', 'result')
+    )
 
 
 def extract_history_entries(payload):
@@ -275,10 +286,28 @@ def build_guild_history_request(guild_id, session_id, from_timestamp, end_timest
 
 def request_guild_history_page(guild_id, session_id, from_timestamp, end_timestamp, from_id=''):
     """Fetch one page and return payload plus response headers."""
+    cooldown_path = os.path.join(LOG_DIR, 'api_cooldown.json')
+    try:
+        with open(cooldown_path, encoding='utf-8') as stream:
+            next_request = json.load(stream)
+    except FileNotFoundError:
+        next_request = 0
+    wait = next_request - time.time()
+    if wait > 0:
+        time.sleep(wait)
     request = build_guild_history_request(guild_id, session_id, from_timestamp, end_timestamp, from_id)
-    
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.loads(response.read().decode('utf-8')), response.headers
+
+    def remember_limits(headers, minimum=0):
+        delay = max(HISTORY_FETCH_DELAY_SECONDS, rate_limit_wait_seconds(headers), minimum)
+        atomic_write(cooldown_path, json.dumps(time.time() + delay + 1))
+
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            remember_limits(response.headers)
+            return json.loads(response.read().decode('utf-8')), response.headers
+    except urllib.error.HTTPError as error:
+        remember_limits(error.headers, RATE_LIMIT_DEFAULT_RETRY_AFTER_SECONDS if error.code == 429 else 0)
+        raise
 
 
 def fetch_guild_history_page(guild_id, session_id, from_timestamp, end_timestamp, from_id=''):
@@ -348,6 +377,8 @@ def fetch_guild_history(args):
     page_number = 1
     while True:
         payload, headers = fetch_guild_history_page_with_retries(guild_id, session_id, from_timestamp, end_timestamp, from_id)
+        if not has_history_entry_list(payload):
+            raise ValueError('Invalid guild history response')
         entries = extract_history_entries(payload)
         if not entries:
             print(f"Fetched page {page_number}: no entries returned")
@@ -376,9 +407,9 @@ def fetch_guild_history(args):
         if not truncated:
             break
         if not next_from_timestamp or not next_from_id:
-            break
+            raise ValueError('Missing history pagination cursor')
         if next_from_timestamp == str(from_timestamp) and next_from_id == from_id:
-            break
+            raise ValueError('Repeated history pagination cursor')
         
         from_timestamp = next_from_timestamp
         from_id = next_from_id
