@@ -4,6 +4,9 @@ Niezależny szkielet Vue + TypeScript + Vite oraz Flask/Gunicorn.
 Rework kontynuuje historię repozytorium na branchu `rework/vue-flask`.
 Poprzednia aplikacja pozostaje w sąsiednim `../poe2-guild`.
 
+Plan portowania, wymagania nowych funkcji i ograniczenia integracji dostawców:
+[docs/architecture.md](docs/architecture.md).
+
 ## Instalacja i uruchamianie
 
 Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny
