@@ -1,12 +1,17 @@
-*.html
-*.csv
-*.svg
-*.json
-*.pyc
-venv**
+# Dependencies and generated output
 .venv/
-poe2logger/private_config.py
-stash_reports/**/refresh.lock
-.run/
+venv/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.py[cod]
+# Local configuration, archives, runtime state
 service.env
-logs/gunicorn.log
+.env
+.env.*
+!.env.example
+data/**
+!data/.gitkeep
+logs/**
+!logs/.gitkeep
+.run/

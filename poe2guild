@@ -2,6 +2,7 @@
 # Local process management, suitable for a shell running inside screen.
 set -euo pipefail
 ROOT_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+export PATH="$PATH:$HOME/.local/bin"
 RUN_DIR="$ROOT_DIR/.run"
 LOG_FILE="$ROOT_DIR/logs/gunicorn.log"
 PID_FILE="$RUN_DIR/gunicorn.pid"
@@ -14,12 +15,12 @@ usage() {
     cat <<'EOF'
 Usage: ./poe2guild COMMAND [--dry-run]
 
-  build      Create a virtualenv if needed and install application dependencies
+  build      Install Python/npm dependencies and build the Vue frontend
   start      Start Gunicorn in the background, recording its PID and logs
   stop       Gracefully stop only this checkout's recorded Gunicorn process
   restart    Stop and start the application (does not rebuild dependencies)
   status     Show process, checkout, listen address and health status
-  logs       Follow logs (Ctrl+C closes the viewer)
+  logs/log   Follow logs (Ctrl+C closes the viewer)
   install    Add/update this route in nginx services (sudo/root)
   uninstall  Remove this route from nginx services (sudo/root)
   help       Show this help
@@ -30,6 +31,7 @@ Only install/uninstall use root privileges; neither starts/stops the app.
 EOF
 }
 ACTION=${1:-help}; shift "$(( $# > 0 ? 1 : 0 ))"
+[[ "$ACTION" != log ]] || ACTION=logs
 DRY_RUN=false
 while (($#)); do
     case "$1" in --dry-run) DRY_RUN=true ;; *) die "Unknown option: $1" ;; esac
@@ -60,7 +62,7 @@ trim() {
     value="${value%"${value##*[![:space:]]}"}"
     printf '%s' "$value"
 }
-BIND=127.0.0.1:9001 VENV='' URL_PREFIX=/poe2-guild
+BIND=127.0.0.1:9002 VENV='' URL_PREFIX=/poe2guild
 NGINX_FILE=/etc/nginx/sites-enabled/services NGINX_SERVER=''
 section=''
 if [[ -f "$ROOT_DIR/service.ini" ]]; then
@@ -202,6 +204,7 @@ start_app() {
         fi
     fi
     rm -f -- "$PID_FILE" "$IDENTITY_FILE"
+    [[ -f "$ROOT_DIR/frontend/dist/index.html" ]] || die 'Frontend is missing; run ./poe2guild build'
     resolve_venv
     [[ -x "$VENV/bin/gunicorn" ]] || die 'Gunicorn is missing; run ./poe2guild build'
     load_environment
@@ -247,6 +250,9 @@ case "$ACTION" in
         resolve_venv; require python3
         if [[ ! -x "$VENV/bin/python" ]]; then python3 -m venv "$VENV"; fi
         "$VENV/bin/python" -m pip install -r "$ROOT_DIR/required.txt" 9>&-
+        require node; require npm
+        npm --prefix "$ROOT_DIR/frontend" ci 9>&-
+        VITE_BASE_PATH="$URL_PREFIX/" npm --prefix "$ROOT_DIR/frontend" run build 9>&-
         printf 'Build complete.\n' ;;
     start) require curl; start_app ;;
     stop) stop_app ;;

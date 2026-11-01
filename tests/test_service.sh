@@ -20,7 +20,8 @@ cleanup() {
 }
 trap cleanup EXIT
 project="$work/project space"
-mkdir -p "$project/venv/bin" "$project/scripts" "$work/bin" "$work/proc"
+mkdir -p "$project/venv/bin" "$project/scripts" "$project/frontend/dist" "$work/bin" "$work/proc"
+touch "$project/frontend/dist/index.html"
 # Replace only OS-specific paths inside the test copy, never in the real script.
 sed -e "s|/proc/|$work/proc/|g" \
     -e "s|/run/lock/poe2guild-nginx.lock|$work/nginx.lock|g" \

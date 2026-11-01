@@ -1,258 +1,99 @@
-# Poe2Logger
+# poe2guild — rework
 
-Aplikacja Flask pobiera historię skrytki gildii i wyświetla raport HTML.
-Dane źródłowe są przechowywane w CSV w `logs/`. Nowy raport zastępuje
-poprzedni dopiero po zakończeniu generowania.
+Niezależny szkielet Vue + TypeScript + Vite oraz Flask/Gunicorn.
+Rework kontynuuje historię repozytorium na branchu `rework/vue-flask`.
+Poprzednia aplikacja pozostaje w sąsiednim `../poe2-guild`.
 
-## Wymagania
+## Instalacja i uruchamianie
 
-- Linux, Bash, Python 3 z modułem venv i pip.
-- Gunicorn i Flask z `required.txt` (instalowane przez `build`).
-- Narzędzia systemowe: `flock`, `curl`, `awk`, `readlink`, `ps`, `stat`.
-- Nginx dla publikacji przez reverse proxy; `sudo` tylko do jego konfiguracji.
-
-Przygotuj `poe2logger/private_config.py` zgodnie z importami aplikacji.
-Identyfikator gildii i sesję można nadpisać zmiennymi `POE_GUILD_ID`
-i `POESESSID` / `POE_SESSION_ID`.
-
-## Zarządzanie lokalne
-
-Skrypt Bash `poe2guild` zarządza Gunicornem bez systemd. Można go wywoływać
-z powłoki w istniejącej sesji screen lub ze skryptu startowego serwera,
-uruchomionego pod kontem aplikacji. Sam skrypt nie tworzy sesji screen.
-Autostart po restarcie systemu zapewnia zewnętrzny mechanizm startowy serwera.
-Linger ani jednostki systemd użytkownika nie są używane.
+Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny
+LTS) z npm, Bash, flock, curl i narzędzia systemowe. Na tym serwerze Node.js
+jest zainstalowany w katalogu użytkownika i dostępny przez `~/.local/bin`.
 
 ```sh
+cd /home/nginx-http/poe2guild
 ./poe2guild build
 ./poe2guild start
 ./poe2guild status
+./poe2guild logs
 ```
 
-| Polecenie | Działanie | Uprawnienia |
-| --- | --- | --- |
-| `./poe2guild build` | Tworzy virtualenv w razie potrzeby i instaluje `required.txt`. | Konto aplikacji |
-| `./poe2guild start` | Uruchamia Gunicorn w tle; ponowne wywołanie nie tworzy drugiej instancji. | Konto aplikacji |
-| `./poe2guild stop` | Wysyła TERM do zapisanego procesu Gunicorna i czeka na zakończenie. | Konto aplikacji |
-| `./poe2guild restart` | Zatrzymuje i uruchamia aplikację; nie przebudowuje zależności. | Konto aplikacji |
-| `./poe2guild status` | Pokazuje PID, katalog projektu, adres i wynik sprawdzenia `/health`. | Konto aplikacji |
-| `./poe2guild logs` | Pokazuje ostatnie 100 linii logu i śledzi kolejne; Ctrl+C kończy podgląd. | Konto aplikacji |
-| `./poe2guild install` | Dodaje brakujące wpisy trasy Nginx, testuje konfigurację i przeładowuje Nginx. | Root przez sudo |
-| `./poe2guild uninstall` | Usuwa wpisy tej trasy, testuje konfigurację i przeładowuje Nginx. | Root przez sudo |
-| `./poe2guild help` | Wyświetla pomoc. | Bez dodatkowych uprawnień |
+`build` tworzy `.venv`, instaluje zależności Pythona i npm (`npm ci`),
+sprawdza TypeScript oraz buduje frontend. Node jest potrzebny tylko do budowania
+i developmentu; produkcję obsługuje Gunicorn. `restart` nie przebudowuje kodu.
 
-Tylko `install` i `uninstall` wywołują `sudo`, jeśli nie są już uruchomione
-jako root. Nie budują, nie uruchamiają ani nie zatrzymują aplikacji.
-Pozostałe operacje wykonuj jako konto aplikacji; skrypt odrzuca je jako root.
+| Komenda | Działanie |
+| --- | --- |
+| `build` | Przygotowanie zależności i produkcyjnego frontendu |
+| `start` | Uruchomienie w tle; ponowne wywołanie jest bezpieczne |
+| `stop` / `restart` | Zatrzymanie / restart wyłącznie procesu tego katalogu |
+| `status` | Sprawdzenie PID, katalogu, portu i `/health` |
+| `logs` lub `log` | Blokujący podgląd `logs/gunicorn.log` |
+| `install` / `uninstall` | Dodanie / usunięcie trasy Nginx; root/sudo |
 
-Gunicorn daemonizuje się, zapisuje PID w `.run/gunicorn.pid`, tożsamość procesu
-w `.run/gunicorn.identity`, a logi w `logs/gunicorn.log`. Te pliki są lokalne
-i pomijane przez Git. Przed zatrzymaniem sprawdzany jest właściciel procesu,
-katalog roboczy, polecenie i czas jego uruchomienia, aby nie zatrzymać innego
-procesu po ponownym wykorzystaniu PID-u. Skrypt nie zabija procesów tylko
-dlatego, że zajmują skonfigurowany port.
+Konfiguracja jest w `service.ini`: port `127.0.0.1:9002`, prefiks `/poe2guild`.
+Zmiana prefiksu wymaga przebudowania frontendu. Opcjonalny lokalny `service.env`
+jest ignorowany przez Git. Polecenia aplikacji uruchamiaj jako `nginx-http`;
+tylko instalacja trasy wymaga roota. PID i blokady są w `.run/`.
 
-Gunicorn działa z dwoma procesami i czterema wątkami na proces. Operacje
-zarządzania są serializowane przez `flock`. `status` zwraca kod 3 dla
-zatrzymanej aplikacji, 1 dla nieudanego sprawdzenia HTTP i 0 dla działającej,
-zdrowej aplikacji. `stop` czeka do 35 sekund na łagodne zakończenie.
+## Nginx i Screen
 
-## Konfiguracja
-
-Plik `service.ini` obok skryptu:
-
-```ini
-[service]
-bind = 127.0.0.1:9001
-venv =
-url_prefix = /poe2-guild
-nginx_file = /etc/nginx/sites-enabled/services
-nginx_server =
+```sh
+sudo /home/nginx-http/poe2guild/poe2guild install --dry-run
+sudo /home/nginx-http/poe2guild/poe2guild install
 ```
 
-- `bind`: lokalny adres Gunicorna w formacie `127.0.0.1:PORT`.
-- `venv`: ścieżka virtualenv, względna względem projektu lub absolutna.
-  Pusta wartość wykrywa `.venv`, następnie `venv`, zawierające Gunicorna;
-  `build` tworzy `.venv`, jeśli nie znajdzie istniejącego środowiska.
-- `url_prefix`: ścieżka publiczna aplikacji bez końcowego ukośnika.
-- `nginx_file`: istniejący plik konfiguracji Nginx, którego właścicielem jest
-  root. Symlink jest rozwiązywany, a aktualizacja zachowuje jego cel.
-- `nginx_server`: pojedyncza wartość `server_name`, wskazująca blok do edycji.
-  Można pozostawić puste, jeśli plik zawiera dokładnie jeden blok `server`.
-  Niejednoznaczny wybór zatrzymuje operację bez zmian.
+Installer aktualizuje wyłącznie trasę wybraną w `service.ini`, zachowuje pozostałe
+usługi, sprawdza `nginx -t` i przeładowuje Nginx. Błąd wycofuje zmianę.
+Przykładowy fragment do ręcznej instalacji wewnątrz bloku `server`:
+`deploy/nginx/poe2guild.conf`. Nie instaluj go równocześnie z generowaną trasą.
 
-Ustawienia są odczytywane jako dane, bez wykonywania poleceń powłoki.
-Po zmianie adresu wykonaj `restart` dla aplikacji i `install` dla Nginx.
-Przy zmianie prefiksu najpierw wykonaj `uninstall` ze starym prefiksem,
-a następnie zmień ustawienie i uruchom `install`.
+Adres: http://dyyyl.ovh/poe2guild/ . Stara aplikacja używa `/poe2-guild/` i portu
+9001. Główny `~/start.sh` ma osobne wpisy obu usług i okna Screen.
 
-Opcjonalne zmienne środowiskowe aplikacji zapisz lokalnie w `service.env`:
+## Struktura
 
 ```text
-POE_GUILD_ID=...
-POESESSID=...
+backend/                 Flask API i obsługa zbudowanego frontendu
+frontend/src/            Vue + TypeScript
+frontend/dist/           wynik builda (poza Git)
+data/leagues/<liga>/     niezależne kopie CSV, raportów, wykresów i cen
+data/import-manifest.json  liczby transakcji i SHA-256 skopiowanych plików
+scripts/                 importer archiwów i edytor konfiguracji Nginx
+deploy/nginx/            przykład konfiguracji reverse proxy
+tests/                   testy API, importu i launchera
 ```
 
-Format to `NAME=value`, bez cudzysłowów i rozwijania zmiennych lub poleceń.
-Plik jest pomijany przez Git i odczytywany przy starcie aplikacji.
-Po zmianach wykonaj `restart`. Konto aplikacji musi mieć dostęp do projektu
-oraz możliwość zapisu logów, raportów i `.run/`.
+Stary generator raportów, fetcher, globalny stan oraz stary frontend zostały
+usunięte z tego katalogu. Historyczne HTML są wyłącznie danymi archiwalnymi,
+nie implementacją nowego interfejsu. Nie są obecnie udostępniane przez HTTP.
+Szkielet nie pobiera danych gry, nie używa sesji PoE i nie przelicza archiwów.
 
-## Instalacja trasy Nginx
-
-Najpierw ustaw `service.ini` odpowiednio do istniejącego pliku `services`.
-Skrypt oczekuje gotowego bloku `server`; nie tworzy hosta, certyfikatów ani
-konfiguracji nasłuchu. Podgląd i zastosowanie zmian:
+Odtworzenie danych ze starego katalogu:
 
 ```sh
-./poe2guild install --dry-run
-./poe2guild install
+.venv/bin/python scripts/import-legacy-data.py --source ../poe2-guild
 ```
 
-Dla domyślnych ustawień dodawane są lokalizacje `/poe2-guild/` kierująca do
-`http://127.0.0.1:9001/` i `/poe2-guild` przekierowująca na wersję z ukośnikiem.
-Nginx usuwa prefiks przed przekazaniem żądania do aplikacji. Strona używa
-względnych adresów API i skryptu odświeżania, dzięki czemu działa pod prefiksem.
+Importer kopiuje pliki i weryfikuje SHA-256. Powtórzenie z tymi samymi danymi
+jest bezpieczne; przy różnej zawartości istniejącego archiwum przerywa pracę.
+Docelowa baza danych będzie tworzona z tych danych lub bezpośrednio ze starego
+katalogu. Na etapie Hello World nie wprowadzamy jeszcze jej schematu.
 
-Skrypt sprawdza istniejące lokalizacje. Zgodny wpis pozostawia bez zmian,
-wraz z jego dodatkowymi dyrektywami. Konflikt z innym upstreamem zatrzymuje
-operację. Dodane przez skrypt fragmenty są oznaczone komentarzami
-`BEGIN/END poe2guild`; ponowna instalacja ich nie dubluje.
-
-Edycja jest chroniona wspólną blokadą. Przed zmianą sprawdzana jest aktualna
-konfiguracja, a po zapisie wykonywane jest `nginx -t` i `nginx -s reload`.
-Błąd walidacji lub przeładowania przywraca poprzedni plik. Pozostałe usługi
-w pliku są zachowywane. Pliki tymczasowe pozostają pod uprawnieniami roota.
-
-Usunięcie trasy bez zatrzymywania aplikacji:
+## Development i testy
 
 ```sh
-./poe2guild uninstall --dry-run
-./poe2guild uninstall
-```
+# Backend na porcie 9002
+.venv/bin/flask --app app run --host 127.0.0.1 --port 9002
+# W innym terminalu, z katalogu frontend/
+npm run dev
 
-Usuwane są zarządzane fragmenty oraz zgodne lokalizacje tej trasy w wybranym
-bloku `server`. Przy nieoznaczonej trasie upstream musi odpowiadać `bind`.
-Skrypt nie usuwa całego pliku `services`.
-
-## Aktualizacja i diagnostyka
-
-```sh
-git pull
-./poe2guild build
-./poe2guild restart
-./poe2guild status
-curl --fail http://127.0.0.1:9001/health
-```
-
-Dostosuj port do `bind`. `/health` nie wywołuje fetcha danych.
-Przy problemach uruchom `./poe2guild logs`. Po przeniesieniu projektu
-zatrzymaj proces ze starego katalogu i uruchom aplikację z nowego.
-
-Jeśli wcześniej aplikacja była uruchamiana przez systemd, administrator
-powinien jednorazowo zatrzymać i wyłączyć jej starą jednostkę przed `start`:
-
-```sh
-sudo systemctl disable --now STARA_USLUGA.service
-```
-
-Zastąp nazwę właściwą jednostką aplikacji. Skrypt nie migruje ani nie zatrzymuje
-starych procesów automatycznie. Nginx pozostaje zarządzany przez administratora;
-`install`/`uninstall` zmieniają wyłącznie trasę aplikacji i przeładowują konfigurację.
-
-## Odświeżanie
-
-### Dane osobno dla każdej ligi
-
-`LEAGUE_NAME` w `poe2logger/private_config.py` wybiera aktywną ligę.
-Historia, ceny, wykresy, raporty i stan odświeżania są zapisywane w jej katalogach:
-
-```text
-logs/
-  Example League/
-    history.csv
-    legacy_imports.json
-  Another League/
-    history.csv
-  api_cooldown.json
-  gunicorn.log
-stash_reports/
-  Example League/
-    GuildReport_Latest.html
-    GuildReport_0101.html
-    charts/
-    price_cache/
-    refresh_state.json
-    refresh.lock
-  Another League/
-    ...
-```
-
-Zwykłe nazwy lig pozostają czytelne. Znaki niedozwolone w ścieżkach są
-kodowane, np. `/` jako `%2F`, aby nazwa ligi nie tworzyła dodatkowych katalogów.
-Po zmianie `LEAGUE_NAME` wykonaj `./poe2guild restart`. Nowa liga zaczyna
-z własnym raportem i cache; powrót do poprzedniej przywraca jej zapisane dane.
-Adres strony oraz alias `/GuildReport_Latest.html` pozostają takie same
-i pokazują raport aktywnej ligi.
-
-Przy pierwszym generowaniu raportu w nowym układzie aplikacja importuje
-rekordy aktywnej ligi z dawnych CSV bezpośrednio w `logs/`. Mieszany plik
-jest filtrowany po polu `League`, a oryginał pozostaje nietknięty dla innych
-lig. Manifest zapobiega ponownemu importowi niezmienionych źródeł; zmieniony
-plik zostanie ponownie przetworzony, a transakcje zduplikowane przy scalaniu
-są pomijane.
-
-Dawny raport z katalogu głównego jest kopiowany tylko wtedy, gdy jego pole
-`League` odpowiada aktywnej lidze i nie ma jeszcze jej raportu. Dawny cache cen
-i stan odświeżania nie są importowane, ponieważ nie mają wiarygodnego przypisania
-do ligi. Nie usuwaj starych CSV przed zakończeniem importu potrzebnych lig.
-
-Odstęp wymagany przez API w `logs/api_cooldown.json` oraz techniczny dziennik
-Gunicorna pozostają wspólne. Zmiana ligi nie resetuje ograniczeń API.
-
-### Zachowanie odświeżania
-
-- Gdy liga nie ma jeszcze lokalnej historii (lub nie ma poprawnej daty kursora),
-  pierwszy fetch pobiera całą historię dostępną w API, przechodząc kolejne strony
-  do końca. Zakres nie jest ograniczany do ostatniej doby. Dla istniejącej historii
-  kolejne odświeżenia pobierają nowe zdarzenia z zakładką `HISTORY_FETCH_OVERLAP_DAYS`.
-- Wejście na stronę natychmiast zwraca ostatni zapisany raport i uruchamia
-  odświeżanie w tle, o ile limit na to pozwala.
-- Limit jest wspólny dla klientów i procesów: maksymalnie dwie automatyczne
-  próby w ruchomym oknie 3600 sekund, także gdy próba zakończy się błędem.
-  Ustawienia: `AUTO_REFRESH_LIMIT` i `AUTO_REFRESH_WINDOW_SECONDS` w `config.py`.
-- Kliknięcie pilla pomija limit automatyczny. Równoległe żądania dołączają
-  do już trwającego odświeżania. Nagłówki limitów API, `Retry-After`, opóźnienia
-  i ponowienia nadal obowiązują. Termin kolejnego dozwolonego zapytania jest
-  zapisywany także pomiędzy osobnymi odświeżeniami.
-- Otwarte strony sprawdzają lokalny status co trzy sekundy. Nowy raport,
-  również wygenerowany przez `python main.py --fetch-history`, aktualizuje
-  wszystkich klientów. Zakładka, wybrany gracz/skrytka, widok logu, filtry,
-  sortowanie i przewinięcie są odtwarzane przy użyciu `sessionStorage`.
-- Błąd pozostawia poprzedni raport i datę ostatniego udanego odświeżenia.
-  Czerwony baner nie ujawnia przyczyny. Znika po kolejnym udanym odświeżeniu.
-  Przed pierwszym udanym fetchem data jest oznaczona jako nieznana; nie jest
-  wyliczana z daty zdarzeń w CSV.
-
-Wszystkie procesy WWW i CLI muszą pracować w tym samym katalogu projektu
-i korzystać ze wspólnego lokalnego dysku. Zachowaj `logs/` oraz `stash_reports/`
-między restartami. Raport, stan limitu i blokada są w katalogu danej ligi
-w `stash_reports/`.
-Zadanie działa w wątku procesu WWW; zakończenie procesu przerywa zadanie,
-zwalnia blokadę i przy następnym odczycie statusu zgłasza nieudaną próbę.
-Wdrożenie na wielu niezależnych hostach wymaga wspólnej kolejki zadań i magazynu
-raportów zamiast lokalnej blokady plikowej.
-
-## Testy
-
-```sh
-python -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests -v
 bash tests/test_service.sh
-node --check static/refresh.js
+npm --prefix frontend run build
 ```
 
-Test przeglądarkowy `node tests/browser_refresh.cjs` wymaga modułu Playwright
-i jego Chromium. Opcjonalne zmienne `PLAYWRIGHT_MODULE`, `TEST_PYTHON` oraz
-`BROWSER_CHANNEL` wskazują niestandardowe środowisko. Test renderuje rzeczywisty
-szablon z syntetycznymi danymi, symuluje dwóch klientów i przechwytuje ruch
-aplikacji. Testy nie odpytują API gry ani nie modyfikują zapisanych raportów.
+Vite w development proxy'uje `/api` do portu 9002. W produkcji Nginx usuwa
+prefiks `/poe2guild/`, a Flask obsługuje API i statyczny build. `/health` służy
+launcherowi; `/api/health` sprawdza połączenie strony z właściwą usługą.
+Nieznane adresy API i zasobów zwracają 404, a nie dokument HTML.
