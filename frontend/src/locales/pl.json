@@ -348,6 +348,24 @@
     "quantity.update.pending": "Trwa aktualizacja analizy — poczekaj.",
     "quantity.update.ready": "Analiza jest aktualna.",
     "quantity.update.failed": "Nie udało się zaktualizować analizy. Otwórz Podsumowanie, aby ponowić.",
-    "quantity.reason.removed_state_conflict": "Usuwana ilość lub przedmiot różni się od wcześniejszego zapisu. Zachowujemy źródłowe usunięcie; slot po operacji jest pusty (0)."
+    "quantity.reason.removed_state_conflict": "Usuwana ilość lub przedmiot różni się od wcześniejszego zapisu. Zachowujemy źródłowe usunięcie; slot po operacji jest pusty (0).",
+    "chart.title": "Ruchy w czasie",
+    "chart.graph": "Interaktywny wykres ruchów przedmiotu",
+    "chart.note": "Jeden przedmiot naraz. Działają wspólne filtry gracza, skrytek, przedmiotu i dat UTC. Lista pokazuje do 50 najbardziej aktywnych pasujących przedmiotów; zawęź filtr przedmiotu, aby znaleźć pozostałe. Wykres obejmuje ustalone ruchy, w tym oznaczone ruchy wywnioskowane; usunięcia są poniżej zera.",
+    "chart.item": "Przedmiot na wykresie",
+    "chart.refresh": "Odśwież wykres",
+    "chart.loading": "Ładowanie wykresu…",
+    "chart.empty": "Brak ruchów dla tego przedmiotu i tych filtrów.",
+    "chart.series.added": "Seria dodawania",
+    "chart.series.removed": "Seria usuwania",
+    "chart.series.net": "Seria bilansu",
+    "chart.zoom": "Przybliż",
+    "chart.reset": "Resetuj widok",
+    "chart.apply": "Zastosuj zakres do filtrów",
+    "chart.bucket": "{count} przedziałów po maksymalnie {hours} godzin.",
+    "chart.interaction": "Przewijaj, aby przybliżać; przeciągaj wykres lub dolny suwak, aby przesuwać zakres. Zastosowanie zakresu zaokrągla go na zewnątrz do pełnych dni UTC.",
+    "chart.totals": "Cały zakres po filtrach: dodano {added} · usunięto {removed} · bilans {net} · jednostki wywnioskowane {inferred}.",
+    "chart.data": "Pokaż dane wykresu",
+    "chart.unresolved": "Zdarzenia z nieustaloną ilością dla tego przedmiotu: {count}. Ich ilości nie są uwzględnione na wykresie."
   }
 }

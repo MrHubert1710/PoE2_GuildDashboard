@@ -1,9 +1,9 @@
 # Plan implementacji poe2guild
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: fazy 0–4 odebrane przez użytkownika; faza 4b zaimplementowana,
-oczekuje weryfikacji manualnej. Faza 5 i dalsze nie są rozpoczęte.
-Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md).
+Status: fazy 0–4b odebrane przez użytkownika; faza 5 zaimplementowana,
+oczekuje weryfikacji manualnej. Faza 6 i dalsze nie są rozpoczęte.
+Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -205,7 +205,7 @@ pełny obraz skrytki, jeśli historia nie daje takiej pewności.
 
 ## Etap 4b — reorganizacja frontendu
 
-Status: implementacja zakończona, oczekuje odbioru manualnego.
+Status: odebrana przez użytkownika wraz z poprawkami.
 Faza dodana po wyborze użytkownika, przed wykresami.
 Wyniki i instrukcja odbioru: [phase-4b.md](phase-4b.md).
 
@@ -222,6 +222,9 @@ ani nie uruchamia od nowa sprawdzenia źródła. Weryfikacja manualna wymagana
 przed rozpoczęciem fazy 5.
 
 ## Etap 5 — interaktywne wykresy
+
+Status: implementacja zakończona, oczekuje odbioru manualnego.
+Wyniki, granice i instrukcja odbioru: [phase-5.md](phase-5.md).
 
 Zależność: etapy 4 i 4b; wykresy wartości uzupełnia etap 6.
 
@@ -324,7 +327,7 @@ Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
-Faza 4b (reorganizacja frontendu) oczekuje odbioru. Po jej akceptacji i osobnym
-poleceniu następuje faza 5: interaktywne wykresy.
+Faza 5 (interaktywne wykresy) oczekuje odbioru. Po jej akceptacji i osobnym
+poleceniu następuje faza 6: katalog kategorii, snapshoty cen i wycena.
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.

@@ -1,8 +1,8 @@
 # Faza 4b — reorganizacja frontendu
 
-Status: implementacja zakończona, oczekuje odbioru manualnego.
+Status: odebrana przez użytkownika wraz z poprawkami; rozpoczęto osobną fazę 5.
 Zakres został wybrany przez użytkownika jako osobna faza przed wykresami.
-Faza 4 jest odebrana; faza 5 nie została rozpoczęta.
+Faza 4 jest odebrana; dalsza implementacja wykresów: [phase-5.md](phase-5.md).
 
 ## Układ aplikacji
 

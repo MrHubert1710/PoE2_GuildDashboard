@@ -6,6 +6,7 @@ import { useHistory } from '../useHistory'
 import LeaguePicker from './LeaguePicker.vue'
 import RefreshPanel from './RefreshPanel.vue'
 import QuantityPanel from './QuantityPanel.vue'
+import QuantityChart from './QuantityChart.vue'
 import QuantitySettings from './QuantitySettings.vue'
 import HistoryTable from './HistoryTable.vue'
 import HistoryFilters from './HistoryFilters.vue'
@@ -13,13 +14,15 @@ import ArchiveReports from './ArchiveReports.vue'
 import WorkspaceNavigation from './WorkspaceNavigation.vue'
 defineProps<{ diagnostics: boolean }>()
 const { leagues, query, draft, result, loadingLeagues, loadingRows, leagueError, rowError, formError,
-  selected, loadLeagues, refreshRevision, selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy } = useHistory()
+  selected, loadLeagues, refreshRevision, selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy, setDateRange } = useHistory()
 const analysisView = computed(() => {
   const value = ['summary', 'players', 'stashes', 'state'].includes(section.value) ? section.value : new URL(currentUrl.value).searchParams.get('analysis')
   return ['summary', 'players', 'stashes', 'state'].includes(value ?? '') ? value! : 'summary'
 })
 const refreshToken = ref(0)
 const updateState = ref('')
+const projectionId = ref<string | null>(null)
+watch([() => selected.value?.id,() => selected.value?.quantity_settings_hash], () => { projectionId.value = null })
 watch(() => selected.value?.id, () => { updateState.value = '' })
 function updateProgress(state: 'pending' | 'failed' | 'ready') {
   if (state !== 'ready' || updateState.value) updateState.value = state
@@ -61,7 +64,9 @@ const dataSection = computed(() => !['settings', 'archives'].includes(section.va
         <div class="workspace-content">
           <p v-if="updateState" class="projection-status" :role="updateState === 'failed' ? 'alert' : 'status'" aria-live="polite" data-testid="projection-status">{{ t(`quantity.update.${updateState}`) }} <button v-if="updateState === 'failed'" type="button" @click="navigateSection('summary')">{{ t('workspace.section.summary') }}</button></p>
           <HistoryFilters v-show="dataSection" :draft="draft" :stashes="selected.stashes" :form-error="formError" @apply="applyFilters" @clear="clearFilters" />
-          <QuantityPanel v-show="['summary', 'players', 'stashes', 'state'].includes(section)" :key="'report-' + selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :query="query" :view="analysisView" :refresh-token="refreshToken" @generated="refreshRevision" @progress="updateProgress" @problem="updateState === 'pending' && (updateState = 'failed')" />
+          <QuantityPanel v-show="['summary', 'players', 'stashes', 'state'].includes(section)" :key="'report-' + selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :query="query" :view="analysisView" :refresh-token="refreshToken" @projection="projectionId = $event" @generated="refreshRevision" @progress="updateProgress" @problem="updateState === 'pending' && (updateState = 'failed')">
+            <QuantityChart v-show="['summary','players','stashes'].includes(section)" :key="'chart-' + selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :projection-id="projectionId" :query="query" :active="!diagnostics && ['summary','players','stashes'].includes(section)" :refresh-token="refreshToken" @range="setDateRange" />
+          </QuantityPanel>
           <HistoryTable v-show="section === 'history'" :query="query" :result="result" :loading-rows="loadingRows" :row-error="rowError" :timezone="selected.timezone ?? 'UTC'" @set-page="setPage" @set-page-size="setPageSize" @sort-by="sortBy" />
           <QuantitySettings v-show="section === 'settings'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" @saved="settingsSaved" />
           <ArchiveReports v-show="section === 'archives'" :selected="selected" />

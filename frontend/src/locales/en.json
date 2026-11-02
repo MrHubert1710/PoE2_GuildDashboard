@@ -338,6 +338,24 @@
     "quantity.update.pending": "Updating analysis — please wait.",
     "quantity.update.ready": "Analysis is up to date.",
     "quantity.update.failed": "Analysis could not be updated. Open Summary to retry.",
-    "quantity.reason.removed_state_conflict": "The removed quantity or item differs from the preceding record. The source removal is preserved and the slot is empty (0)."
+    "quantity.reason.removed_state_conflict": "The removed quantity or item differs from the preceding record. The source removal is preserved and the slot is empty (0).",
+    "chart.title": "Movements over time",
+    "chart.graph": "Interactive item movement chart",
+    "chart.note": "One item at a time. Use the shared player, stash, item and UTC date filters. The list shows up to 50 most active matching items; narrow the item filter to find others. Resolved movements, including explicitly marked inferred movements; removed units are shown below zero.",
+    "chart.item": "Chart item",
+    "chart.refresh": "Refresh chart",
+    "chart.loading": "Loading chart…",
+    "chart.empty": "No movements for this item and these filters.",
+    "chart.series.added": "Added series",
+    "chart.series.removed": "Removed series",
+    "chart.series.net": "Balance series",
+    "chart.zoom": "Zoom in",
+    "chart.reset": "Reset view",
+    "chart.apply": "Apply range to filters",
+    "chart.bucket": "{count} intervals of up to {hours} hours.",
+    "chart.interaction": "Scroll to zoom; drag inside the chart or move the bottom slider. Apply range rounds outwards to whole UTC days.",
+    "chart.totals": "Full filtered range: added {added} · removed {removed} · balance {net} · inferred units {inferred}.",
+    "chart.data": "Show chart data",
+    "chart.unresolved": "Unresolved quantity events for this item: {count}. These quantities are not included in the chart."
   }
 }

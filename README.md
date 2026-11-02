@@ -31,6 +31,9 @@ Faza 4b: [nowa organizacja panelu i nawigacji](docs/phase-4b.md).
 Startowym widokiem jest Podsumowanie; Historia, Ustawienia i Raporty archiwalne
 są osobnymi sekcjami. Szczegóły synchronizacji znajdują się w Diagnostyce.
 
+Faza 5: [interaktywne wykresy ilościowe](docs/phase-5.md). Wybór przedmiotu,
+zoom, przesuwanie, serie i zakres wspólny z filtrami raportu.
+
 ## Instalacja i uruchamianie
 
 Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny

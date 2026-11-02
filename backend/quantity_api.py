@@ -175,3 +175,9 @@ def report(league_id):
         rows = [dict(row) for row in c.execute('SELECT * FROM (' + sql + ') ORDER BY ' + order + ' LIMIT ? OFFSET ?', args + [size, (page-1)*size])]
         return jsonify(league_id=league_id, projection=meta, settings=settings, rows=rows, total=total, pages=pages, page=page, stats=stats,
                        history_complete=bool(league['history_complete']))
+
+
+@quantities.get('/api/leagues/<league_id>/quantity-series')
+def series(league_id):
+    from .quantity_series import read_series
+    return read_series(league_id)

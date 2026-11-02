@@ -4,8 +4,9 @@ import type { HistoryQuery } from '../browsing'
 import { t, number, date } from '../i18n'
 import { useQuantityReport } from '../composables/useQuantityReport'
 const props = defineProps<{ leagueId: string; revision: string; settingsHash?: string; query: HistoryQuery; view: string; refreshToken: number }>()
-const emit = defineEmits<{ generated: []; progress: [state: 'pending' | 'failed' | 'ready']; problem: [] }>()
+const emit = defineEmits<{ generated: []; progress: [state: 'pending' | 'failed' | 'ready']; problem: []; projection: [id: string | null] }>()
 const { report, error, jobState, busy, move, enqueue } = useQuantityReport(props, () => emit('generated'))
+watch(report, value => emit('projection', value?.projection.id ?? null))
 watch(error, value => { if (value) emit('problem') })
 watch([report, jobState], () => {
   if (jobState.value === 'failed') emit('progress', 'failed')
@@ -30,6 +31,7 @@ const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
       <p v-if="report.stats && view !== 'state'" class="footnote" data-testid="quantity-stats">{{ t('quantity.stats', { events: report.stats.events, unknown: report.stats.unknown, inferred: report.stats.inferred, excluded: report.stats.excluded, warnings: report.stats.warnings }) }}</p>
       <p v-if="view === 'state'" class="footnote">{{ t('quantity.stateNote') }}</p>
       <p v-else class="footnote">{{ t('quantity.filtersNote') }}</p>
+      <slot v-if="!error" />
       <p v-if="!report.rows.length" class="empty-state">{{ t('quantity.empty') }}</p>
       <div v-else class="transactions-scroll" tabindex="0" role="region" :aria-label="t('quantity.table')">
         <table class="transactions quantity-table"><thead><tr>

@@ -1,6 +1,6 @@
 # Wymagania reworku i decyzje architektoniczne
 
-Stan ustaleń: 2026-11-02. Fazy 0–4 są odebrane; faza 4b reorganizuje frontend
+Stan ustaleń: 2026-11-02. Fazy 0–4b są odebrane; faza 5 dodaje interaktywne wykresy
 i oczekuje odbioru. Dalsze integracje pozostają planem. Weryfikować możliwości
 dostawców przed implementacją, ponieważ dokumentacja i zakres dostępu mogą się zmieniać.
 
@@ -192,3 +192,7 @@ od history_complete, zachowując ostrzeżenia dla konfliktów i błędnych danyc
 
 Źródłowy Removed zawsze opróżnia slot (ilość 0, bez przedmiotu); częściowy
 ubytek stosu opisuje Modified. Korekta i test regresji: docs/phase-4.md.
+
+Wykresy fazy 5 korzystają z ograniczonego API szeregów UTC, niezależnego od
+ECharts. Jednostki nie są łączone między różnymi przedmiotami; zakres wykresu
+można zastosować do wspólnych filtrów dni. Szczegóły: [phase-5.md](phase-5.md).

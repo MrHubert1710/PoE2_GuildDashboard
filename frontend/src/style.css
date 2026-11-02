@@ -237,3 +237,15 @@ header { flex-wrap: wrap; }
 }
 
 .projection-status { padding: 12px 14px; margin: 0 0 16px; background: #22342b; border: 1px solid #4b6656; border-radius: 6px; font-size: 13px; }
+
+.quantity-chart { min-width: 0; margin-top: 28px; padding: 20px; border: 1px solid #34444d; border-radius: 10px; background: #182128; }
+.chart-item { max-width: 100%; width: 480px; margin: 16px 0; }
+.chart-item select { min-width: 0; width: 100%; }
+.chart-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 18px 0 8px; }
+.chart-controls .check-label { gap: 6px; font-size: 12px; }
+.chart-controls button { padding: 7px 10px; font-size: 12px; }
+.time-series-chart { width: 100%; height: 370px; min-width: 0; }
+.chart-data { margin-top: 12px; }
+.chart-data summary { cursor: pointer; font-size: 13px; }
+.chart-data table { min-width: 480px; margin-top: 12px; }
+@media (max-width: 600px) { .quantity-chart { padding: 12px; } .time-series-chart { height: 330px; } }

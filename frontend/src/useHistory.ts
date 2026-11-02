@@ -133,6 +133,7 @@ export function useHistory() {
       from: draft.from, to: draft.to, page: 1 })
   }
   function clearFilters() { change({ ...defaults, league: query.value.league, page_size: query.value.page_size }) }
+  function setDateRange(from: string, to: string) { change({ ...query.value, from, to, page: 1 }) }
   function setPage(page: number) { change({ ...query.value, page }) }
   function setPageSize(page_size: number) { change({ ...query.value, page_size, page: 1 }) }
   function sortBy(sort: string) {
@@ -155,5 +156,5 @@ export function useHistory() {
   })
 
   return { leagues, query, draft, result, loadingLeagues, loadingRows, leagueError, rowError, formError,
-    selected, loadLeagues, refreshRevision: () => loadLeagues(true), selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy }
+    selected, loadLeagues, refreshRevision: () => loadLeagues(true), selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy, setDateRange }
 }
