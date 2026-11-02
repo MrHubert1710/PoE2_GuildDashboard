@@ -13,6 +13,7 @@ integracji, ponieważ ich dokumentacja i zakres dostępu mogą się zmieniać.
    jeżeli wymagane zasoby i rejestracja klienta są dostępne.
 5. Wykrywanie lig i ich cyklu życia; zachowywanie lokalnych archiwów.
 6. Wykrywanie kategorii wyceny i zmian struktury odpowiedzi dostawcy.
+7. Wiele tłumaczeń interfejsu i wybór języka niezależny od wybranej ligi.
 
 ## Rozdzielenie odpowiedzialności
 
@@ -71,6 +72,27 @@ backend agreguje duże historie. Interakcja może sterować filtrem tabeli.
 Wybór ligi i filtry w URL, pamięć widoków rozdzielona między ligi.
 Eksport `currentday.html`/`lastday.html` pozostaje osobną funkcją i może używać
 statycznych wykresów; nie jest źródłem danych interaktywnej aplikacji.
+
+## Język i lokalizacja
+
+Planowana osobna faza 2a wprowadzi PL/EN i rozszerzalne katalogi tłumaczeń.
+Język interfejsu jest preferencją użytkownika/przeglądarki i elementem URL,
+nie właściwością ligi ani zdarzenia. Nie duplikować transakcji ani wyceny
+w bazie dla poszczególnych języków.
+
+API zwraca stabilne kody i wartości źródłowe; etykiety i komunikaty tłumaczy UI.
+Nazwy źródłowe przedmiotów i lig nie mogą stać się kluczami tłumaczeń ani
+zależeć od wyboru języka. Ewentualne lokalizowane nazwy dostawców mapować po ID.
+Nazw użytkowników i skrytek oraz surowych zdarzeń nie tłumaczyć.
+
+Daty/liczby/liczebniki formatować według locale; UTC w API i semantyka filtrów
+pozostają stałe. Locale i strefa czasu to odrębne ustawienia. Przełączenie języka
+zachowuje filtry, ligę, stronę i stan widoku. Serializer query string nie może
+usuwać lang podczas nawigacji lub zastosowania filtrów.
+
+Wszystkie kolejne fazy korzystają z tych samych katalogów, również teksty
+wykresów, statusów synchronizacji i nowo generowanych eksportów HTML.
+Zastane raporty historyczne pozostają w oryginalnym języku.
 
 ## GGG: zweryfikowane możliwości i ograniczenia
 

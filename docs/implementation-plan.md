@@ -12,6 +12,7 @@ Zastąpić starą aplikację usługą Vue/TypeScript + Flask, obsługującą wie
 archiwa offline, interaktywne wykresy oraz synchronizację danych przez wymienne
 adaptery. Zachować autofetch po wejściu i ręczny fetch. Automatyzować katalogi
 lig i kategorii tam, gdzie dostawca udostępnia wiarygodne informacje.
+Wspierać wiele tłumaczeń interfejsu z wyborem języka niezależnym od ligi.
 
 Stary katalog jest niezależnym źródłem danych i punktem odniesienia.
 Nie modyfikować go w trakcie portowania. Nie przełączać jego brancha.
@@ -30,6 +31,9 @@ Nie przenosić globalnego stanu starego procesu ani zależności od jednej ligi.
 - Konta/GGG OAuth nie są tożsame z wyborem ligi ani stanem przeglądarki.
 - Baza, surowe dane i sekrety pozostają poza Git. Migracje i kontrakty w Git.
 - Każdy etap dostarcza samodzielny, testowalny rezultat i osobny commit/commity.
+- Teksty interfejsu są kluczami tłumaczeń z parametrami, a kody API i dane
+  źródłowe pozostają niezależne od języka. Formatowanie liczb i dat respektuje
+  locale; wybór języka nie zmienia automatycznie strefy czasu.
 
 ## Etap 0 — kontrakty i punkty odniesienia
 
@@ -95,9 +99,50 @@ Możliwy podgląd starego raportu bez połączenia z dostawcami.
 
 Kamień milowy A: aplikacja do przeglądania archiwów.
 
+## Etap 2a — wybór języka i tłumaczenia interfejsu
+
+Status: planowany, jeszcze nierozpoczęty. Osobna faza po odbiorze fazy 2,
+przed dalszą rozbudową interfejsu. Wymaga osobnego polecenia użytkownika.
+Nie łączyć jej automatycznie z fazą 3.
+
+Zakres:
+- Przygotować warstwę i18n i katalogi tłumaczeń; początkowy zakres PL/EN,
+  z możliwością dodania kolejnego języka bez zmiany logiki komponentów.
+  Konkretne narzędzie dobrać podczas implementacji do obecnego Vue/TypeScript.
+- Przenieść istniejące teksty Historii, Diagnostyki, filtrów, statusów lig,
+  błędów, pustych stanów, tooltipów i etykiet dostępności do słowników.
+- Kompaktowy wybór języka, opisany nazwami własnymi języków, bez flag państw.
+  Kolejność wyboru: obsługiwany lang w URL → zapisana preferencja przeglądarki
+  → obsługiwany język przeglądarki → domyślne PL. Fallback brakującego tekstu: PL.
+- Język zapisywać w preferencji i parametrze lang, aby link odtwarzał również
+  język widoku. Zmiana aktualizuje URL bez utraty ligi, filtrów, sortowania,
+  strony i otwartych elementów; nie wywołuje fetchowania ani ponownego importu.
+  Dostosować serializer URL i nawigację Historia/Diagnostyka, aby nie usuwały lang.
+- Formatować daty, liczby i liczebniki według locale; stosować całe komunikaty
+  z parametrami i regułami liczby mnogiej zamiast sklejania słów. W danych API
+  zachować ISO/UTC, a w filtrach daty YYYY-MM-DD. Strefa czasu pozostaje osobną
+  preferencją; obecne UTC nie zmienia się wskutek wyboru PL lub EN.
+- Backend zwraca stabilne kody błędów/statusów; frontend mapuje je na tłumaczenia.
+  Klucze biznesowe, cache, identyfikatory i rewizje danych nie zależą od locale.
+- Nie tłumaczyć nazw kont, skrytek ani surowych opisów zdarzeń. Nazwy lig,
+  przedmiotów i kategorii źródłowych zachować jako kanoniczne; przyszłe oficjalne
+  nazwy lokalizowane będą osobną warstwą prezentacji nad stabilnymi ID.
+- Aktualizować html lang. Teksty i wartości parametrów renderować jako tekst,
+  bez wstrzykiwania HTML z tłumaczeń. Dłuższe etykiety nie mogą psuć układu mobilnego.
+
+Odbiór:
+- Cały istniejący interfejs można przełączyć PL/EN bez przeładowania strony
+  i bez utraty aktualnego kontekstu. Reload i skopiowany URL odtwarzają język.
+- Przełączanie języka nie zmienia rekordów, wyników filtrów, rewizji ani cen.
+- Kontrola zestawu kluczy i parametrów wykrywa niekompletne tłumaczenia;
+  testy obejmują fallback, nieobsługiwane lang, liczby mnogie, daty/liczby,
+  etykiety aria, URL/back/forward i dłuższe teksty w widoku mobilnym.
+- Dokumentacja opisuje dodawanie języka i tłumaczenie nowych funkcji.
+  Nowe teksty z faz 3–8 powstają od razu w katalogach tłumaczeń.
+
 ## Etap 3 — worker i kontrakt odświeżania
 
-Zależność: etapy 1–2. Nie wymaga dostępu do historii GGG.
+Zależność: etapy 1–2 i warstwa tekstów z 2a. Nie wymaga dostępu do historii GGG.
 
 Zakres:
 - Trwała kolejka SQLite, jeden worker, lease, heartbeat, retry z backoff,
@@ -216,6 +261,8 @@ Zależność: etapy 2, 4–6; etap 7B tylko dla odbioru synchronizacji.
 Zakres:
 - Eksport offline currentday.html/lastday.html z jednej zatwierdzonej rewizji,
   według ustalonej polityki rotacji. Nie przebudowywać archiwów automatycznie.
+- Nowy eksport ma wybrany język i zapisaną wersję tłumaczeń. Zastane historyczne
+  HTML pozostają w oryginalnym języku i nie są automatycznie przepisywane.
 - Porównanie wyników obu aplikacji na tym samym wejściu i jawne opisanie
   zamierzonych różnic, zwłaszcza wyceny i przypadków wcześniej błędnych.
 - Kopia i odtworzenie bazy, migracje, test restartu i awarii worker/web,
@@ -231,13 +278,15 @@ usunięcie katalogu wymaga osobnego polecenia użytkownika.
 
 ## Zależności i następny zakres pracy
 
-Główna ścieżka: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 8.
+Główna ścieżka: 0 → 1 → 2 → 2a → 3 → 4 → 5 → 6 → 8.
 Etap 3 dostarcza mechanizm aktualizacji używany następnie przez 4, 6 i 7.
 Rozpoznanie dostępu z etapu 0 trwa niezależnie od portowania archiwów.
 Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
-Po akceptacji fazy 2 następna będzie wyłącznie faza 3: worker i odświeżanie.
+Po akceptacji fazy 2 proponowany kolejny zakres to osobna faza 2a: języki.
+Jest tylko zaplanowana; rozpoczęcie wymaga osobnego polecenia użytkownika.
+Po odbiorze 2a następuje faza 3: worker i odświeżanie.
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.
