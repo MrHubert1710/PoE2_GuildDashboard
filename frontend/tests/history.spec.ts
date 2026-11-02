@@ -161,6 +161,7 @@ test('compact league picker shows per-option status, supports keyboard and hides
   await expect(page.getByRole('columnheader', { name: 'ID zdarzenia' })).toHaveCount(0)
   await expect(page.locator('thead th')).toHaveCount(6)
   const picker = page.getByRole('combobox', { name: 'Liga', exact: true })
+  await expect(page.locator('header').getByRole('combobox', { name: 'Liga', exact: true })).toBeVisible()
   await picker.focus()
   await picker.press('ArrowDown')
   await expect(picker).toHaveAttribute('aria-expanded', 'true')

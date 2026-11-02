@@ -100,8 +100,6 @@ button.primary:hover { background: #cbe7d0; }
 @media (max-width: 650px) { .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .history-heading { align-items: flex-start; flex-direction: column; gap: 8px; } .app-nav { gap: 16px; } .phase-tag { display: none; } .transactions { min-width: 900px; } }
 @media (max-width: 380px) { .filters { grid-template-columns: 1fr; } .pagination { gap: 8px; } }
 
-.history-options { display: flex; justify-content: flex-end; padding-top: 18px; }
-.history-options + .history-heading { padding-top: 12px; }
 .league-picker { position: relative; max-width: 100%; }
 .league-picker > button { padding: 8px 10px; gap: 10px; min-height: 36px; max-width: 100%; font-size: 12px; }
 .picker-caption { color: #8f999f; font-size: 11px; }
@@ -116,3 +114,9 @@ button.primary:hover { background: #cbe7d0; }
 .league-options li[data-active="true"] { background: #34424c; }
 .league-options li[aria-selected="true"] { color: #c9e2ce; }
 @media (max-width: 650px) { .transactions { min-width: 780px; } }
+
+.header-league-picker { min-width: 0; }
+@media (max-width: 850px) {
+  header { flex-wrap: wrap; }
+  .header-league-picker { order: 4; flex-basis: 100%; display: flex; justify-content: flex-end; }
+}

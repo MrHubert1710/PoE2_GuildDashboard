@@ -132,7 +132,8 @@ Po zakończeniu fazy praca zatrzymuje się. Faza 3 wymaga osobnego polecenia.
 
 Kolumna ID zdarzenia jest ukryta w tabeli. Identyfikatory pozostają w modelu
 oraz API dla stabilnego stronicowania i identyfikacji wierszy.
-Wybór ligi przeniesiono do małego przełącznika nad nagłówkiem historii.
+Wybór ligi przeniesiono do małego przełącznika w głównym nagłówku aplikacji,
+obok nawigacji. Na wąskim ekranie zajmuje drugi wiersz tego samego nagłówka.
 Lista jest osobnym listboxem, dzięki czemu każda opcja ma własny pill statusu.
 Obsługa: kliknięcie, strzałki, Home/End, Enter/Space, Escape i zamknięcie poza listą.
 

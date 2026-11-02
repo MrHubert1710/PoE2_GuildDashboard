@@ -26,6 +26,7 @@ onUnmounted(() => window.removeEventListener('popstate', popState))
         <a href="?" :aria-current="view === 'history' ? 'page' : undefined" @click.prevent="navigate('history')">Historia</a>
         <a href="?view=diagnostics" :aria-current="view === 'diagnostics' ? 'page' : undefined" @click.prevent="navigate('diagnostics')">Diagnostyka</a>
       </nav>
+      <div v-show="view === 'history'" id="header-league-picker" class="header-league-picker"></div>
       <span class="phase-tag">Faza 2</span>
     </header>
     <HistoryBrowser v-if="view === 'history'" />

@@ -18,9 +18,9 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
 
 <template>
   <section class="history-browser" aria-labelledby="history-title">
-    <div v-if="leagues.length && !leagueError" class="history-options">
+    <Teleport v-if="leagues.length && !leagueError" to="#header-league-picker">
       <LeaguePicker :leagues="leagues" :selected-id="query.league" :disabled="loadingLeagues" @select="selectLeague" />
-    </div>
+    </Teleport>
     <div class="history-heading">
       <div><p class="eyebrow">POE2 GUILD</p><h1 id="history-title">Historia skrytki<span>.</span></h1><p class="intro">Przeglądaj transakcje gildii z zachowanych danych.</p></div>
       <button type="button" :disabled="loadingLeagues" @click="loadLeagues">Odśwież widok <span aria-hidden="true">↗</span></button>
