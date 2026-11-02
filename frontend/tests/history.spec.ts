@@ -150,7 +150,7 @@ test('mobile page stays within viewport and diagnostics remain accessible', asyn
   await page.getByRole('link', { name: 'Diagnostyka', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Baza danych', exact: true })).toBeVisible()
   await page.goBack()
-  await expect(page.getByRole('heading', { name: 'Historia skrytki.' })).toBeVisible()
+  await expect(page.getByRole('navigation',{name:'Widoki ligi'}).getByRole('link',{name:'Historia',exact:true})).toBeVisible()
 })
 
 test('compact league picker shows per-option status, supports keyboard and hides event IDs', async ({ page }) => {
@@ -180,6 +180,6 @@ test('compact league picker shows per-option status, supports keyboard and hides
   await picker.press('Escape')
   await expect(picker).toHaveAttribute('aria-expanded', 'false')
   await picker.click()
-  await page.getByRole('heading', { name: 'Historia skrytki.' }).click()
+  await page.locator('footer').click()
   await expect(picker).toHaveAttribute('aria-expanded', 'false')
 })

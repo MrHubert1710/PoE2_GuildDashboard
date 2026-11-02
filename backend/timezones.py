@@ -28,3 +28,15 @@ def normalize_timezone(value):
     except (ZoneInfoNotFoundError, ValueError):
         raise ValueError('invalid_timezone') from None
     return value
+
+
+def timezone_info(value):
+    from datetime import timedelta, timezone
+    normalized = normalize_timezone(value)
+    if normalized == 'UTC':
+        return timezone.utc
+    match = re.fullmatch(r'UTC([+-])(\d{2}):(\d{2})', normalized)
+    if match:
+        minutes = (int(match[2]) * 60 + int(match[3])) * (1 if match[1] == '+' else -1)
+        return timezone(timedelta(minutes=minutes))
+    return ZoneInfo(normalized)

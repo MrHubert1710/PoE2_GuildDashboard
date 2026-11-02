@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CollapsiblePanel from './CollapsiblePanel.vue'
 import { watch } from 'vue'
 import type { HistoryQuery } from '../browsing'
 import { t, number, date } from '../i18n'
@@ -16,22 +17,13 @@ const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
 </script>
 <template>
   <section class="quantity-panel" :aria-label="t('quantity.title')" data-testid="quantity-panel">
-    <div class="section-heading"><h2>{{ t(`workspace.report.${view}`) }}</h2><button type="button" :disabled="busy || jobState === 'running' || jobState === 'queued'" @click="enqueue('manual')">{{ t('quantity.rebuild') }}</button></div>
     <p v-if="error" role="alert">{{ t(`quantity.error.${error}`) }}</p>
     <p v-if="report && report.projection.state !== 'ready'" role="status">{{ t(`quantity.${jobState === 'failed' ? 'failed' : 'pending'}`) }}</p>
     <p v-if="!report && !error" role="status">{{ t('quantity.loading') }}</p>
+    <button v-if="error || jobState === 'failed'" type="button" :disabled="busy" @click="enqueue('manual')">{{ t('quantity.rebuild') }}</button>
     <template v-if="report?.projection.state === 'ready'">
-      <div v-if="view === 'summary' && report.stats" class="overview-cards">
-        <article><span>{{ t('workspace.events') }}</span><strong>{{ number(report.stats.events) }}</strong></article>
-        <article><span>{{ t('workspace.unresolved') }}</span><strong>{{ number(report.stats.unknown) }}</strong></article>
-        <article><span>{{ t('workspace.inferred') }}</span><strong>{{ number(report.stats.inferred) }}</strong></article>
-      </div>
-
-      <p class="footnote">{{ t('quantity.generated', { date: date(report.projection.generated_at, report.settings.timezone), zone: report.settings.timezone, version: report.projection.algorithm_version }) }}</p>
-      <p v-if="report.stats && view !== 'state'" class="footnote" data-testid="quantity-stats">{{ t('quantity.stats', { events: report.stats.events, unknown: report.stats.unknown, inferred: report.stats.inferred, excluded: report.stats.excluded, warnings: report.stats.warnings }) }}</p>
-      <p v-if="view === 'state'" class="footnote">{{ t('quantity.stateNote') }}</p>
-      <p v-else class="footnote">{{ t('quantity.filtersNote') }}</p>
       <slot v-if="!error" />
+      <CollapsiblePanel :title="t('layout.table')" :storage-key="'table:'+leagueId+':'+view" data-testid="quantity-table-container">
       <p v-if="!report.rows.length" class="empty-state">{{ t('quantity.empty') }}</p>
       <div v-else class="transactions-scroll" tabindex="0" role="region" :aria-label="t('quantity.table')">
         <table class="transactions quantity-table"><thead><tr>
@@ -46,6 +38,20 @@ const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
         </tr></tbody></table>
       </div>
       <nav v-if="report.pages > 1" class="pagination" :aria-label="t('quantity.pages')"><button :disabled="report.page <= 1" @click="move(report.page - 1)">{{ t('previous') }}</button><span>{{ number(report.page) }} / {{ number(report.pages) }}</span><button :disabled="report.page >= report.pages" @click="move(report.page + 1)">{{ t('next') }}</button></nav>
+      </CollapsiblePanel>
+      <CollapsiblePanel :title="t('layout.info')" :storage-key="'info:'+leagueId+':'+view" :initial-open="false" data-testid="report-info">
+      <div v-if="view === 'summary' && report.stats" class="overview-cards">
+        <article><span>{{ t('workspace.events') }}</span><strong>{{ number(report.stats.events) }}</strong></article>
+        <article><span>{{ t('workspace.unresolved') }}</span><strong>{{ number(report.stats.unknown) }}</strong></article>
+        <article><span>{{ t('workspace.inferred') }}</span><strong>{{ number(report.stats.inferred) }}</strong></article>
+      </div>
+
+      <p class="footnote">{{ t('quantity.generated', { date: date(report.projection.generated_at, report.settings.timezone), zone: report.settings.timezone, version: report.projection.algorithm_version }) }}</p>
+      <p v-if="report.stats && view !== 'state'" class="footnote" data-testid="quantity-stats">{{ t('quantity.stats', { events: report.stats.events, unknown: report.stats.unknown, inferred: report.stats.inferred, excluded: report.stats.excluded, warnings: report.stats.warnings }) }}</p>
+      <p v-if="view === 'state'" class="footnote">{{ t('quantity.stateNote') }}</p>
+      <p v-else class="footnote">{{ t('quantity.filtersNote',{zone:report.settings.timezone}) }}</p>
+        <button type="button" :disabled="busy || jobState === 'running' || jobState === 'queued'" @click="enqueue('manual')">{{ t('quantity.rebuild') }}</button>
+      </CollapsiblePanel>
     </template>
 
   </section>

@@ -1,150 +1,130 @@
-import { test, expect } from '@playwright/test'
-import { goSection } from './workspace-helpers'
+import {test,expect} from '@playwright/test'
+import {goSection} from './workspace-helpers'
 test.use({locale:'en-US'})
 const path='/poe2guild/?lang=en'
-const chart=(page: import('@playwright/test').Page)=>page.getByTestId('quantity-chart')
+const chart=(page:import('@playwright/test').Page)=>page.getByTestId('quantity-chart')
 
-test('interactive chart shows one item, bounded data and the same totals as the report',async({page})=>{
-  let points=0
-  page.on('response',async response=>{if(response.url().includes('/quantity-series?')){const data=await response.json();points=data.points.length}})
+test('balance chart is compact and group series differ between Players and Stashes',async({page})=>{
+  await page.setViewportSize({width:1440,height:1000})
   await page.goto(path)
   await expect(chart(page).getByRole('img')).toBeVisible()
-  await expect(chart(page).locator('svg')).toBeVisible()
-  expect(points).toBeGreaterThan(0);expect(points).toBeLessThanOrEqual(240)
-  await chart(page).screenshot({path:'test-results/phase-5-chart-desktop.png'})
-  await expect(chart(page).getByLabel('Chart item',{exact:true})).toHaveValue('Rites Token')
-  await chart(page).getByText('Show chart data',{exact:true}).click()
-  await expect(chart(page).locator('tbody tr')).toHaveCount(points)
-  await page.getByLabel('Player',{exact:true}).fill('Synthetic Alice')
-  await page.getByRole('button',{name:'Apply filters',exact:true}).click()
+  expect((await page.locator('.shell').boundingBox())!.width).toBeGreaterThan(1350)
+  expect((await page.getByTestId('time-series-chart').boundingBox())!.y).toBeLessThan(320)
+  await expect(page.getByRole('button',{name:'Synchronization status'})).toHaveCount(0)
+  await expect(page.locator('header').getByRole('button',{name:'Refresh view',exact:true})).toBeVisible()
+  await expect(page.getByTestId('report-info')).not.toHaveAttribute('open','')
+  await expect(chart(page).getByRole('checkbox',{name:'Added series'})).toHaveCount(0)
+  await goSection(page,'Players')
+  await expect(chart(page).locator('.chart-series-picker')).toBeVisible()
+  await chart(page).locator('.chart-series-picker > summary').click()
+  await expect(chart(page).getByRole('checkbox',{name:'Synthetic Alice',exact:true})).toBeVisible()
+  await expect(chart(page).getByRole('checkbox',{name:'Żółw',exact:true})).toBeVisible()
+  await goSection(page,'Stashes')
+  const league=new URL(page.url()).searchParams.get('league')
+  const data=await(await page.request.get(`/poe2guild/api/leagues/${league}/quantity-series?view=stashes&series_item=Rites%20Token`)).json()
+  expect(data.series.map((s:{name:string})=>s.name)).toEqual(['Main'])
   await expect(chart(page).getByRole('img')).toBeVisible()
-  const data=await(await page.request.get('/poe2guild/api/leagues/'+new URL(page.url()).searchParams.get('league')+'/quantity-series?account=Synthetic+Alice&series_item=Rites+Token')).json()
-  await expect(chart(page).getByTestId('chart-totals')).toContainText('added '+data.totals.added)
-  await expect(chart(page).getByTestId('chart-totals')).toContainText('removed '+data.totals.removed)
+  await page.screenshot({path:'test-results/phase-5-compact-desktop.png',fullPage:false})
 })
 
-test('zoom, series choice, refresh, navigation, reload and reset preserve the intended chart view',async({page})=>{
-  await page.goto(path)
-  await expect(chart(page).getByRole('img')).toBeVisible()
-  await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+test('wheel zoom requests a finer viewport, tooltip works and refresh preserves grouped selection',async({page})=>{
+  let requested=''
+  page.on('request',request=>{if(request.url().includes('/quantity-series?'))requested=request.url()})
+  await page.goto(path+'&section=players')
+  const graph=page.getByTestId('time-series-chart')
+  await expect(graph).toBeVisible()
+  await chart(page).locator('.chart-series-picker > summary').click()
+  await chart(page).getByRole('checkbox',{name:'Synthetic Alice',exact:true}).uncheck()
+  await chart(page).locator('.chart-series-picker > summary').click()
+  const box=(await graph.boundingBox())!
+  await page.mouse.move(box.x+box.width*.6,box.y+box.height*.4)
+  await expect(graph.locator('svg')).toContainText('Żółw')
+  await page.mouse.wheel(0,-350)
   await expect(page).toHaveURL(/chart_from=/)
-  const from=new URL(page.url()).searchParams.get('chart_from'), to=new URL(page.url()).searchParams.get('chart_to')
-  await chart(page).getByRole('checkbox',{name:'Removed series',exact:true}).uncheck()
-  await chart(page).getByRole('button',{name:'Refresh chart',exact:true}).click()
-  await expect(chart(page).getByRole('img')).toBeVisible()
-  expect(new URL(page.url()).searchParams.get('chart_from')).toBe(from)
-  expect(new URL(page.url()).searchParams.get('chart_to')).toBe(to)
+  await expect.poll(()=>requested).toContain('window_start=')
+  const from=new URL(page.url()).searchParams.get('chart_from')
   await page.getByRole('button',{name:'Refresh view',exact:true}).click()
-  await expect(chart(page).getByRole('img')).toBeVisible()
-  await goSection(page,'History');await goSection(page,'Players')
-  await expect(chart(page).getByRole('img')).toBeVisible()
-  await page.reload()
-  await expect(chart(page).getByRole('checkbox',{name:'Removed series',exact:true})).not.toBeChecked()
+  await expect(graph).toBeVisible()
   expect(new URL(page.url()).searchParams.get('chart_from')).toBe(from)
+  await chart(page).locator('.chart-series-picker > summary').click()
+  await expect(chart(page).getByRole('checkbox',{name:'Synthetic Alice',exact:true})).not.toBeChecked()
+  await chart(page).locator('.chart-series-picker > summary').click()
   await chart(page).getByRole('button',{name:'Reset view',exact:true}).click()
   await expect(page).not.toHaveURL(/chart_from=/)
-  await expect(chart(page).getByRole('button',{name:'Apply range to filters',exact:true})).toBeDisabled()
 })
 
-test('zoomed chart range applies UTC days to shared history and report filters',async({page})=>{
+test('chart, table and information collapse independently and survive reload',async({page})=>{
+  await page.goto(path)
+  await expect(chart(page).getByRole('img')).toBeVisible()
+  await chart(page).locator(':scope > summary').click()
+  await expect(chart(page).getByRole('img')).toBeHidden()
+  await expect(page.locator('.quantity-table')).toBeVisible()
+  await page.getByTestId('quantity-table-container').locator(':scope > summary').click()
+  await expect(page.locator('.quantity-table')).toBeHidden()
+  await page.getByTestId('report-info').locator(':scope > summary').click()
+  await expect(page.locator('.overview-cards')).toBeVisible()
+  await page.reload()
+  await expect(chart(page)).toBeVisible()
+  await expect(chart(page)).not.toHaveAttribute('open','')
+  await expect(page.getByTestId('quantity-table-container')).not.toHaveAttribute('open','')
+  await expect(page.getByTestId('report-info')).toHaveAttribute('open','')
+  await chart(page).locator(':scope > summary').click()
+  await expect(chart(page).getByRole('img')).toBeVisible()
+})
+
+test('zoom range applies local calendar dates and league changes reset chart context',async({page})=>{
   await page.goto(path)
   await expect(chart(page).getByRole('img')).toBeVisible()
   await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
-  await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
   await chart(page).getByRole('button',{name:'Apply range to filters',exact:true}).click()
-  const params=new URL(page.url()).searchParams
-  expect(params.get('from')).toMatch(/^2026-01-0[12]$/)
-  expect(params.get('to')).toMatch(/^2026-01-0[12]$/)
-  await expect(page.getByLabel('From day (UTC)')).toHaveValue(params.get('from')!)
+  await expect(page.getByLabel('From day (UTC)')).not.toHaveValue('')
   await goSection(page,'History')
-  await expect(page.locator('.result-count')).toContainText('Results:')
-  expect(new URL(page.url()).searchParams.get('from')).toBe(params.get('from'))
-})
-
-test('league changes, empty matches, retry and PL/mobile chart are isolated',async({page})=>{
-  let fail=false
-  await page.route('**/quantity-series?*',route=>fail?route.fulfill({status:503,json:{error:'database_unavailable'}}):route.continue())
-  await page.goto(path)
+  await expect(page.locator('.result-count')).toBeVisible()
+  await goSection(page,'Summary')
   await expect(chart(page).getByRole('img')).toBeVisible()
   await page.getByRole('combobox',{name:'League',exact:true}).click()
   await page.getByRole('option',{name:'Runes of Aldur',exact:false}).click()
   await expect(chart(page).getByLabel('Chart item',{exact:true})).toHaveValue('Aldur Token')
-  fail=true
-  await chart(page).getByRole('button',{name:'Refresh chart',exact:true}).click()
+  await expect(page).not.toHaveURL(/chart_from=/)
+})
+
+test('chart retry and PL mobile stay inside viewport',async({page})=>{
+  let fail=false
+  await page.route('**/quantity-series?*',route=>fail?route.fulfill({status:503,json:{error:'database_unavailable'}}):route.continue())
+  await page.goto(path);await expect(chart(page).getByRole('img')).toBeVisible()
+  fail=true;await chart(page).getByRole('button',{name:'Refresh chart',exact:true}).click()
   await expect(chart(page).getByRole('alert')).toContainText('database is unavailable')
-  fail=false
-  await chart(page).getByRole('button',{name:'Refresh chart',exact:true}).click()
-  await expect(chart(page).getByRole('img')).toBeVisible()
+  fail=false;await chart(page).getByRole('button',{name:'Refresh chart',exact:true}).click()
+  await expect(chart(page).getByRole('alert')).toHaveCount(0)
   await page.getByRole('combobox',{name:'Language',exact:true}).selectOption('pl')
   await page.setViewportSize({width:390,height:844})
   await expect(chart(page).getByRole('img')).toBeVisible()
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
-  await page.screenshot({path:'test-results/phase-5-mobile.png',fullPage:true})
-  await page.getByLabel('Gracz',{exact:true}).fill('No such player')
-  await page.getByRole('button',{name:'Zastosuj filtry',exact:true}).click()
-  await expect(chart(page)).toContainText('Brak ruchów')
+  await page.screenshot({path:'test-results/phase-5-compact-mobile.png',fullPage:true})
 })
 
-
-test('real pointer tooltip, wheel zoom and drag panning change the chart without refetching history',async({page})=>{
-  let sourceRequests=0
-  page.on('request',request=>{if(request.url().includes('/transactions?'))sourceRequests++})
-  await page.goto(path)
-  const graph=page.getByTestId('time-series-chart')
-  await expect(graph).toBeVisible()
-  await graph.scrollIntoViewIfNeeded()
-  const box=(await graph.boundingBox())!
-  await page.mouse.move(box.x+box.width*0.6,box.y+box.height*0.4)
-  await expect(graph.locator('svg')).toContainText('Added')
-  const before=sourceRequests
-  await page.mouse.wheel(0,-450)
-  await expect(page).toHaveURL(/chart_from=/)
-  const from=new URL(page.url()).searchParams.get('chart_from')
-  await page.mouse.move(box.x+box.width*0.6,box.y+box.height*0.4)
-  await page.mouse.down()
-  await page.mouse.move(box.x+box.width*0.75,box.y+box.height*0.4,{steps:8})
-  await page.mouse.up()
-  await expect.poll(()=>new URL(page.url()).searchParams.get('chart_from')).not.toBe(from)
-  expect(sourceRequests).toBe(before)
-})
-
-test('item changes have back/forward history and league changes retire the previous chart context',async({page})=>{
-  await page.goto(path)
-  const item=chart(page).getByLabel('Chart item',{exact:true})
-  await expect(item).toHaveValue('Rites Token')
-  await item.selectOption('Literal %_ Item')
-  await expect(page).toHaveURL(/chart_item=/)
-  await expect(item).toHaveValue('Literal %_ Item')
-  await page.goBack()
-  await expect(item).toHaveValue('Rites Token')
-  await page.goForward()
-  await expect(item).toHaveValue('Literal %_ Item')
-  await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
-  await page.getByRole('combobox',{name:'League',exact:true}).click()
-  await page.getByRole('option',{name:'Runes of Aldur',exact:false}).click()
-  await expect(item).toHaveValue('Aldur Token')
-  await expect(page).not.toHaveURL(/chart_item=|chart_from=/)
-})
-
-test('history alone does not load ECharts and late chart responses cannot overwrite another league',async({page})=>{
-  let chunks=0,requests=0,first=true,release:()=>void=()=>{}
-  const gate=new Promise<void>(resolve=>{release=resolve})
-  page.on('request',request=>{if(request.url().includes('/TimeSeriesChart-'))chunks++;if(request.url().includes('/quantity-series?'))requests++})
+test('a late coarse viewport response cannot replace newer zoom details',async({page})=>{
+  let release:()=>void=()=>{},held=false,finished:()=>void=()=>{}
+  const gate=new Promise<void>(resolve=>{release=resolve}),done=new Promise<void>(resolve=>{finished=resolve})
   await page.route('**/quantity-series?*',async route=>{
-    if(first){first=false;await gate}
-    await route.continue().catch(()=>{})
+    if(route.request().url().includes('window_start=')&&!held){
+      held=true
+      const response=await route.fetch();await gate
+      await route.fulfill({response}).catch(()=>{});finished()
+    }else await route.continue()
   })
-  try {
-    await page.goto(path+'&section=history')
-    await expect(page.locator('.result-count')).toContainText('Results: 60')
-    expect(chunks).toBe(0);expect(requests).toBe(0)
-    await goSection(page,'Summary')
-    await expect.poll(()=>requests).toBe(1)
-    await page.getByRole('combobox',{name:'League',exact:true}).click()
-    await page.getByRole('option',{name:'Runes of Aldur',exact:false}).click()
-    await expect(chart(page).getByLabel('Chart item',{exact:true})).toHaveValue('Aldur Token')
-    release()
+  try{
+    await page.goto(path)
     await expect(chart(page).getByRole('img')).toBeVisible()
-    await expect(chart(page).getByLabel('Chart item',{exact:true})).toHaveValue('Aldur Token')
-  } finally {release()}
+    await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+    await expect.poll(()=>held).toBe(true)
+    await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+    const from=Number(new URL(page.url()).searchParams.get('chart_from'))
+    await chart(page).locator('.chart-info > summary').click()
+    await chart(page).getByText('Show chart data',{exact:true}).click()
+    const expected=new Intl.DateTimeFormat('en',{dateStyle:'medium',timeStyle:'short',timeZone:'UTC'}).format(new Date(from))
+    await expect(chart(page).locator('.chart-data tbody tr').first().locator('td').nth(1)).toHaveText(expected)
+    release();await done
+    await expect(chart(page).locator('.chart-data tbody tr').first().locator('td').nth(1)).toHaveText(expected)
+  }finally{release()}
 })

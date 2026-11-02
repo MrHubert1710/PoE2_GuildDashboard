@@ -37,7 +37,13 @@ export function t(key: string, parameters: Record<string, string | number> = {})
   return formatMessage(catalogs, locale.value, key, parameters)
 }
 
-export function date(value: string | null, timeZone = 'UTC') {
+export const displayTimezone = ref('UTC')
+export function compactNumber(value: number) {
+  if (value < 1000) return number(value)
+  const scale = value >= 1e9 ? 1e9 : value >= 1e6 ? 1e6 : 1e3
+  return new Intl.NumberFormat(locale.value,{maximumFractionDigits:1}).format(value/scale)+(scale===1e9?'B':scale===1e6?'M':'k')
+}
+export function date(value: string | null, timeZone = displayTimezone.value) {
   return value ? formatZonedDate(value, locale.value, timeZone) : t('noData')
 }
 watchEffect(() => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { t } from '../i18n'
+import { t, compactNumber, number } from '../i18n'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import type { League } from '../browsing'
 
@@ -58,13 +58,14 @@ onUnmounted(() => document.removeEventListener('pointerdown', outside))
       @click="open ? open = false : show()" @keydown="keydown">
       <span class="picker-caption">{{ t('league') }}</span><span class="picker-name">{{ selected?.name ?? t('chooseLeague') }}</span>
       <span v-if="selected" class="league-status" :class="status(selected).kind" :title="t(status(selected).title)">{{ t(status(selected).label) }}</span>
+      <span v-if="selected" class="league-count" :title="t('historyCount',{count:number(selected.transactions)})">{{ compactNumber(selected.transactions) }}</span>
       <span aria-hidden="true" class="picker-arrow">⌄</span>
     </button>
     <ul v-if="open" id="league-options" role="listbox" :aria-label="t('availableLeagues')" class="league-options">
       <li v-for="(league, index) in leagues" :id="`league-option-${index}`" :key="league.id" role="option"
         :aria-selected="league.id === selectedId" :data-active="index === active" @pointermove="active = index"
         @mousedown.prevent @click="choose(index)">
-        <span>{{ league.name }}</span><span class="league-status" :class="status(league).kind" :title="t(status(league).title)">{{ t(status(league).label) }}</span>
+        <span>{{ league.name }}</span><span class="league-status" :class="status(league).kind" :title="t(status(league).title)">{{ t(status(league).label) }}</span><span class="league-count" :title="t('historyCount',{count:number(league.transactions)})">{{ compactNumber(league.transactions) }}</span>
       </li>
     </ul>
   </div>

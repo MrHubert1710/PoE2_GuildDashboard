@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { t, number, date } from '../i18n'
+import { displayTimezone, t, number, date } from '../i18n'
 import { computed, onMounted, ref } from 'vue'
 import type { Readiness } from '../readiness'
 import type { DatabaseStatus } from '../database-status'
@@ -82,7 +82,7 @@ onMounted(refreshView)
         <div class="card database-overview">
           <div class="card-heading"><h3>{{ t('sqliteCount', { count: database.transactions }) }}</h3><span class="badge" :class="database.integrity?.current ? 'good' : 'warning'">{{ database.integrity?.current ? t('integrityOK') : t('needsVerification') }}</span></div>
           <p class="small">{{ t('schemaMode', { schema: database.schema_version, mode: database.journal_mode.toUpperCase(), count: database.leagues.length }) }}</p>
-          <p v-if="database.integrity" class="small">{{ t('lastVerification', { date: date(database.integrity.checked_at) }) }}</p>
+          <p v-if="database.integrity" class="small">{{ t('lastVerification', { date: date(database.integrity.checked_at), zone: displayTimezone }) }}</p>
           <details v-if="database.last_import">
             <summary>{{ t('lastImport') }} · {{ database.last_import.status === 'completed' ? t('completed') : t('failed') }}</summary>
             <dl class="facts">
@@ -111,7 +111,7 @@ onMounted(refreshView)
 
     <template v-if="snapshot">
       <section aria-labelledby="archives-title">
-        <div class="section-heading"><h2 id="archives-title">{{ t('archives') }}</h2><span>{{ t('utcRange') }}</span></div>
+        <div class="section-heading"><h2 id="archives-title">{{ t('archives') }}</h2><span>{{ t('rangeZone',{zone:displayTimezone}) }}</span></div>
         <div class="league-grid">
           <article v-for="league in snapshot.leagues" :key="league.name" class="card" :data-league="league.name">
             <div class="card-heading"><h3>{{ league.name }}</h3><span class="badge" :class="league.source_matches ? 'good' : 'warning'">{{ league.source_matches ? t('copyMatch') : t('needsChecking') }}</span></div>
@@ -146,7 +146,7 @@ onMounted(refreshView)
           <span class="badge" :class="provider.status === 'documented' ? 'good' : 'warning'">{{ t(labels[provider.status]) }}</span>
         </article>
       </section>
-      <footer><span>{{ t('referenceAudit', { date: date(snapshot.generated_at) }) }}</span><span>{{ t('dataDiagnostics') }}</span></footer>
+      <footer><span>{{ t('referenceAudit', { date: date(snapshot.generated_at), zone: displayTimezone }) }}</span><span>{{ t('dataDiagnostics') }}</span></footer>
     </template>
   </div>
 </template>

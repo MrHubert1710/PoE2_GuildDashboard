@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CollapsiblePanel from './CollapsiblePanel.vue'
 import { t, number, date } from '../i18n'
 import type { HistoryQuery, TransactionPage } from '../browsing'
 const props = defineProps<{ query: HistoryQuery; result: TransactionPage | null; loadingRows: boolean; rowError: string; timezone: string }>()
@@ -11,9 +12,9 @@ const columns = [{ key: 'date', label: 'dateColumn' }, { key: 'account', label: 
 const leagueDate = (value: string | null) => date(value, props.timezone)
 const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
 </script>
-<template><section class="history-view" :aria-label="t('history')">
+<template><CollapsiblePanel :title="t('layout.historyTable')" :storage-key="'history:'+query.league"><section class="history-view" :aria-label="t('history')">
         <div class="results-heading">
-          <h2>{{ t('transactions') }}</h2>
+
           <label>{{ t('pageSize') }}<select :aria-label="t('pageSize')" :value="query.page_size" @change="setPageSize(Number(($event.target as HTMLSelectElement).value))"><option :value="25">25</option><option :value="50">50</option><option :value="100">100</option></select></label>
         </div>
         <p v-if="loadingRows" role="status" class="loading-state">{{ t('loadingTransactions') }}</p>
@@ -54,4 +55,4 @@ const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
           </nav>
         </div>
 
-</section></template>
+</section></CollapsiblePanel></template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { t, languages, locale, setLanguage } from './i18n'
+import { t, languages, locale, setLanguage, displayTimezone } from './i18n'
 import { section, sectionUrl, diagnosticsUrl, diagnosticsVisible, navigateSection, navigateDiagnostics } from './navigation'
 import HistoryBrowser from './components/HistoryBrowser.vue'
 import Diagnostics from './components/Diagnostics.vue'
@@ -17,6 +17,7 @@ watch(diagnosticsVisible, value => { if (value) visitedDiagnostics.value = true 
         <a :href="diagnosticsUrl().toString()" :aria-current="diagnosticsVisible ? 'page' : undefined" @click.prevent="navigateDiagnostics(true)">{{ t('diagnostics') }}</a>
       </nav>
       <div id="header-league-picker" class="header-league-picker"></div>
+      <div id="header-actions" class="header-actions"></div>
       <label class="language-picker">{{ t('language') }}
         <select :aria-label="t('language')" :value="locale" @change="setLanguage(($event.target as HTMLSelectElement).value)">
           <option v-for="language in languages" :key="language.code" :value="language.code">{{ language.nativeName }}</option>
@@ -28,6 +29,6 @@ watch(diagnosticsVisible, value => { if (value) visitedDiagnostics.value = true 
       <Diagnostics v-if="visitedDiagnostics" />
     </div>
     <HistoryBrowser v-show="!diagnosticsVisible" :diagnostics="diagnosticsVisible" />
-    <footer><span>{{ t('workspace.footer') }}</span><span>poe2guild</span></footer>
+    <footer><span>{{ t('workspace.footer') }}</span><span>{{ displayTimezone }}</span></footer>
   </main>
 </template>

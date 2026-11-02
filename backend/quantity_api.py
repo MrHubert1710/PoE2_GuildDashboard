@@ -121,6 +121,7 @@ def report(league_id):
         if pinned and pinned != meta['id']:
             raise ReadError('projection_changed', 409)
         settings = effective_settings(league, c)
+        start, end = date_argument('from', zone=settings['timezone']), date_argument('to', end=True, zone=settings['timezone'])
         if not run:
             return jsonify(league_id=league_id, projection=meta, settings=settings, rows=[], total=0, pages=1, page=1, stats=None)
         conditions, values = ["q.run_id=?", "q.effective_action!='excluded'"], [run['id']]

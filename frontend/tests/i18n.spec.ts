@@ -15,7 +15,7 @@ test('defaults to English and options come from locale file native names', async
   await ready(page)
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   await expect(page).toHaveTitle('poe2guild — Guild history')
-  await expect(page.getByRole('heading', { name: 'Stash history.' })).toBeVisible()
+  await expect(page.getByRole('navigation',{name:'League views'}).getByRole('link',{name:'History',exact:true})).toBeVisible()
   const directory = new URL('../src/locales/', import.meta.url)
   const expected = readdirSync(directory).filter(name => name.endsWith('.json')).map(name => ({
     code: name.replace('.json', ''), nativeName: JSON.parse(readFileSync(new URL(name, directory), 'utf8')).nativeName,
@@ -36,7 +36,7 @@ test('switch and back/forward keep league, filters, page, drafts and rows withou
   const requests: string[] = []
   page.on('request', request => { if (request.url().includes('/api/')) requests.push(request.url()) })
   await language(page).selectOption('pl')
-  await expect(page.getByRole('heading', { name: 'Historia skrytki.' })).toBeVisible()
+  await expect(page.getByRole('navigation',{name:'Widoki ligi'}).getByRole('link',{name:'Historia',exact:true})).toBeVisible()
   await expect(page.getByLabel('Gracz', { exact: true })).toHaveValue('unsubmitted draft')
   await expect(page.getByRole('region', { name: 'Tabela transakcji — przewijanie poziome' })).toBeVisible()
   for (const [key, value] of before.searchParams) if (key !== 'lang') expect(new URL(page.url()).searchParams.get(key)).toBe(value)

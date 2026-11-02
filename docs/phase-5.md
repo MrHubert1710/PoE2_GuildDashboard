@@ -1,160 +1,141 @@
-# Faza 5 — interaktywne wykresy ilościowe
+# Faza 5 — wykresy balansu i zwarty panel
 
-Status: implementacja zakończona i wdrożona, oczekuje odbioru manualnego.
-Faza 6 nie jest rozpoczęta.
-Poprzednia faza 4b wraz z poprawkami została zaakceptowana przez użytkownika.
+Status: poprawki po pierwszym odbiorze wdrożone do ponownej weryfikacji.
+Faza 6 (wycena) nie jest rozpoczęta. Poniższy opis zastępuje pierwszy wariant
+wykresów sum dodanych/usuniętych w regularnych przedziałach.
 
-## Widoczny rezultat
+## Wykres i czas
 
-Podsumowanie, Gracze i Skrytki pokazują wykres Ruchy w czasie nad tabelą raportu.
-Każdy wykres dotyczy jednego przedmiotu: dodania, usunięcia i bilans ruchów
-w kolejnych przedziałach czasu. Bilans to dodano minus usunięto w przedziale,
-a nie bieżąca liczba przedmiotów w gildii. Usunięcia są rysowane poniżej zera.
-Nie sumujemy sztuk różnych przedmiotów. Stan skrytek nadal pokazuje odtworzony
-stan końcowy, a Historia źródłowe wpisy; nie zastępujemy ich wykresem przepływów.
+Wykres pokazuje tylko narastający balans ustalonych ruchów. Podsumowanie ma
+jedną serię gildii; Gracze i Skrytki mają oddzielne serie kont lub kanonicznych
+nazw zakładek. Checkboxy w rozwijanej liście pozwalają ukrywać poszczególne grupy.
+Nie ma osobnych serii Added/Removed. Różnica między widokami dotyczy danych,
+a nie samego tytułu. Balans gracza to jego wkład netto od początku historii,
+a nie zawartość jego ekwipunku. Brakujące operacje nadal ograniczają pewność.
 
-Wspólne filtry gracza, wielu skrytek, przedmiotu i dat UTC obejmują wykres,
-raport i historię. Tryby regex, Aa i pełnych słów mają tę samą semantykę.
-Wyłączone w ustawieniach zakładki nie wchodzą do wykresu. Alias łączy surowe
-nazwy zgodnie z projekcją; wielokrotny wybór nazwy i aliasu nie dubluje ruchów.
-Reguły quantities-v3, w tym opróżnianie slotu przez źródłowy Removed, nie zmieniają się.
+Punkty odnoszą się do czasów rzeczywistych operacji i są uporządkowane według
+czasu, numerycznego GGG ID, transakcji i sekwencji ruchu. Linia jest schodkowa.
+Dodanie i natychmiastowe zabranie nie znika jako suma zero; także dwa ruchy
+z identycznym czasem zachowują kolejność i pionowy skok balansu. Znaczniki
+minimum/maksimum pomagają zobaczyć krótkie ekstrema.
 
-Lista przedmiotów pokazuje do 50 najbardziej aktywnych pasujących nazw
-(według sumy bezwzględnych ruchów). Pierwsza jest domyślna. Filtr przedmiotu
-pozwala znaleźć inne nazwy; jawnie wybrany przedmiot pozostaje w selektorze
-również bez pasujących ruchów. Lista nie jest pełnym katalogiem wszystkich
-przedmiotów, a tabela raportu pozostaje stronicowana.
+Dla dużej liczby zdarzeń backend dzieli aktualny zakres na przedziały i wybiera
+w każdym pierwszy, minimalny, maksymalny i ostatni balans, zachowując ich
+oryginalną kolejność i czas. To próbkowanie, nie sumowanie ruchów w przedziale.
+Nie gwarantuje pokazania każdego drobnego ekstremum przy tysiącach operacji;
+po przybliżeniu API pobiera szczegóły wybranego zakresu. Gdy operacji jest mniej
+niż limit, wszystkie są zwracane. Oś czasu zmienia opisy aż do sekund i
+milisekund, zależnie od zoomu. Nie wstawiamy regularnej siatki zerowych punktów.
 
-Interakcje:
+Zoom i pan wywołują odczyt dokładniejszych danych po 180 ms debounce. Obecny
+wykres pozostaje widoczny w trakcie pobierania dokładniejszych punktów.
+Spóźniona odpowiedź starszego zoomu lub poprzedniej ligi nie zastępuje nowej.
+Zakres i wybór grup są w URL; refresh/reload ich nie zeruje. Zmiana ligi
+rozpoczyna jej własny kontekst. Tooltip i rozwijana tabela punktów pozostają.
 
-- Tooltip z datą i wartościami w strefie wyświetlania ligi.
-- Checkboxy serii, przybliżanie przyciskiem lub kółkiem myszy, przesuwanie
-  wewnątrz wykresu i dolny suwak.
-- Resetuj widok przywraca cały aktualnie pobrany zakres, zachowując filtry.
-- Zastosuj zakres do filtrów zaokrągla zaznaczenie na zewnątrz do pełnych dni
-  UTC i aktualizuje wspólne filtry, tabelę i podsumowanie. Nie udaje filtra godzinowego.
-- Odśwież wykres ponawia tylko odczyt szeregu. Odśwież widok ponawia cały
-  bieżący kontekst. Żadna z tych akcji nie fetchuje GGG ani nie przelicza projekcji.
-- Rozwijana tabela danych daje dostęp do wszystkich zwróconych punktów bez
-  interakcji z grafiką. Przyciski i checkboxy są obsługiwane klawiaturą.
+Filtr dnia i zoom nie zerują balansu: początek wykresu zawiera sumę wcześniejszych
+ruchów pasujących do gracza, skrytek i przedmiotu. Podsumowanie ruchów tabeli
+nadal dotyczy tylko wybranego okresu, więc może różnić się od końcowego balansu
+o wartość wniesioną sprzed tego okresu. Nie zmieniono quantities-v3 ani
+semantyki źródłowego Removed opróżniającego slot.
 
-Wykres przedstawia ustalone ruchy, również oznaczone ruchy wywnioskowane.
-Liczba nieustalonych zdarzeń wybranego przedmiotu jest pokazywana oddzielnie;
-nie zamieniamy ich nieznanych ilości na pewne zera. Puste przedziały znanych
-ruchów są zerowe. Suma wywnioskowanych jednostek jest opisana pod wykresem.
+## Strefa czasu we wszystkich widokach
 
-## Stan i cykl życia
+Wybrana strefa ligi obejmuje daty tabeli, wykresu, tooltipa, opisów,
+Diagnostyki oraz filtrów. Dni from/to to dni kalendarzowe w tej strefie,
+z końcem to włącznie. Backend przelicza lokalną północ i następną lokalną
+północ na granice UTC; uwzględnia DST (np. dzień 23-godzinny w Europe/Warsaw).
+Przesunięcia UTC±HH:MM i skróty PST/PDT nadal są stałymi przesunięciami,
+a nazwy IANA stosują reguły strefy. Zastosuj zakres do filtrów zaokrągla
+wybrany zakres na zewnątrz do dni w strefie ligi, a nie do dni UTC.
 
-chart_item to dokładna nazwa wybranego przedmiotu, chart_from/chart_to to
-bezwzględne granice zoomu w milisekundach UTC, chart_series to lista serii.
-Stan pozostaje po odświeżeniu, zmianie języka, przejściu między widokami i reloadzie.
-Zmiana przedmiotu ma historię Wstecz/Dalej. Zoom i checkboxy zastępują bieżący
-wpis URL. Zmiana ligi usuwa kontekst wykresu poprzedniej ligi; powrót przez
-Wstecz odtwarza zapisany adres. Puste lub niepoprawne granice wracają do pełnego
-zakresu, a poprawny zoom jest przycinany do nowego zakresu danych.
+Źródłowe timestampy i zapis chart_from/chart_to pozostają w UTC. Zmienia się
+interpretacja istniejących URL from/to dla ligi ze strefą inną niż UTC:
+odpowiadają teraz ustawieniu ligi i etykietom formularza. Nie ma migracji danych.
 
-Biblioteka ECharts 6.1.0 jest przypięta w package-lock.json, importowana modułowo
-i ładowana jako osobny chunk dopiero po pierwszych danych wykresu. Wejście
-bezpośrednio do Historii, Ustawień lub Stanu nie pobiera ECharts ani szeregu.
-ResizeObserver obsługuje zmianę szerokości i odkrycie widoku. Instancja jest
-zwalniana po odmontowaniu; tooltip jest renderowany w SVG/rich text, bez HTML
-z nazw przedmiotów. Przy zmianie filtrów stary wykres jest usuwany do czasu
-odpowiedzi. Sekwencjonowanie i anulowanie kontekstu chronią przed spóźnioną
-odpowiedzią innej ligi. Błąd wykresu ma własny retry i nie usuwa tabeli raportu.
+## Układ i zwijanie
 
-## Kontrakt API
+Panel wykorzystuje pełną szerokość okna z niewielkim marginesem. Nagłówek
+zawiera wybór ligi, jej status i skrócony licznik (np. 60,6k), odświeżenie,
+pobranie historii i język. Pełny licznik jest w tooltipie. Ten sam pill jest
+w każdej opcji listy lig. Usunięto powtórzoną nazwę ligi, tytuł widoku, licznik,
+status archiwizacji i osobny przycisk Stan synchronizacji; szczegóły są nadal
+w Diagnostyce. Autofetch, manual fetch i polling nadal działają.
 
-GET /api/leagues/{league_id}/quantity-series
+Filtry są zwarte, a wykres jest widoczny bez przewijania na typowym desktopie.
+Wykres i tabela są niezależnymi panelami z możliwością zwinięcia. Metadane
+liczby zdarzeń, generacji, reguł filtrów i lokalnego przeliczenia są w Dodatkowych
+informacjach pod tabelą, domyślnie zwinięte. Informacje techniczne wykresu i jego
+tabela punktów także są zwinięte. Stan otwarcia paneli jest lokalną preferencją
+sessionStorage, osobno dla ligi/widoku, i pozostaje po reloadzie. Nie zmienia
+wspólnej konfiguracji analizy. Mobilnie zachowane jest poziome przewijanie
+nawigacji i tabel bez przepełniania całego dokumentu.
 
-Parametry: wspólne filtry account/stash/item/from/to i flagi wyszukiwania,
-revision, projection_id, series_item (dokładna nazwa), max_points (24–600,
-domyślnie 240). Powtarzane stash są dozwolone; pozostałe parametry są pojedyncze.
-Stan projekcji missing/stale ma puste dane; GET nie tworzy zadań.
-Nieaktualne przypięte identyfikatory zwracają 409, błędne parametry 400.
+## API
 
-Odpowiedź ma league_id, metadane projection, timezone, unit=item_count,
-items, item, unresolved_events, bounds, bucket_seconds, max_points, totals
-oraz points. Granice i timestamp/end punktu to milisekundy UTC; end jest
-wyłączne. Punkt zawiera added, removed (dodatnia ilość), net i inferred.
-Format nie zawiera opcji ani identyfikatorów ECharts, więc może służyć innemu
-rendererowi i zostać rozszerzony o szeregi wartości w osobnej fazie 6.
+GET /api/leagues/{id}/quantity-series obsługuje dotychczasowe filtry,
+revision/projection_id, series_item i max_points (24–600), a także:
 
-Backend wybiera przedział od minuty do wielodniowego na podstawie zakresu
-oraz limitu. Agreguje w SQL zapisane quantity_movements, po odtworzeniu pełnej
-historii przez quantities-v3, a następnie uzupełnia zerami brakujące przedziały.
-Liczba punktów nigdy nie przekracza limitu; szerokie zakresy nie powodują
-wysyłania całej historii. Granice domyślne obejmują pełne dni UTC z ruchami
-wybranego przedmiotu; jawne filtry dni mogą rozszerzyć obszar zerowy.
-Sumy punktów są zgodne z raportem dla tego samego przedmiotu i filtrów.
+- view=summary/players/stashes;
+- window_start/window_end — całkowite milisekundy UTC, koniec wyłączny.
 
-## Podział kodu
+Odpowiedź zawiera projection, timezone, unit=item_count, wybrany item i
+katalog do 50 najaktywniejszych nazw, bounds całego filtrowanego zakresu,
+window aktualnego odczytu, sampled/resolution_ms oraz series. Każda seria ma
+stabilny id, name, opening_balance, closing_balance, liczbę operacji i punkty
+{timestamp,balance}. Totals nadal opisuje ustalone ruchy w całym filtrowanym
+okresie. Unresolved_events jest oddzielne; nie dopisujemy nieznanych ilości do
+balansu. Format nie zawiera opcji ECharts.
 
-- backend/quantity_series.py — walidacja, katalog i ograniczona agregacja SQL.
-- frontend/src/composables/useQuantitySeries.ts — odczyt i ochrona odpowiedzi.
-- QuantityChart.vue — wybór przedmiotu/serii, URL, przyciski, stany, tabela danych.
-- TimeSeriesChart.vue — modułowy ECharts/SVG, tooltip, zoom, resize, dispose.
-- QuantityPanel.vue — umieszczenie wykresu przed tabelą gotowego raportu.
-- HistoryBrowser/useHistory/browsing — przekazanie projekcji i wspólnego zakresu.
+Przesyłamy najwyżej 100 grup; przekroczenie jest oznaczane series_truncated.
+Domyślny limit to 240 punktów na grupę, dodatkowo dzielimy budżet około 6000
+punktów między widoczne grupy. Nie wysyłamy całej historii do przeglądarki.
+Na serwerze czytane są ruchy wybranego przedmiotu do końca zakresu, również
+poprzedzające początek, aby policzyć poprawny balans otwarcia. GET jest read-only,
+nie uruchamia workera ani fetchera. Starsza postać points/added/removed została
+zastąpiona przez series/balance w wewnętrznym API frontendu; po wdrożeniu
+należy odświeżyć kartę, aby załadować zgodny frontend.
 
-Nie zmieniono schematu SQLite, danych źródłowych, projekcji, ustawień gildii,
-workera ani integracji GGG. Nie generujemy HTML ani obrazków wykresów. Wycenę,
-snapshoty cen i katalog poe.ninja pozostawiono do fazy 6.
+## Granice wyceny — faza 6
 
-## Weryfikacja i wydajność
+Wybór pojedynczego przedmiotu pozostaje tymczasowy, żeby nie dodawać sztuk
+różnych przedmiotów. Faza 6 zastąpi go wartością wszystkich operacji:
 
-```sh
-.venv/bin/python -m unittest discover -s tests -q
-npm --prefix frontend run test:locales
-npm --prefix frontend run build
-npm --prefix frontend run test:browser
-```
+- domyślnie każda podpisana operacja jest wyceniana tylko ceną z czasu jej realizacji;
+- alternatywny tryb przelicza wszystkie operacje najnowszym zestawem cen ligi;
+- ceny późniejsze nie mogą być po cichu podstawiane w trybie historycznym;
+- snapshoty i brak wyceny pozostają jawne, a serie graczy/skrytek zachowują balans.
 
-Testy backendu porównują sumy, ograniczenie punktów, zera, izolację lig,
-wyłączenie/aliasy skrytek, wyszukiwanie, UTC niezależne od strefy, brak generacji
-przez GET, stare identyfikatory, skrajne daty i nieustalone zdarzenia.
-Testy przeglądarkowe sprawdzają wybór przedmiotu, tooltip, rzeczywisty zoom
-kółkiem i drag, serie, reset, filtr dni, refresh/reload, historię URL, zmianę
-ligi, opóźnione odpowiedzi, retry, brak zbędnego ładowania, PL/EN i mobile.
+Ten zakres jest zapisany w implementation-plan.md; nie wdrożono jeszcze
+adaptera cen ani przełącznika wyceny. Stary projekt i źródłowe logi są nienaruszone.
+SQLite nadal ma schemat 3, a projekcje wersję quantities-v3.
 
-Pomiar na rzeczywistych zapisanych ustawieniach, trzy lokalne odczyty każdego
-archiwum, mediana całej odpowiedzi przez Flask test client:
+## Walidacja i odbiór
 
-| Liga | Mediana | Punkty | JSON | Przedział |
-| --- | ---: | ---: | ---: | ---: |
-| Forbidden Rites | 18,4 ms | 144 | 15 197 B | 6 h |
-| Runes of Aldur | 102,3 ms | 220 | 22 893 B | 6 h |
+Testy obejmują zerujące się operacje o tym samym czasie, zachowanie ekstremów,
+zmianę rozdzielczości po zoomie, niezależne serie grup, bilans otwarcia, limity,
+regex i aliasy, strefy stałe i DST, zgodność historii/raportu/wykresu, zwijanie,
+zwarty desktop i mobile oraz ignorowanie spóźnionych odpowiedzi.
 
-To pomiar na tym serwerze, nie gwarancja czasu dla każdego filtra. Sumy punktów
-w obu archiwach porównano z odpowiadającym wierszem raportu. Chunk ECharts jest
-większy od głównego kodu aplikacji, ale pobierany oddzielnie i tylko do wykresu.
-
-## Odbiór manualny
-
-1. Otwórz /poe2guild/?lang=pl. Pod kartami Podsumowania powinien być wykres.
-2. Zmień przedmiot, gracza i skrytki; porównaj sumy z tabelą.
-3. Najedź na wykres, użyj kółka, przeciągnij środek i dolny suwak.
-4. Wyłącz serię, odśwież widok i przejdź do Graczy/Skrytek — zoom i serie zostają.
-5. Zastosuj zakres do filtrów; sprawdź daty UTC i wyniki Historii.
-6. Zresetuj zoom, wybierz inną ligę, sprawdź Wstecz/Dalej i reload.
-7. Sprawdź PL/EN, telefon oraz rozwijaną tabelę danych.
-
-Źródła API biblioteki: [import modułowy](https://echarts.apache.org/handbook/en/basics/import/),
-[zdarzenia i akcje](https://echarts.apache.org/handbook/en/concepts/event/),
-[rozmiar i cykl życia](https://echarts.apache.org/handbook/en/concepts/chart-size/).
+Do odbioru: odśwież stronę; sprawdź Graczy i Skrytki, przybliż krótki fragment,
+porównaj ekstrema z historią, zwiń wykres/tabelę i odśwież, zmień strefę ligi
+oraz zastosuj zakres do filtrów. Dalsza faza wymaga osobnego polecenia użytkownika.
 
 
-## Wynik końcowy
+Końcowa walidacja poprawek: 130 testów backendu, 64 przeglądarkowe i 16 tłumaczeń
+zakończone powodzeniem. Po ostatnich poprawkach kolorów i przepełnienia SVG
+powtórzono 6 testów wykresów — wszystkie przeszły. Build TypeScript/Vite poprawny.
 
-127 testów backendu, 64 przeglądarkowe i 16 tłumaczeń zakończone powodzeniem;
-build TypeScript/Vite poprawny. Osobny test granicy dnia potwierdza, że wpis
-23:59:59.999999 UTC pozostaje w ostatnim przedziale właściwego dnia (bez
-zaokrąglenia przez SQLite do następnego dnia).
+Publiczny nginx potwierdził trzy widoki dla obu lig. Runes of Aldur ma dla
+domyślnego Verisium 7 serii graczy (514 punktów) i 2 skrytek (236 punktów),
+a Podsumowanie 1 serię (176 punktów). Końcowe salda sumują się do raportu.
+Zoom odczytuje węższy zakres, a nagłówek, zwijanie, kolory, PL i mobile działają
+na rzeczywistych danych. Na desktopie 1440 px wykres zaczyna się przed 320 px
+wysokości strony; obszar roboczy przekracza 1350 px szerokości. Sprawdzenie
+API wraz z kontrolnym odczytem raportu trwało w pojedynczych próbach około
+45–57 ms dla Forbidden Rites i 246–251 ms dla Runes of Aldur; to pomiar tego
+serwera, nie gwarancja czasu. JSON mieścił się między około 7 i 25 KB.
 
-Publiczny nginx potwierdził na obu archiwach zgodność sum wykresu z tabelą,
-zoom i serie po odświeżeniu, wspólne daty po zastosowaniu zakresu, PL/EN,
-resize i widok mobilny. Porównanie skrótów wszystkich kolumn 104 534 transakcji
-oraz ustawień gildii/lig przed i po wdrożeniu wykazało brak zmian. SQLite
-pozostaje w schemacie 3, a projekcje w wersji quantities-v3. Nie ma migracji
-ani potrzeby ponownego importu. Kod i zasoby są serwowane przez istniejący nginx.
-
-Po manualnym odbiorze wymagane jest osobne polecenie rozpoczęcia fazy 6.
+Skróty wszystkich kolumn 104 534 transakcji oraz zapisanych ustawień gildii/lig
+przed i po wdrożeniu są identyczne. Nie zmieniono cen, projekcji ani schematu.
+Poprawki fazy 5 oczekują ponownego odbioru; faza 6 pozostaje niewdrożona.

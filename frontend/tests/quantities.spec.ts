@@ -228,3 +228,28 @@ test('unchanged settings finish immediately and report-read failures do not leav
     await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
   } finally {fail=false;await restore(request)}
 })
+
+test('league timezone applies to date filters, chart range and diagnostics labels',async({page,request})=>{
+  try {
+    await page.goto(path+'&section=settings')
+    await page.getByLabel('Display timezone',{exact:true}).fill('UTC+13')
+    await page.getByRole('button',{name:'Save settings and rebuild'}).click()
+    await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
+    await goSection(page,'History')
+    await page.getByLabel('From day (UTC+13:00)',{exact:true}).fill('2026-01-02')
+    await page.getByLabel('To day (UTC+13:00)',{exact:true}).fill('2026-01-02')
+    await page.getByRole('button',{name:'Apply filters',exact:true}).click()
+    await expect(page.locator('.result-count')).toContainText('Results: 30')
+    await expect(page.locator('.history-transactions tbody tr').first()).toContainText('Jan 2, 2026, 1:00 AM')
+    await goSection(page,'Summary')
+    const chart=page.getByTestId('quantity-chart')
+    await expect(chart.getByRole('img')).toBeVisible()
+    await chart.getByRole('button',{name:'Zoom in',exact:true}).click()
+    await chart.getByRole('button',{name:'Apply range to filters',exact:true}).click()
+    await expect(page.getByLabel('From day (UTC+13:00)',{exact:true})).toHaveValue('2026-01-02')
+    await expect(page.getByLabel('To day (UTC+13:00)',{exact:true})).toHaveValue('2026-01-02')
+    await page.getByRole('link',{name:'Diagnostics',exact:true}).click()
+    await expect(page.locator('.refresh-facts')).toContainText('UTC+13:00')
+    await expect(page.locator('main > footer')).toContainText('UTC+13:00')
+  } finally {await restore(request)}
+})

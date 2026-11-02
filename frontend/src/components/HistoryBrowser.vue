@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { t, number, date } from '../i18n'
-import { section, currentUrl, navigateDiagnostics, navigateSection } from '../navigation'
+import { computed, onMounted, ref, watch } from 'vue'
+import { t, date, displayTimezone } from '../i18n'
+import { section, currentUrl, navigateSection } from '../navigation'
 import { useHistory } from '../useHistory'
 import LeaguePicker from './LeaguePicker.vue'
 import RefreshPanel from './RefreshPanel.vue'
@@ -19,11 +19,14 @@ const analysisView = computed(() => {
   const value = ['summary', 'players', 'stashes', 'state'].includes(section.value) ? section.value : new URL(currentUrl.value).searchParams.get('analysis')
   return ['summary', 'players', 'stashes', 'state'].includes(value ?? '') ? value! : 'summary'
 })
+const mounted = ref(false)
+onMounted(() => { mounted.value = true })
 const refreshToken = ref(0)
 const updateState = ref('')
 const projectionId = ref<string | null>(null)
 watch([() => selected.value?.id,() => selected.value?.quantity_settings_hash], () => { projectionId.value = null })
 watch(() => selected.value?.id, () => { updateState.value = '' })
+watch(() => selected.value?.timezone, value => { displayTimezone.value = value ?? 'UTC' },{immediate:true})
 function updateProgress(state: 'pending' | 'failed' | 'ready') {
   if (state !== 'ready' || updateState.value) updateState.value = state
 }
@@ -37,15 +40,11 @@ const dataSection = computed(() => !['settings', 'archives'].includes(section.va
 </script>
 
 <template>
-  <section class="history-browser" aria-labelledby="workspace-title">
+  <section class="history-browser" :aria-label="t(`workspace.section.${section}`)">
     <Teleport v-if="leagues.length && !leagueError" to="#header-league-picker">
       <LeaguePicker :leagues="leagues" :selected-id="query.league" :disabled="loadingLeagues" @select="selectLeague" />
     </Teleport>
-    <div class="workspace-heading">
-      <div><p class="eyebrow">{{ selected?.name ?? 'POE2 GUILD' }}</p><h1 id="workspace-title">{{ section === 'history' ? t('historyTitle') : t(`workspace.section.${section}`) }}<span>.</span></h1>
-        <p v-if="selected" class="workspace-caption">{{ t('historyCount', { count: selected.transactions }) }}</p></div>
-      <button type="button" :disabled="loadingLeagues" @click="refreshView">{{ t('refreshHistory') }} <span aria-hidden="true">↗</span></button>
-    </div>
+    <Teleport v-if="mounted" to="#header-actions"><button type="button" :disabled="loadingLeagues" @click="refreshView">{{ t('refreshHistory') }}</button></Teleport>
     <p v-if="leagueError" role="alert" class="alert">{{ t(leagueError) }}</p>
     <p v-if="loadingLeagues" role="status">{{ t('loadingLeagues') }}</p>
     <p v-if="!loadingLeagues && !leagueError && !leagues.length" class="empty-state">{{ t('noLeagues') }}</p>
@@ -58,14 +57,14 @@ const dataSection = computed(() => !['settings', 'archives'].includes(section.va
         <p>{{ t('range') }} {{ date(selected.oldest_at, selected.timezone ?? 'UTC') }} — {{ date(selected.newest_at, selected.timezone ?? 'UTC') }} {{ selected.timezone ?? 'UTC' }}</p>
         <p>{{ t('historyCompleteness', { status: selected.history_complete === null ? t('unconfirmed') : selected.history_complete ? t('confirmed') : t('incomplete') }) }}</p>
       </section></Teleport>
-      <RefreshPanel :key="selected.id" :league-id="selected.id" :revision="selected.revision" :diagnostics="diagnostics" @revision-changed="refreshRevision" @inspect="navigateDiagnostics(true)" />
+      <RefreshPanel :key="selected.id" :league-id="selected.id" :revision="selected.revision" :diagnostics="diagnostics" @revision-changed="refreshRevision" />
       <div class="workspace-layout">
         <WorkspaceNavigation />
         <div class="workspace-content">
           <p v-if="updateState" class="projection-status" :role="updateState === 'failed' ? 'alert' : 'status'" aria-live="polite" data-testid="projection-status">{{ t(`quantity.update.${updateState}`) }} <button v-if="updateState === 'failed'" type="button" @click="navigateSection('summary')">{{ t('workspace.section.summary') }}</button></p>
-          <HistoryFilters v-show="dataSection" :draft="draft" :stashes="selected.stashes" :form-error="formError" @apply="applyFilters" @clear="clearFilters" />
+          <HistoryFilters v-show="dataSection" :draft="draft" :stashes="selected.stashes" :form-error="formError" :timezone="selected.timezone ?? 'UTC'" @apply="applyFilters" @clear="clearFilters" />
           <QuantityPanel v-show="['summary', 'players', 'stashes', 'state'].includes(section)" :key="'report-' + selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :query="query" :view="analysisView" :refresh-token="refreshToken" @projection="projectionId = $event" @generated="refreshRevision" @progress="updateProgress" @problem="updateState === 'pending' && (updateState = 'failed')">
-            <QuantityChart v-show="['summary','players','stashes'].includes(section)" :key="'chart-' + selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :projection-id="projectionId" :query="query" :active="!diagnostics && ['summary','players','stashes'].includes(section)" :refresh-token="refreshToken" @range="setDateRange" />
+            <QuantityChart v-show="['summary','players','stashes'].includes(section)" :key="'chart-' + selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :projection-id="projectionId" :view="analysisView" :query="query" :active="!diagnostics && ['summary','players','stashes'].includes(section)" :refresh-token="refreshToken" @range="setDateRange" />
           </QuantityPanel>
           <HistoryTable v-show="section === 'history'" :query="query" :result="result" :loading-rows="loadingRows" :row-error="rowError" :timezone="selected.timezone ?? 'UTC'" @set-page="setPage" @set-page-size="setPageSize" @sort-by="sortBy" />
           <QuantitySettings v-show="section === 'settings'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" @saved="settingsSaved" />

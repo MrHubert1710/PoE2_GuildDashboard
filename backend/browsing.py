@@ -123,7 +123,7 @@ def number_argument(name, default, minimum, maximum):
     return result
 
 
-def date_argument(name, *, end=False):
+def date_argument(name, *, end=False, zone='UTC'):
     value = one_argument(name)
     if not value:
         return None
@@ -133,7 +133,8 @@ def date_argument(name, *, end=False):
         day = date.fromisoformat(value)
         if end:
             day += timedelta(days=1)
-        return datetime(day.year, day.month, day.day, tzinfo=timezone.utc).isoformat(timespec='microseconds').replace('+00:00', 'Z')
+        from .timezones import timezone_info
+        return datetime(day.year, day.month, day.day, tzinfo=timezone_info(zone)).astimezone(timezone.utc).isoformat(timespec='microseconds').replace('+00:00', 'Z')
     except (ValueError, OverflowError):
         raise ReadError('invalid_date') from None
 
@@ -165,12 +166,6 @@ def transactions(league_id):
             predicate, arguments = filters.predicate(field, 't.' + field)
             conditions.append(predicate)
             values.extend(arguments)
-    if start:
-        conditions.append('t.occurred_at>=?')
-        values.append(start)
-    if end:
-        conditions.append('t.occurred_at<?')
-        values.append(end)
     expected_revision = one_argument('revision')
     with connect(current_app.config['DATABASE_FILE'], readonly=True) as connection:
         require_schema(connection)
@@ -181,6 +176,11 @@ def transactions(league_id):
         from .quantities import effective_settings, visible_stashes
         league = connection.execute('SELECT * FROM leagues WHERE id=?', (league_id,)).fetchone()
         configured = effective_settings(league, connection)
+        start, end = date_argument('from', zone=configured['timezone']), date_argument('to', end=True, zone=configured['timezone'])
+        if start:
+            conditions.append('t.occurred_at>=?'); values.append(start)
+        if end:
+            conditions.append('t.occurred_at<?'); values.append(end)
         if configured['target_stashes'] is not None:
             names = visible_stashes(connection, league_id, configured)
             conditions.append('t.stash IN (' + ','.join('?' for _ in names) + ')')

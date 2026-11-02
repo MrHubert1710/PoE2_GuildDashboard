@@ -21,7 +21,7 @@ test('default workspace presents summary and separates history, settings, archiv
   await expect(page.locator('.workspace-filters')).toBeHidden()
   await goSection(page,'Archived reports')
   await expect(page.getByRole('link',{name:'currentday.html',exact:false})).toBeVisible()
-  await page.getByRole('button',{name:'Synchronization status',exact:true}).click()
+  await page.getByRole('link',{name:'Diagnostics',exact:true}).click()
   await expect(page.getByTestId('refresh-panel')).toBeVisible()
   await expect(page.getByRole('button',{name:'Verify local data'})).toBeVisible()
 })
@@ -51,7 +51,7 @@ test('filters, source page, details and unsaved drafts survive workspace navigat
 test('section, multi-stash filters and search modes survive reload/back/forward and language changes',async({page})=>{
   await page.goto(base+'&section=players&account=alice&account_regex=1&stash=Main&stash=Special')
   await expect(nav(page).getByRole('link',{name:'Players',exact:true})).toHaveAttribute('aria-current','page')
-  await expect(page.getByTestId('quantity-panel')).toContainText('Player movements')
+  await expect(page.getByTestId('quantity-panel').locator('.quantity-table')).toBeVisible()
   await goSection(page,'Stashes')
   await expect(page).toHaveURL(/section=stashes/)
   await page.goBack()
@@ -83,7 +83,7 @@ test('section changes do not restart the automatic source request',async({page})
 test('legacy analysis links work and invalid section falls back to summary',async({page})=>{
   await page.goto(base+'&analysis=state')
   await expect(nav(page).getByRole('link',{name:'Stash state',exact:true})).toHaveAttribute('aria-current','page')
-  await expect(page.getByTestId('quantity-panel')).toContainText('Latest reconstructed state')
+  await expect(page.getByTestId('quantity-panel').locator('.quantity-table')).toBeVisible()
   await page.goto(base+'&section=invalid')
   await expect(nav(page).getByRole('link',{name:'Summary',exact:true})).toHaveAttribute('aria-current','page')
 })
@@ -91,13 +91,13 @@ test('legacy analysis links work and invalid section falls back to summary',asyn
 test('mobile workspace has scrollable navigation and no document overflow in PL/EN',async({page})=>{
   await page.setViewportSize({width:390,height:844})
   await page.goto(base)
-  await expect(page.locator('.overview-cards')).toBeVisible()
+  await expect(page.getByTestId('time-series-chart')).toBeVisible()
   for(const target of ['Settings','Archived reports','History','Summary']) {
     await goSection(page,target)
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   }
   await page.getByRole('combobox',{name:'Language',exact:true}).selectOption('pl')
-  await expect(page.getByRole('heading',{name:'Podsumowanie.'})).toBeVisible()
+  await expect(page.getByRole('navigation',{name:'Widoki ligi'}).getByRole('link',{name:'Podsumowanie',exact:true})).toBeVisible()
   await page.screenshot({path:'test-results/phase-4b-mobile.png',fullPage:true})
 })
 
@@ -110,7 +110,7 @@ test('league selection in Diagnostics keeps the destination and updates the same
   await expect(page).toHaveURL(/view=diagnostics/)
   await expect(page.locator('.league-context')).toContainText('Runes of Aldur')
   await page.getByRole('link',{name:'Workspace',exact:true}).click()
-  await expect(page.getByRole('heading',{name:'Summary.'})).toBeVisible()
+  await expect(nav(page).getByRole('link',{name:'Summary',exact:true})).toBeVisible()
   await expect(page.locator('.overview-cards article').first()).toContainText('3')
   await expect(page.locator('.history-transactions tbody tr')).toHaveCount(3)
 })

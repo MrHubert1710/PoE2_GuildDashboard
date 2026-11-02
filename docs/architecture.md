@@ -196,3 +196,11 @@ ubytek stosu opisuje Modified. Korekta i test regresji: docs/phase-4.md.
 Wykresy fazy 5 korzystają z ograniczonego API szeregów UTC, niezależnego od
 ECharts. Jednostki nie są łączone między różnymi przedmiotami; zakres wykresu
 można zastosować do wspólnych filtrów dni. Szczegóły: [phase-5.md](phase-5.md).
+
+
+Korekta fazy 5: wykresy pokazują narastające balanse, osobne dla kont/skrytek.
+Próbkowanie zachowuje kolejność i ekstrema rzeczywistych zdarzeń; zoom pobiera
+szczegóły ograniczonego zakresu. Dni filtrów są interpretowane w strefie ligi,
+a przechowywane znaczniki pozostają UTC. Po wycenie pojedynczy przedmiot zostanie
+zastąpiony wartością operacji: historyczną lub przeliczoną najnowszymi cenami.
+Szczegóły aktualnego kontraktu i granic: [phase-5.md](phase-5.md).
