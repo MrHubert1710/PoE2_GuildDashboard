@@ -331,3 +331,20 @@ footer { padding: 12px 0; }
 .time-series-chart { overflow: hidden; }
 .chart-series-picker > div { max-width: min(320px,calc(100vw - 32px)); }
 .chart-series-picker label { overflow-wrap: anywhere; }
+
+.balance-chart { min-width: 0; }
+.balance-chart .time-series-chart { height: clamp(270px,38vh,445px); touch-action: pan-y; cursor: grab; }
+.balance-chart .time-series-chart:active { cursor: grabbing; }
+.series-navigator { margin: 0 20px 6px 65px; height: 34px; }
+.series-navigator svg { width: 100%; height: 34px; overflow: visible; touch-action: none; }
+.navigator-background { fill: #1b2730; stroke: #46545e; }
+.navigator-mask { fill: #10161d; opacity: .45; pointer-events: none; }
+.navigator-window { fill: #91a9dc33; stroke: #aab9e1; stroke-width: 1; cursor: grab; }
+.navigator-window:active { cursor: grabbing; }
+.navigator-handle { fill: #dce5ff; cursor: ew-resize; }
+.navigator-window:focus-visible,.navigator-handle:focus-visible { outline: none; stroke: #b6d7bd; stroke-width: 3; }
+@media(max-width:600px){.balance-chart .time-series-chart { height: 270px; }}
+
+.chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 3px 0 6px; }
+.chart-legend .check-label { gap: 6px; font-size: 11px; padding: 3px 0; }
+.chart-legend input { width: 14px; height: 14px; min-height: 14px; }

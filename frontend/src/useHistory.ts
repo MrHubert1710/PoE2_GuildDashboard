@@ -114,11 +114,11 @@ export function useHistory() {
     if (!league) return next
     return { ...next, stash: next.stash.filter(name => league.stashes.includes(name)) }
   }
-  function change(next: HistoryQuery) {
+  function change(next: HistoryQuery, resetRange = false, replace = false) {
     query.value = visibleQuery(next)
     Object.assign(draft, query.value)
     formError.value = ''
-    writeQuery(query.value)
+    writeQuery(query.value, replace, resetRange)
     void loadRows()
   }
 
@@ -130,10 +130,10 @@ export function useHistory() {
     }
     change({ ...query.value, account: draft.account_regex ? draft.account : draft.account.trim(), stash: [...draft.stash].sort(), item: draft.item_regex ? draft.item : draft.item.trim(),
       account_regex: draft.account_regex, item_regex: draft.item_regex, account_case: draft.account_case, account_word: draft.account_word, item_case: draft.item_case, item_word: draft.item_word,
-      from: draft.from, to: draft.to, page: 1 })
+      from: draft.from, to: draft.to, page: 1 }, draft.from !== query.value.from || draft.to !== query.value.to)
   }
-  function clearFilters() { change({ ...defaults, league: query.value.league, page_size: query.value.page_size }) }
-  function setDateRange(from: string, to: string) { change({ ...query.value, from, to, page: 1 }) }
+  function clearFilters() { change({ ...defaults, league: query.value.league, page_size: query.value.page_size }, true) }
+  function setDateRange(from: string, to: string) { if (from === query.value.from && to === query.value.to) return; change({ ...query.value, from, to, page: 1 }, false, true) }
   function setPage(page: number) { change({ ...query.value, page }) }
   function setPageSize(page_size: number) { change({ ...query.value, page_size, page: 1 }) }
   function sortBy(sort: string) {

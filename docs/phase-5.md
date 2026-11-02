@@ -8,7 +8,7 @@ wykresów sum dodanych/usuniętych w regularnych przedziałach.
 
 Wykres pokazuje tylko narastający balans ustalonych ruchów. Podsumowanie ma
 jedną serię gildii; Gracze i Skrytki mają oddzielne serie kont lub kanonicznych
-nazw zakładek. Checkboxy w rozwijanej liście pozwalają ukrywać poszczególne grupy.
+nazw zakładek. Stała legenda nad wykresem pokazuje nazwy, kolory i checkboxy poszczególnych grup.
 Nie ma osobnych serii Added/Removed. Różnica między widokami dotyczy danych,
 a nie samego tytułu. Balans gracza to jego wkład netto od początku historii,
 a nie zawartość jego ekwipunku. Brakujące operacje nadal ograniczają pewność.
@@ -46,8 +46,10 @@ Diagnostyki oraz filtrów. Dni from/to to dni kalendarzowe w tej strefie,
 z końcem to włącznie. Backend przelicza lokalną północ i następną lokalną
 północ na granice UTC; uwzględnia DST (np. dzień 23-godzinny w Europe/Warsaw).
 Przesunięcia UTC±HH:MM i skróty PST/PDT nadal są stałymi przesunięciami,
-a nazwy IANA stosują reguły strefy. Zastosuj zakres do filtrów zaokrągla
-wybrany zakres na zewnątrz do dni w strefie ligi, a nie do dni UTC.
+a nazwy IANA stosują reguły strefy. Po zakończeniu gestu zakres automatycznie aktualizuje filtry dni w strefie ligi.
+Zaokrąglenie na zewnątrz odpowiada dostępnej w formularzu dokładności do dnia;
+wykres i miniatura zachowują dokładny zakres w milisekundach. Osobny przycisk
+zastosowania zakresu został usunięty.
 
 Źródłowe timestampy i zapis chart_from/chart_to pozostają w UTC. Zmienia się
 interpretacja istniejących URL from/to dla ligi ze strefą inną niż UTC:
@@ -139,3 +141,46 @@ serwera, nie gwarancja czasu. JSON mieścił się między około 7 i 25 KB.
 Skróty wszystkich kolumn 104 534 transakcji oraz zapisanych ustawień gildii/lig
 przed i po wdrożeniu są identyczne. Nie zmieniono cen, projekcji ani schematu.
 Poprawki fazy 5 oczekują ponownego odbioru; faza 6 pozostaje niewdrożona.
+
+
+## Korekta miniatury i przesuwania
+
+Podgląd miniatury ma własne, stałe punkty overview dla całej domeny, przekazywane
+w każdej serii obok szczegółowych points. Zakres głównego wykresu i zaznaczenia
+miniatury pochodzi z jednego modelu czasu. Podgląd jest rysowany w SVG według
+rzeczywistych timestampów, bez indeksowego cienia dataZoom. ECharts rysuje główny
+wykres z jawnymi min/max aktualnego okna; nie wyznacza drugiego własnego zakresu.
+
+Przesuwanie miniatury, jej uchwytów lub wykresu pobiera szczegóły dla nowego
+zakresu. Przed odpowiedzią pełny overview uzupełnia obszary poza poprzednio
+pobranym oknem; nie rozciągamy starego okna jako danych nowego. Punkty podglądu
+nie zmieniają się przy pan/zoom, z wyjątkiem jawnej zmiany kontekstu danych.
+Początek/koniec i klawiatura Home/End pozwalają przechodzić przez pełną domenę.
+
+Zakończenie gestu synchronizuje dni from/to w strefie ligi i odświeża raport
+oraz historię. chart_base_from/chart_base_to zachowują pierwotny zakres podglądu,
+żeby zawężenie tabeli nie zamykało możliwości przesuwania dalej. Stan pozostaje
+po reloadzie. Ręczna zmiana dat ustanawia nową domenę; Resetuj widok przywraca
+pierwotne dni i pełny zakres. Gesty zastępują bieżący URL zamiast tworzyć
+niespójne wpisy historii z nowym oknem i starymi filtrami. Wybór innego przedmiotu
+przywraca pierwotny okres i zachowuje poprzedni spójny widok we Wstecz.
+
+Legenda jest stale widoczna, bez rozwijania ustawień; kolory pozostają stałe
+przy ukrywaniu serii. Dni filtrów są zsynchronizowane do ich rozdzielczości,
+a dokładność sekund/milisekund nadal jest dostępna w wykresie i jego zakresie.
+
+
+Walidacja tej poprawki: 131 testów backendu, 67 przeglądarkowych i 16 tłumaczeń
+zakończone powodzeniem; build TypeScript/Vite poprawny. Testy przesuwają okno
+wielokrotnie poza centralny obszar, sprawdzają oba końce miniatury, niezmienność
+jej ścieżek, szczegóły po panie, zgodność granic głównego wykresu i podglądu,
+automatyczne dni, reload, ręczne daty i reset.
+
+Publiczny nginx: odtworzono Divine Orb w Runes of Aldur, $$$, pierwotnie
+7–20 lipca 2026, 7 serii graczy. Początkowe okno 13 lipca 06:00–14 lipca 02:00
+w UTC+01:00 przesunięto strzałkami miniatury i gestem głównego wykresu poza
+pierwotny zakres. API zwróciło komplet operacji w nowym oknie, podgląd zachował
+identyczne ścieżki i domenę, a pola dni aktualizowały się automatycznie.
+Zweryfikowano Home/End, reset pierwotnych dat, stale widoczną legendę i mobile.
+Porównanie wszystkich źródłowych kolumn transakcji i ustawień przed/po wykazało
+brak zmian. Nie ma migracji, zmiany ilości ani rozpoczęcia fazy 6.

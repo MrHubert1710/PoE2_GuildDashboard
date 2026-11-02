@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed,defineAsyncComponent,ref} from 'vue'
+import {computed,defineAsyncComponent,ref,watch} from 'vue'
 import type {HistoryQuery} from '../browsing'
 import {currentUrl,updateUrl} from '../navigation'
 import {useQuantitySeries} from '../composables/useQuantitySeries'
@@ -28,21 +28,40 @@ const window=computed(()=>{
 const items=computed(()=>[...new Set([data.value?.item,selectedItem.value,...(data.value?.items??[])].filter((value):value is string=>Boolean(value)))])
 function toggle(id:string,checked:boolean){const values=new Set(enabled.value);if(checked)values.add(id);else values.delete(id);const url=new URL(currentUrl.value);url.searchParams.set('chart_series',[...values].join(','));updateUrl(url,true)}
 function zoom(value:{start:number;end:number}){if(value.start>=value.end)return;const url=new URL(currentUrl.value);url.searchParams.set('chart_from',String(value.start));url.searchParams.set('chart_to',String(value.end));updateUrl(url,true)}
-function reset(){const url=new URL(currentUrl.value);url.searchParams.delete('chart_from');url.searchParams.delete('chart_to');updateUrl(url,true)}
-function applyRange(){if(window.value&&data.value)emit('range',localDay(window.value.start,data.value.timezone),localDay(Math.max(window.value.start,window.value.end-1),data.value.timezone))}
+function reset(){
+  const url=new URL(currentUrl.value),anchored=url.searchParams.has('chart_base_from'),from=url.searchParams.get('chart_base_from')??'',to=url.searchParams.get('chart_base_to')??''
+  for(const key of ['chart_from','chart_to','chart_base_from','chart_base_to'])url.searchParams.delete(key)
+  updateUrl(url,true);if(anchored)emit('range',from,to)
+}
+function commit(value:{start:number;end:number}){
+  if(!data.value)return
+  const url=new URL(currentUrl.value)
+  if(!url.searchParams.has('chart_base_from')){url.searchParams.set('chart_base_from',props.query.from);url.searchParams.set('chart_base_to',props.query.to)}
+  url.searchParams.set('chart_from',String(value.start));url.searchParams.set('chart_to',String(value.end));updateUrl(url,true)
+  emit('range',localDay(value.start,data.value.timezone),localDay(Math.max(value.start,value.end-1),data.value.timezone))
+}
+function selectItem(value:string){
+  const previous=new URL(currentUrl.value),anchored=previous.searchParams.has('chart_base_from'),from=previous.searchParams.get('chart_base_from')??'',to=previous.searchParams.get('chart_base_to')??''
+  chooseItem(value)
+  const next=new URL(currentUrl.value);next.searchParams.delete('chart_base_from');next.searchParams.delete('chart_base_to');updateUrl(next,true)
+  if(anchored)emit('range',from,to)
+}
+let initial=false
+watch(data,value=>{if(value&&!initial){initial=true;if(window.value&&!new URL(currentUrl.value).searchParams.has('chart_base_from'))commit(window.value)}})
+
 </script>
 <template><CollapsiblePanel :title="t('chart.title')" :storage-key="'chart:'+leagueId+':'+view" class="quantity-chart" data-testid="quantity-chart">
   <div class="chart-controls">
-    <label class="chart-item"><span>{{ t('chart.item') }}</span><select :aria-label="t('chart.item')" :value="data?.item??selectedItem" :disabled="!items.length" @change="chooseItem(($event.target as HTMLSelectElement).value)"><option v-for="item in items" :key="item" :value="item">{{ item }}</option></select></label>
-    <details v-if="data&&data.series.length>1" class="chart-series-picker"><summary>{{ t('chart.groups',{count:data.series.length}) }}</summary><div><label v-for="(series,index) in data.series" :key="series.id" class="check-label"><input type="checkbox" :checked="enabled.includes(series.id)" @change="toggle(series.id,($event.target as HTMLInputElement).checked)" /><i class="series-swatch" :style="{background:balanceColors[index%balanceColors.length]}" aria-hidden="true"></i>{{ series.name }}</label></div></details>
-    <button type="button" :disabled="!data?.bounds" @click="graph?.zoomIn()">{{ t('chart.zoom') }}</button><button type="button" @click="reset">{{ t('chart.reset') }}</button><button type="button" :disabled="!window" @click="applyRange">{{ t('chart.apply') }}</button>
+    <label class="chart-item"><span>{{ t('chart.item') }}</span><select :aria-label="t('chart.item')" :value="data?.item??selectedItem" :disabled="!items.length" @change="selectItem(($event.target as HTMLSelectElement).value)"><option v-for="item in items" :key="item" :value="item">{{ item }}</option></select></label>
+    <button type="button" :disabled="!data?.bounds" @click="graph?.zoomIn()">{{ t('chart.zoom') }}</button><button type="button" @click="reset">{{ t('chart.reset') }}</button>
     <button type="button" :disabled="loading||!projectionId" @click="reload">{{ t('chart.refresh') }}</button>
     <span v-if="loading" role="status" class="chart-loading">{{ t('chart.loading') }}</span>
   </div>
   <p v-if="error" role="alert">{{ t(`quantity.error.${error}`) }}</p>
   <p v-else-if="!projectionId" role="status">{{ t('quantity.pending') }}</p>
   <p v-else-if="!loading&&!data?.series.length" class="empty-state">{{ t('chart.empty') }}</p>
-  <TimeSeriesChart v-if="data?.bounds&&data.series.length" ref="graph" :series="data.series" :view="view" :bounds="data.bounds" :timezone="data.timezone" :enabled="enabled" :window="window" @zoom="zoom" />
+  <div v-if="data?.series.length" class="chart-legend" :aria-label="t('chart.groups',{count:data.series.length})" data-testid="chart-legend"><label v-for="(series,index) in data.series" :key="series.id" class="check-label"><input type="checkbox" :checked="enabled.includes(series.id)" @change="toggle(series.id,($event.target as HTMLInputElement).checked)" /><i class="series-swatch" :style="{background:balanceColors[index%balanceColors.length]}" aria-hidden="true"></i>{{ view==='summary'?t('chart.total'):series.name }}</label></div>
+  <TimeSeriesChart v-if="data?.bounds&&data.series.length" ref="graph" :series="data.series" :view="view" :bounds="data.bounds" :timezone="data.timezone" :enabled="enabled" :loaded-window="data.window" :window="window" @zoom="zoom" @commit="commit" />
   <CollapsiblePanel :title="t('chart.details')" :storage-key="'chart-info:'+leagueId+':'+view" :initial-open="false" class="chart-info">
     <p class="footnote">{{ t('chart.note') }}</p><p class="footnote">{{ t('chart.interaction',{zone:data?.timezone??'UTC'}) }}</p>
     <p v-if="window&&data" class="footnote" data-testid="chart-window">{{ date(new Date(window.start).toISOString(),data.timezone) }} — {{ date(new Date(window.end).toISOString(),data.timezone) }} {{ data.timezone }}</p>

@@ -245,7 +245,6 @@ test('league timezone applies to date filters, chart range and diagnostics label
     const chart=page.getByTestId('quantity-chart')
     await expect(chart.getByRole('img')).toBeVisible()
     await chart.getByRole('button',{name:'Zoom in',exact:true}).click()
-    await chart.getByRole('button',{name:'Apply range to filters',exact:true}).click()
     await expect(page.getByLabel('From day (UTC+13:00)',{exact:true})).toHaveValue('2026-01-02')
     await expect(page.getByLabel('To day (UTC+13:00)',{exact:true})).toHaveValue('2026-01-02')
     await page.getByRole('link',{name:'Diagnostics',exact:true}).click()

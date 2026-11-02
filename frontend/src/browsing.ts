@@ -92,12 +92,13 @@ export function readQuery(): HistoryQuery {
   }
 }
 
-export function writeQuery(query: HistoryQuery, replace = false) {
+export function writeQuery(query: HistoryQuery, replace = false, resetRange = false) {
   const params = new URLSearchParams()
   const language = new URLSearchParams(location.search).get('lang')
   if (language) params.set('lang', language)
   const previousLeague = new URLSearchParams(location.search).get('league')
-  for (const key of ['analysis', 'analysis_page', 'section', 'view', 'chart_item', 'chart_from', 'chart_to', 'chart_series']) {
+  for (const key of ['analysis', 'analysis_page', 'section', 'view', 'chart_item', 'chart_from', 'chart_to', 'chart_series', 'chart_base_from', 'chart_base_to']) {
+    if (resetRange && ['chart_from','chart_to','chart_base_from','chart_base_to'].includes(key)) continue
     if (key.startsWith('chart_') && previousLeague && previousLeague !== query.league) continue
     const value = new URLSearchParams(location.search).get(key)
     if (value !== null) params.set(key, value)

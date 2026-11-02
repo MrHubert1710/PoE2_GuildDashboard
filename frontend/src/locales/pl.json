@@ -381,6 +381,9 @@
     "fromDayZone": "Od dnia ({zone})",
     "toDayZone": "Do dnia ({zone})",
     "quantity.error.invalid_viewport": "Nieprawidłowy zakres czasu wykresu. Zresetuj jego widok.",
-    "rangeZone": "Zakres dat w strefie {zone}"
+    "rangeZone": "Zakres dat w strefie {zone}",
+    "chart.navigator": "Zakres podglądu wykresu",
+    "chart.navigatorStart": "Początek zakresu wykresu",
+    "chart.navigatorEnd": "Koniec zakresu wykresu"
   }
 }

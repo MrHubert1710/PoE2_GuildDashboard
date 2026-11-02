@@ -62,6 +62,23 @@ class SeriesTests(unittest.TestCase):
         self.assertEqual(zoom['series'][0]['closing_balance'],10)
         self.assertLess(len(zoom['series'][0]['points']),len(coarse['series'][0]['points']))
 
+    def test_overview_is_stable_across_disjoint_detail_windows(self):
+        for index,(moment,action) in enumerate((('01:00:00','added'),('01:00:01','removed'),('20:00:00','added'),('20:00:01','removed'))):
+            self.insert(event(100+index,action,10,'Flash',x=5,occurred_at=f'2026-01-02T{moment}.000000Z'),'A')
+        self.build()
+        full=self.series(series_item='Flash')
+        early=self.series(series_item='Flash',window_start=1767315600000,window_end=1767315610000)
+        late=self.series(series_item='Flash',window_start=1767384000000,window_end=1767384010000)
+        self.assertEqual(early['series'][0]['overview'],full['series'][0]['overview'])
+        self.assertEqual(late['series'][0]['overview'],full['series'][0]['overview'])
+        self.assertEqual(early['bounds'],late['bounds'])
+        self.assertEqual(early['series'][0]['event_count'],2)
+        self.assertEqual(late['series'][0]['event_count'],2)
+        for data in (early,late):
+            self.assertEqual(max(point['balance'] for point in data['series'][0]['points']),10)
+            self.assertEqual(data['series'][0]['closing_balance'],0)
+            self.assertLessEqual(len(data['series'][0]['overview']),data['max_points'])
+
     def test_extrema_sampler_keeps_order_and_limit(self):
         points=[dict(timestamp=i,balance=(50 if i==123 else -30 if i==234 else i%10)) for i in range(1000)]
         result,resolution=sample_extrema(points,24)

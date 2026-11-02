@@ -371,6 +371,9 @@
     "fromDayZone": "From day ({zone})",
     "toDayZone": "To day ({zone})",
     "quantity.error.invalid_viewport": "Invalid chart time range. Reset the chart view.",
-    "rangeZone": "Date range in {zone}"
+    "rangeZone": "Date range in {zone}",
+    "chart.navigator": "Chart overview range",
+    "chart.navigatorStart": "Start of chart range",
+    "chart.navigatorEnd": "End of chart range"
   }
 }

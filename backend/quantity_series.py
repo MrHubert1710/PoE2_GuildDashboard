@@ -126,10 +126,19 @@ def read_series(league_id):
                 if low<=row['timestamp']<high:
                     balance+=row['quantity_delta'];points.append(dict(timestamp=row['timestamp'],balance=balance))
             points.append(dict(timestamp=high,balance=balance))
+            # Navigator always covers the full domain, independently of the detail window.
+            full_balance=sum(row['quantity_delta'] for row in grouped[name] if row['timestamp']<first)
+            full_points=[dict(timestamp=first,balance=full_balance)]
+            for row in grouped[name]:
+                if first<=row['timestamp']<last:
+                    full_balance+=row['quantity_delta']
+                    full_points.append(dict(timestamp=row['timestamp'],balance=full_balance))
+            full_points.append(dict(timestamp=last,balance=full_balance))
+            overview,_=sample_extrema(full_points,point_limit)
             selected,step=sample_extrema(points,point_limit)
             if step:sampled=True;resolution=max(resolution or 0,step)
             output.append(dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,opening_balance=opening,
-                               closing_balance=balance,event_count=len(points)-2,point_count=len(points),points=selected))
+                               closing_balance=balance,event_count=len(points)-2,point_count=len(points),points=selected,overview=overview))
         base.update(series=output,bounds=domain,window=dict(start=low,end=high),sampled=sampled,
                     resolution_ms=resolution,max_points=point_limit)
         return jsonify(base)
