@@ -446,3 +446,10 @@ html,body,#app {height:100%;overflow:hidden}
 .workspace-filters:not([open]) > summary {top:0;height:var(--filter-toggle-height,80px);border-left:1px solid #34424b}
 .workspace-filters > summary {gap:0}
 .workspace-filters > summary > span:first-child {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+.workspace-filters:not([open]) > summary {
+  border:2px solid #b6d7bd;border-radius:4px 7px 7px 4px;
+  background:#294036;color:#edfff0;box-shadow:-4px 0 12px #0008,inset 0 0 0 1px #b6d7bd33;
+}
+.workspace-filters:not([open]) > summary::before {font-size:24px;font-weight:700;line-height:24px}
+.workspace-filters:not([open]) > summary:hover {background:#395646;border-color:#e0f4e5}
