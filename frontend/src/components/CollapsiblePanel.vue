@@ -9,4 +9,4 @@ watch(()=>props.storageKey,()=>{open.value=read()})
 function toggle(){open.value=!open.value;saveClientPreferences({panels:{...clientPreferences.value.panels,[props.storageKey]:open.value}})}
 function changed(event:Event){const value=(event.target as HTMLDetailsElement).open;if(value===open.value)return;open.value=value;saveClientPreferences({panels:{...clientPreferences.value.panels,[props.storageKey]:value}})}
 </script>
-<template><details class="collapsible-panel" :open="open" @toggle="changed"><summary @click.prevent="toggle"><span>{{ title }}</span><span class="panel-actions" @click.stop><slot name="actions" /></span></summary><div class="panel-body"><slot /></div></details></template>
+<template><details class="collapsible-panel" :open="open" @toggle="changed"><summary :title="title" @click.prevent="toggle"><span>{{ title }}</span><span class="panel-actions" @click.stop><slot name="actions" /></span></summary><div class="panel-body"><slot /></div></details></template>

@@ -57,9 +57,11 @@ Nie ma migracji bazy ani zmiany surowych danych.
 - Nagłówek i filtry są poza obszarem przewijania. Układ zajmuje wysokość
   okna, a przewija się wyłącznie zawartość zakładki pod filtrami. Nie przechodzi
   ona pod rozwinięty pasek. Dotyczy to desktopu i telefonu.
-- Filtry zwijają się do kompaktowego przycisku po prawej stronie. Stan jest
-  lokalny; zwijanie nie zmienia URL ani wyników. W ustawieniach/archiwach
-  filtry są ukryte. Widok diagnostyki ma osobny obszar przewijania.
+- Zwijanie filtrów obsługuje pionowy przycisk szerokości 20 px, jako prawe
+  przedłużenie kontenera na jego pełną wysokość. Po zwinięciu kontener ma
+  zerową wysokość, a przycisk pozostaje nakładką nad treścią. Stan jest lokalny;
+  zwijanie nie zmienia URL ani wyników. W ustawieniach/archiwach filtry są
+  ukryte. Widok diagnostyki ma osobny obszar przewijania.
 - Popup kolorów zawiera koło barw, nasycenie, jasność i pole HEX. Wszystkie
   kontrolki aktualizują linię, tooltip i miniatury; mają obsługę klawiatury.
 
@@ -91,3 +93,8 @@ pozostały identyczne przed i po weryfikacji.
 Do odbioru ręcznego: preferencje na dwóch przeglądarkach, ten sam link UTC,
 zwijanie filtrów po prawej i scroll treści pod nimi, picker kolorów. Po odbiorze
 następna jest faza 5b — administracja i logowanie. Nie została rozpoczęta.
+
+Poprawka uchwytu filtrów: build i 4 testy układu przeszły; publiczny nginx
+potwierdził wysokość przycisku równą panelowi oraz zerową wysokość zwiniętego
+kontenera i niezmienność URL. Przycisk ma opis dostępności i tooltip, bez
+tekstu wychodzącego poza wąski uchwyt.

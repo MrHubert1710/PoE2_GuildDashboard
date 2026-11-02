@@ -102,10 +102,17 @@ test('sticky header and collapsible filters remain usable on desktop and mobile 
     const scroller=(await page.locator('.workspace-scroll').boundingBox())!
     expect(scroller.y+scroller.height).toBeLessThanOrEqual((await page.locator('main > footer').boundingBox())!.y+2)
     const url=page.url()
+    const expanded=(await filters.boundingBox())!,handleOpen=(await filters.locator(':scope > summary').boundingBox())!
+    expect(Math.abs(handleOpen.height-expanded.height)).toBeLessThan(2)
     await filters.locator(':scope > summary').click()
     await expect(filters).not.toHaveAttribute('open','')
-    expect((await filters.boundingBox())!.width).toBeLessThan((await page.locator('.workspace-content').boundingBox())!.width/2)
-    expect(Math.abs((await filters.boundingBox())!.x+(await filters.boundingBox())!.width-((await page.locator('.workspace-content').boundingBox())!.x+(await page.locator('.workspace-content').boundingBox())!.width))).toBeLessThan(2)
+    await expect.poll(async()=>(await filters.boundingBox())!.height).toBe(0)
+    const handle=(await filters.locator(':scope > summary').boundingBox())!
+    expect(handle.width).toBeLessThanOrEqual(22)
+    expect(handle.height).toBeGreaterThan(40)
+    const content=(await page.locator('.workspace-content').boundingBox())!
+    expect(Math.abs(handle.x+handle.width-(content.x+content.width))).toBeLessThan(2)
+    expect((await page.locator('.workspace-scroll').boundingBox())!.y).toBe(filterTop)
     await expect(page.getByLabel('Player',{exact:true})).toBeHidden()
     expect(page.url()).toBe(url)
     await filters.locator(':scope > summary').click()

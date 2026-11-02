@@ -7,12 +7,13 @@ import TextFilter from './TextFilter.vue'
 import StashFilter from './StashFilter.vue'
 defineProps<{ draft: HistoryQuery; stashes: string[]; formError: string; timezone: string }>()
 const panel=ref<InstanceType<typeof CollapsiblePanel>|null>(null)
+const toggleHeight=ref(innerWidth<=600?250:innerWidth<=1250?130:80)
 let observer:ResizeObserver|undefined
-onMounted(()=>{observer=new ResizeObserver(()=>document.documentElement.style.setProperty('--filters-height',Math.ceil((panel.value?.$el as HTMLElement)?.getBoundingClientRect().height??0)+'px'));if(panel.value?.$el)observer.observe(panel.value.$el)})
+onMounted(()=>{observer=new ResizeObserver(()=>{const element=panel.value?.$el as HTMLDetailsElement|undefined,height=Math.ceil(element?.getBoundingClientRect().height??0);if(element?.open&&height>0)toggleHeight.value=height;document.documentElement.style.setProperty('--filters-height',height+'px')});if(panel.value?.$el)observer.observe(panel.value.$el)})
 onUnmounted(()=>observer?.disconnect())
 const emit = defineEmits<{ apply: []; clear: [] }>()
 </script>
-<template><CollapsiblePanel ref="panel" class="workspace-filters" :title="t('workspace.filters')" :storage-key="'filters'" :aria-label="t('workspace.filters')">
+<template><CollapsiblePanel ref="panel" class="workspace-filters" :style="{'--filter-toggle-height':toggleHeight+'px'}" :title="t('workspace.filters')" :storage-key="'filters'" :aria-label="t('workspace.filters')">
         <form class="filters" @submit.prevent="emit('apply')">
           <TextFilter v-model="draft.account" v-model:regex="draft.account_regex" v-model:match-case="draft.account_case" v-model:whole-word="draft.account_word" name="account" :label="t('player')" :placeholder="t('accountPlaceholder')" />
           <StashFilter v-model="draft.stash" :options="stashes" />
