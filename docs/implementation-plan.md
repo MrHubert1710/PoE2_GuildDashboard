@@ -1,9 +1,9 @@
 # Plan implementacji poe2guild
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: fazy 0–4b odebrane przez użytkownika; faza 5 zaimplementowana,
-oczekuje weryfikacji manualnej. Faza 6 i dalsze nie są rozpoczęte.
-Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md).
+Status: fazy 0–5 odebrane przez użytkownika; faza 5a zaimplementowana,
+oczekuje weryfikacji manualnej. Fazy 5b, 5c, 6 i dalsze nie są rozpoczęte.
+Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md), [phase-5a.md](phase-5a.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -336,9 +336,9 @@ Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
-Faza 5 (interaktywne wykresy) oczekuje odbioru. Po jej akceptacji i osobnym
-poleceniu następuje faza 5a: lokalne ustawienia klienta. Nowe fazy 5b i 5c
-poprzedzają fazę 6: katalog kategorii, snapshoty cen i wycena.
+Faza 5a (lokalne preferencje prezentacji) oczekuje odbioru. Po jej akceptacji
+i osobnym poleceniu następuje faza 5b: administracja i logowanie. Następnie 5c
+(symulacja stasha po uzgodnieniu designu) oraz 6 (wycena).
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.
 
@@ -353,19 +353,25 @@ historyczne/aktualne jest w nim zablokowany, z wybraną opcją historyczną.
 Faza 6 uruchomi wycenę i zmieni domyślny tryb na wartościowy. Kliknięcie koloru
 w legendzie otwiera picker, a kolory są zapisywane po stronie klienta.
 
-### Etap 5a — ustawienia i filtry klienta (do realizacji)
+### Etap 5a — lokalne preferencje prezentacji (oczekuje odbioru)
 
-- Przenieść preferencje prezentacji (język, strefa czasu, 12/24 h, kolory,
-  domyślne widoki i filtry) do wersjonowanego magazynu przeglądarki.
-- Każdy klient ma własną konfigurację; zmiana preferencji nie modyfikuje ligi,
-  gildii, projekcji ani ustawień innych użytkowników.
-- URL pozostaje przenośnym, jawnym opisem widoku i ma określony priorytet wobec
-  zapisanych domyślnych filtrów. Migracja zachowuje istniejące kolory klienta.
-- Aliasów i ignorowanych zakładek nie przenosić do ustawień klienta: są
-  konfiguracją źródła na serwerze, z docelowym zarządzaniem administracyjnym.
+- Język, strefa czasu, 12/24 h, kolory, zwinięte panele i domyślny widok są
+  preferencjami klienta, w wersjonowanym magazynie przeglądarki. Migracja
+  zachowuje wcześniejszy język i kolory; brak lokalnego języka oznacza angielski.
+- **Filtry, zakres czasu i liga wynikają wyłącznie z URL. Nie zapamiętywać ich
+  w preferencjach ani nie przywracać z localStorage.** Granice czasu są
+  jednoznacznymi timestampami ISO 8601 UTC z Z; koniec jest wyłączny.
+- Konfiguracja klienta zmienia wyłącznie wyświetlanie tych samych danych.
+  Ręczna edycja dnia tworzy granicę UTC w wybranej strefie; zmiana samej strefy
+  nie zmienia żadnej wartości filtra UTC. Uwzględnić dni 23- i 25-godzinne.
+- Aliasy i ignorowane zakładki pozostają konfiguracją serwera dla wszystkich.
+  Dostęp zostanie ograniczony do administratora w fazie 5b.
+- Nagłówek i zwijalny pasek filtrów są poza obszarem przewijania. Przewija się
+  zawartość pod nimi; zwinięte filtry pozostają po prawej stronie. Kolory wybiera się w popupie z kołem barw, nasyceniem i jasnością.
 
-Odbiór: dwie przeglądarki mogą mieć różne ustawienia i filtry bez wzajemnego
-wpływu; działają reload, współdzielony URL i brak dostępu do localStorage.
+Odbiór: dwie przeglądarki z różnymi preferencjami prezentują te same rekordy
+z tego samego URL UTC, bez zapisu ustawień serwera i bez przeliczania projekcji.
+Działają reload, Wstecz/Dalej, migracja kolorów oraz zablokowany localStorage.
 
 ### Etap 5b — administracja i logowanie (do realizacji)
 
@@ -403,6 +409,6 @@ Nie budować wizualnej symulacji na podstawie domyślnych założeń.
 Odbiór: uzgodniony design, zgodność układu i stanów z replay, ostatnie zdarzenia
 w tooltipach, płynna zmiana czasu i izolacja lig oraz ukrytych skrytek.
 
-Proponowana kolejność po odbiorze fazy 5: 5a → 5b → 5c → 6 → 7 / 8.
+Proponowana kolejność po odbiorze fazy 5a: 5b → 5c → 6 → 7 / 8.
 Każdy etap wymaga osobnego polecenia rozpoczęcia i kończy się zatrzymaniem do
-odbioru. Powyższe dopisanie planu nie oznacza rozpoczęcia faz 5a–5c ani wyceny.
+odbioru. Powyższe dopisanie planu nie oznacza rozpoczęcia faz 5b–5c ani wyceny.

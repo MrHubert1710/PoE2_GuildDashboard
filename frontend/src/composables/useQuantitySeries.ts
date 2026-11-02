@@ -1,3 +1,4 @@
+import { displayTimezone } from '../i18n'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import type { HistoryQuery } from '../browsing'
 import { currentUrl, updateUrl } from '../navigation'
@@ -22,14 +23,14 @@ export function useQuantitySeries(props:{leagueId:string;revision:string;setting
   const effectiveQuery=computed(()=>({...props.query,...(viewport.value.every(value=>value!==null)?{from:'',to:''}:{})}))
   const {request,stopped}=useApiRequest(`${import.meta.env.BASE_URL}api/leagues/${encodeURIComponent(props.leagueId)}`)
   let sequence=0,timer:ReturnType<typeof setTimeout>|undefined,lastContext=''
-  const context=()=>JSON.stringify([props.active,valuation.value,props.projectionId,props.revision,props.settingsHash,selectedItem.value,props.view,...(['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word'] as Array<keyof HistoryQuery>).map(key=>effectiveQuery.value[key])])
+  const context=()=>JSON.stringify([props.active,valuation.value,displayTimezone.value,props.projectionId,props.revision,props.settingsHash,selectedItem.value,props.view,...(['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word'] as Array<keyof HistoryQuery>).map(key=>effectiveQuery.value[key])])
   function chooseItem(value:string){const url=new URL(currentUrl.value);if(value)url.searchParams.set('chart_item',value);else url.searchParams.delete('chart_item');url.searchParams.delete('chart_from');url.searchParams.delete('chart_to');url.searchParams.delete('chart_ymin');url.searchParams.delete('chart_ymax');updateUrl(url)}
   async function load(){
     const current=++sequence,key=context()
     if(!props.active||valuation.value||!props.projectionId){data.value=null;loading.value=false;return}
     if(key!==lastContext)data.value=null
     lastContext=key;loading.value=true;error.value=''
-    const params=new URLSearchParams({revision:props.revision,projection_id:props.projectionId,max_points:'240',view:props.view})
+    const params=new URLSearchParams({timezone:displayTimezone.value,revision:props.revision,projection_id:props.projectionId,max_points:'240',view:props.view})
     for(const key of ['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word','from','to'] as Array<keyof HistoryQuery>){
       const value=effectiveQuery.value[key]
       if(key==='stash'){for(const name of effectiveQuery.value.stash)params.append('stash',name)}
@@ -50,7 +51,7 @@ export function useQuantitySeries(props:{leagueId:string;revision:string;setting
     finally{if(!stopped()&&current===sequence)loading.value=false}
   }
   async function stateAt(timestamp:number):Promise<CursorState>{
-    const params=new URLSearchParams({revision:props.revision,projection_id:props.projectionId??'',view:props.view,at:String(timestamp)})
+    const params=new URLSearchParams({timezone:displayTimezone.value,revision:props.revision,projection_id:props.projectionId??'',view:props.view,at:String(timestamp)})
     for(const key of ['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word'] as Array<keyof HistoryQuery>){
       const value=props.query[key]
       if(key==='stash'){for(const name of props.query.stash)params.append('stash',name)}

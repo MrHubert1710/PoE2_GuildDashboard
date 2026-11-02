@@ -125,11 +125,20 @@ def number_argument(name, default, minimum, maximum):
     return result
 
 
+def request_timezone(default='UTC'):
+    from .timezones import normalize_timezone
+    try:return normalize_timezone(one_argument('timezone',default))
+    except ValueError:raise ReadError('invalid_timezone') from None
+
+
 def date_argument(name, *, end=False, zone='UTC'):
     value = one_argument(name)
     if not value:
         return None
     try:
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z',value):
+            # Explicit UTC boundaries are independent of every display timezone.
+            return datetime.fromisoformat(value.replace('Z','+00:00')).isoformat(timespec='microseconds').replace('+00:00','Z')
         if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
             raise ValueError('Date format')
         day = date.fromisoformat(value)
@@ -143,7 +152,7 @@ def date_argument(name, *, end=False, zone='UTC'):
 
 @browser.get('/api/leagues/<league_id>/transactions')
 def transactions(league_id):
-    allowed = {'page', 'page_size', 'sort', 'direction', 'account', 'stash', 'item', 'from', 'to', 'revision', 'account_regex', 'item_regex', 'account_case', 'account_word', 'item_case', 'item_word'}
+    allowed = {'timezone', 'page', 'page_size', 'sort', 'direction', 'account', 'stash', 'item', 'from', 'to', 'revision', 'account_regex', 'item_regex', 'account_case', 'account_word', 'item_case', 'item_word'}
     if set(request.args) - allowed:
         raise ReadError('unknown_parameter')
     page = number_argument('page', 1, 1, 1000000)
@@ -178,7 +187,7 @@ def transactions(league_id):
         from .quantities import effective_settings, visible_stashes
         league = connection.execute('SELECT * FROM leagues WHERE id=?', (league_id,)).fetchone()
         configured = effective_settings(league, connection)
-        start, end = date_argument('from', zone=configured['timezone']), date_argument('to', end=True, zone=configured['timezone'])
+        start, end = date_argument('from', zone=request_timezone(configured['timezone'])), date_argument('to', end=True, zone=request_timezone(configured['timezone']))
         if start:
             conditions.append('t.occurred_at>=?'); values.append(start)
         if end:

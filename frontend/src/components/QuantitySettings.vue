@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { timezoneSuggestions } from '../timezones'
 import { t } from '../i18n'
 import { useApiRequest } from '../composables/useApiRequest'
 const props = defineProps<{ leagueId: string; settingsHash?: string; displayHash?: string; refreshToken: number }>()
@@ -38,7 +37,6 @@ function renameStash(name: string, value: string) {
   }
   dirty.value = true
 }
-const timezones = timezoneSuggestions()
 async function loadSettings() {
   const result = await request('/quantity-settings')
   if (stopped()) return
@@ -49,6 +47,7 @@ async function loadSettings() {
   rawStashes.value = result.stashes
   allStashes.value = result.settings.target_stashes === null
   targets.value = result.settings.target_stashes ?? []
+  // These legacy fields are preserved on server stash edits; local preferences live separately.
   timezone.value = result.settings.timezone
   hourFormat.value = result.settings.hour_format ?? 'auto'
   for (const key of Object.keys(aliases)) delete aliases[key]
@@ -74,7 +73,7 @@ watch(() => [props.settingsHash, props.displayHash, props.refreshToken], () => {
 onMounted(() => { void loadSettings().catch(() => { settingsError.value = 'report_unavailable' }) })
 </script>
 <template><section class="quantity-settings settings-view" data-testid="quantity-settings">
-  <h2>{{ t('quantity.settings') }}</h2>
+  <h2>{{ t('client.serverSettings') }}</h2><p class="footnote">{{ t('client.serverNote') }}</p>
   <p v-if="!ready && !settingsError" role="status">{{ t('workspace.settingsLoading') }}</p>
   <p v-if="!ready && settingsError" role="alert">{{ t(`quantity.error.${settingsError}`) }}</p>
       <form v-if="ready" @input="dirty = true" @submit.prevent="save()">
@@ -83,9 +82,6 @@ onMounted(() => { void loadSettings().catch(() => { settingsError.value = 'repor
         <label>{{ t('quantity.saveScope') }}<select v-model="scope" :aria-label="t('quantity.saveScope')"><option value="league">{{ t('quantity.scopeLeague') }}</option><option v-if="guildAvailable" value="guild">{{ t('quantity.scopeGuild') }}</option></select></label>
         <label class="check-label"><input v-model="allStashes" type="checkbox" />{{ t('quantity.allStashes') }}</label>
 
-        <label>{{ t('quantity.timezone') }}<input v-model="timezone" list="quantity-timezones" required maxlength="100" aria-describedby="timezone-help" /></label><datalist id="quantity-timezones"><option v-for="zone in timezones" :key="zone.value" :value="zone.value">{{ zone.label }}</option></datalist>
-        <label>{{ t('quantity.hourFormat') }}<select v-model="hourFormat" :aria-label="t('quantity.hourFormat')"><option value="auto">{{ t('quantity.hourAuto') }}</option><option value="12">12 h</option><option value="24">24 h</option></select></label>
-        <p id="timezone-help" class="footnote">{{ t('quantity.timezoneHelp') }}</p>
         <p class="footnote">{{ t('quantity.aliasNote') }}</p>
         <p class="footnote">{{ t('quantity.stashSelectionNote') }}</p>
         <div class="stash-settings-list">

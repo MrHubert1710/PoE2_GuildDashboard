@@ -2,7 +2,7 @@
 import json
 import sqlite3
 from flask import Blueprint, current_app, jsonify, request
-from .browsing import ReadError, read_error, database_error, one_argument, number_argument, date_argument, revision, stash_arguments
+from .browsing import request_timezone, ReadError, read_error, database_error, one_argument, number_argument, date_argument, revision, stash_arguments
 from .database import connect, require_schema, DatabaseError, utc_now
 from .quantities import current_run, effective_settings, settings_hash, validate_settings, ALGORITHM, guild_defaults, projection_hash
 from .refresh_api import queue
@@ -91,7 +91,7 @@ def settings(league_id):
 
 @quantities.get('/api/leagues/<league_id>/quantities')
 def report(league_id):
-    allowed = {'view', 'account', 'stash', 'item', 'from', 'to', 'page', 'page_size', 'revision', 'projection_id', 'account_regex', 'item_regex', 'account_case', 'account_word', 'item_case', 'item_word'}
+    allowed = {'timezone', 'view', 'account', 'stash', 'item', 'from', 'to', 'page', 'page_size', 'revision', 'projection_id', 'account_regex', 'item_regex', 'account_case', 'account_word', 'item_case', 'item_word'}
     if set(request.args) - allowed:
         raise ReadError('unknown_parameter')
     view = one_argument('view', 'summary')
@@ -120,7 +120,7 @@ def report(league_id):
             raise ReadError('revision_changed', 409)
         if pinned and pinned != meta['id']:
             raise ReadError('projection_changed', 409)
-        settings = effective_settings(league, c)
+        settings = dict(effective_settings(league, c),timezone=request_timezone(effective_settings(league, c)['timezone']))
         start, end = date_argument('from', zone=settings['timezone']), date_argument('to', end=True, zone=settings['timezone'])
         if not run:
             return jsonify(league_id=league_id, projection=meta, settings=settings, rows=[], total=0, pages=1, page=1, stats=None)

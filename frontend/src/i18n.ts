@@ -1,5 +1,6 @@
+import { clientPreferences, saveClientPreferences } from './client-settings'
 import { appName } from './branding'
-import { ref, watchEffect } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import { formatZonedDate } from './timezones'
 import { updateUrl } from './navigation'
 import { formatMessage } from './message-format.mjs'
@@ -9,22 +10,14 @@ import type { Catalog } from '../scripts/locale-catalog.mjs'
 const files = import.meta.glob<Catalog>('./locales/*.json', { eager: true, import: 'default' })
 const catalogs = Object.fromEntries(Object.entries(files).map(([path, value]) => [path.split('/').at(-1)!.replace('.json', ''), value]))
 export const languages = Object.entries(catalogs).map(([code, catalog]) => ({ code, nativeName: catalog.nativeName }))
-const storageKey = 'poe2guild.language'
-function saved() { try { return localStorage.getItem(storageKey) } catch { return null } }
 function supported(code: string | null | undefined) { return code && Object.hasOwn(catalogs, code) ? code : undefined }
-function browserLanguage() {
-  for (const code of navigator.languages ?? [navigator.language]) {
-    const match = supported(code) ?? supported(code.split('-')[0])
-    if (match) return match
-  }
-}
-function resolveLanguage() { return supported(new URLSearchParams(location.search).get('lang')) ?? supported(saved()) ?? browserLanguage() ?? 'en' }
+function resolveLanguage() { return supported(new URLSearchParams(location.search).get('lang')) ?? supported(clientPreferences.value.language) ?? 'en' }
 export const locale = ref(resolveLanguage())
 function synchronize(replace: boolean) {
   const url = new URL(location.href)
   url.searchParams.set('lang', locale.value)
   updateUrl(url, replace)
-  try { localStorage.setItem(storageKey, locale.value) } catch { /* Private browsers can deny storage. URL still works. */ }
+  saveClientPreferences({language:locale.value})
 }
 export function setLanguage(code: string) {
   if (!supported(code) || code === locale.value) return
@@ -38,8 +31,8 @@ export function t(key: string, parameters: Record<string, string | number> = {})
   return formatMessage(catalogs, locale.value, key, parameters)
 }
 
-export const displayTimezone = ref('UTC')
-export const displayHourFormat = ref<'auto'|'12'|'24'>('auto')
+export const displayTimezone = computed(()=>clientPreferences.value.timezone??'UTC')
+export const displayHourFormat = computed(()=>clientPreferences.value.hourFormat??'auto')
 export function compactNumber(value: number) {
   if (value < 1000) return number(value)
   const scale = value >= 1e9 ? 1e9 : value >= 1e6 ? 1e6 : 1e3

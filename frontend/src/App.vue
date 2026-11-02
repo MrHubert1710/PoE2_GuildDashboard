@@ -1,18 +1,22 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { appName, appMotto } from './branding'
 import scalesIcon from './assets/scales.svg'
 import { t, languages, locale, setLanguage, displayTimezone } from './i18n'
 import { section, sectionUrl, diagnosticsUrl, diagnosticsVisible, navigateSection, navigateDiagnostics } from './navigation'
 import HistoryBrowser from './components/HistoryBrowser.vue'
 import Diagnostics from './components/Diagnostics.vue'
+const header=ref<HTMLElement|null>(null)
+let headerObserver:ResizeObserver|undefined
+onMounted(()=>{headerObserver=new ResizeObserver(()=>{if(header.value)document.documentElement.style.setProperty('--app-header-height',Math.ceil(header.value.getBoundingClientRect().height)+'px')});if(header.value)headerObserver.observe(header.value)})
+onUnmounted(()=>headerObserver?.disconnect())
 const visitedDiagnostics = ref(diagnosticsVisible.value)
 watch(diagnosticsVisible, value => { if (value) visitedDiagnostics.value = true })
 </script>
 
 <template>
   <main class="shell app-shell">
-    <header class="app-header">
+    <header ref="header" class="app-header">
       <a class="brand" :href="sectionUrl('summary').toString()" @click.prevent="navigateSection('summary')"><img class="brand-mark" :src="scalesIcon" alt="" width="36" height="36" /><span class="brand-copy"><span class="brand-title">{{ appName }}</span><span class="brand-motto" lang="en">{{ appMotto }}</span></span></a>
       <nav class="app-nav" :aria-label="t('navigation')">
         <a :href="sectionUrl(section).toString()" :aria-current="!diagnosticsVisible ? 'page' : undefined" @click.prevent="navigateDiagnostics(false)">{{ t('workspace.home') }}</a>
@@ -31,6 +35,6 @@ watch(diagnosticsVisible, value => { if (value) visitedDiagnostics.value = true 
       <Diagnostics v-if="visitedDiagnostics" />
     </div>
     <HistoryBrowser v-show="!diagnosticsVisible" :diagnostics="diagnosticsVisible" />
-    <footer><span>{{ t('workspace.footer') }}</span><span>{{ displayTimezone }}</span></footer>
+    <footer><span>{{ appName }} · {{ t('workspace.footer') }}</span><span>{{ displayTimezone }}</span></footer>
   </main>
 </template>

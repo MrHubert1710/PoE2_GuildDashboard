@@ -74,7 +74,7 @@ test('language persists between views, links, reload and URL overrides saved pre
 
 test('unsupported or removed locale falls back through saved, browser and English', async ({ browser }) => {
   for (const [browserLocale, saved, expected] of [
-    ['pl-PL', 'en', 'en'], ['pl-PL', 'removed-locale', 'pl'], ['fr-FR', 'removed-locale', 'en'],
+    ['pl-PL', 'en', 'en'], ['pl-PL', 'removed-locale', 'en'], ['fr-FR', 'removed-locale', 'en'],
   ]) {
     const context = await browser.newContext({ locale: browserLocale })
     try {

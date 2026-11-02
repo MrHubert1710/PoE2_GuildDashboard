@@ -193,6 +193,25 @@ class SeriesTests(unittest.TestCase):
         for query in ('all_items=wrong','at=NaN','at=8640000000000000'):
             self.assertEqual(self.client.get('/api/leagues/A/quantity-series?'+query).status_code,400)
 
+    def test_client_timezone_does_not_change_utc_filters_or_write_settings(self):
+        self.build();before=self.config()
+        with connect(self.path) as c:jobs=c.execute('SELECT COUNT(*) FROM jobs').fetchone()[0]
+        queries={'from':'2026-01-01T00:00:00.000Z','to':'2026-01-02T00:00:00.000Z'}
+        expected=None
+        for zone in ('UTC','UTC+13','America/Los_Angeles','Europe/Warsaw'):
+            source=self.client.get('/api/leagues/A/transactions',query_string=dict(queries,timezone=zone)).json
+            report=self.client.get('/api/leagues/A/quantities',query_string=dict(queries,timezone=zone)).json
+            chart=self.series(series_item='Token',timezone=zone,**queries)
+            result=([row['id'] for row in source['rows']],report['stats'],chart['series'][0]['points'])
+            if expected is None:expected=result
+            self.assertEqual(result,expected)
+            self.assertEqual(chart['window']['start'],1767225600000)
+            self.assertEqual(chart['window']['end'],1767312000000)
+        self.assertEqual(self.config(),before)
+        with connect(self.path) as c:self.assertEqual(c.execute('SELECT COUNT(*) FROM jobs').fetchone()[0],jobs)
+        for endpoint in ('transactions','quantities','quantity-series'):
+            self.assertEqual(self.client.get('/api/leagues/A/'+endpoint+'?timezone=invalid-zone').status_code,400)
+
     def test_extrema_sampler_keeps_order_and_limit(self):
         points=[dict(timestamp=i,balance=(50 if i==123 else -30 if i==234 else i%10)) for i in range(1000)]
         result,resolution=sample_extrema(points,24)

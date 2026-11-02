@@ -1,3 +1,4 @@
+import { displayTimezone } from '../i18n'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { HistoryQuery } from '../browsing'
 import { currentUrl, updateUrl } from '../navigation'
@@ -23,7 +24,7 @@ export function useQuantityReport(props: { leagueId: string; revision: string; s
     const current = ++sequence
     clearTimeout(timer)
     try {
-      const params = new URLSearchParams({ view: view.value, page: String(page.value), page_size: '25', revision: props.revision })
+      const params = new URLSearchParams({ timezone:displayTimezone.value, view: view.value, page: String(page.value), page_size: '25', revision: props.revision })
       for (const key of (view.value === 'state' ? ['stash', 'item', 'item_regex', 'item_case', 'item_word'] : ['account', 'account_regex', 'account_case', 'account_word', 'stash', 'item', 'item_regex', 'item_case', 'item_word', 'from', 'to']) as Array<keyof HistoryQuery>) {
         if (key === 'stash') {
           for (const stash of props.query.stash) params.append('stash', stash)
@@ -63,7 +64,7 @@ export function useQuantityReport(props: { leagueId: string; revision: string; s
   function move(value: number) { page.value = value; writePage(); void load() }
   watch(() => props.view, () => { report.value = null; page.value = readPage(); void load() })
   watch(() => JSON.stringify([props.query.account, props.query.account_regex, props.query.account_case, props.query.account_word, props.query.stash, props.query.item, props.query.item_regex, props.query.item_case, props.query.item_word, props.query.from, props.query.to]), () => { page.value = 1; writePage(true); void load() })
-  watch(() => [props.revision, props.settingsHash, props.refreshToken], () => { void load() })
+  watch(() => [props.revision, props.settingsHash, props.refreshToken, displayTimezone.value], () => { void load() })
   // Only actual page changes trigger a fetch; language-only navigation does not.
   watch(() => new URL(currentUrl.value).searchParams.get('analysis_page'), () => { const value = readPage(); if (value !== page.value) { page.value = value; void load() } })
   onMounted(() => { void load() })

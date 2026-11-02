@@ -1,3 +1,4 @@
+import { normalizeFilterTimestamp } from './timezones'
 import { updateUrl } from './navigation'
 export interface HistoricalReport {
   id: number
@@ -77,8 +78,7 @@ export const defaults: HistoryQuery = {
   page: 1, page_size: 50, sort: 'date', direction: 'desc',
 }
 
-export function readQuery(): HistoryQuery {
-  const params = new URLSearchParams(location.search)
+export function readQuery(params = new URLSearchParams(location.search)): HistoryQuery {
   const value = (name: string) => (params.get(name) ?? '').slice(0, 200)
   const page = Number(value('page'))
   const size = Number(value('page_size'))
@@ -86,7 +86,7 @@ export function readQuery(): HistoryQuery {
     league: value('league'), account: value('account'), stash: [...new Set(params.getAll('stash').filter(Boolean).map(value => value.slice(0, 200)))].slice(0, 100).sort(), item: value('item'),
     account_case: value('account_case') === '1', account_word: value('account_word') === '1', item_case: value('item_case') === '1', item_word: value('item_word') === '1',
     account_regex: value('account_regex') === '1', item_regex: value('item_regex') === '1',
-    from: value('from'), to: value('to'),
+    from: normalizeFilterTimestamp(value('from')), to: normalizeFilterTimestamp(value('to'),true),
     page: Number.isSafeInteger(page) && page >= 1 && page <= 1_000_000 ? page : 1,
     page_size: [25, 50, 100].includes(size) ? size : 50,
     sort: ['date', 'account', 'stash', 'item', 'action'].includes(value('sort')) ? value('sort') : 'date',

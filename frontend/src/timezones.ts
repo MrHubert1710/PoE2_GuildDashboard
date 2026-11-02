@@ -12,6 +12,18 @@ export function timezoneSuggestions() {
   ]
 }
 
+export function normalizeDisplayTimezone(value:string){
+  const input=value.trim(),zone=(aliases as Record<string,string>)[input.toUpperCase()]??input
+  if(!zone||zone.length>100)throw new RangeError('invalid_timezone')
+  const offset=/^UTC\s*([+-])\s*(\d{1,2})(?:(?::(\d{2}))|(\.\d{1,2}))?$/i.exec(zone)
+  if(offset){
+    const minutes=Number(offset[2])*60+(offset[4]?Number(offset[4])*60:Number(offset[3]??0))
+    if(minutes>840||!Number.isInteger(minutes)||Number(offset[3]??0)>=60)throw new RangeError('invalid_timezone')
+    return minutes===0?'UTC':`UTC${offset[1]}${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`
+  }
+  return new Intl.DateTimeFormat('en',{timeZone:zone}).resolvedOptions().timeZone
+}
+
 export function formatZonedDate(value: string, locale: string, timeZone: string, options?: Intl.DateTimeFormatOptions, hourFormat: 'auto'|'12'|'24' = 'auto') {
   const input = timeZone.trim()
   const zone = (aliases as Record<string, string>)[input.toUpperCase()] ?? input
@@ -39,4 +51,26 @@ export function axisDate(timestamp: number, zone: string, language: string, span
     : span < 31536000000 ? {month:'short',day:'numeric',...(span<604800000?{hour:'2-digit',minute:'2-digit'}:{})}
     : {year:'numeric',month:'short'}
   return formatZonedDate(new Date(timestamp).toISOString(),language,zone,options,hourFormat)
+}
+
+// UTC instants define filters; a local day is only an editor for their boundaries.
+export function dayBoundaryUtc(day:string,zone:string,end=false){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(day))throw new RangeError('invalid_date')
+  const utc=Date.parse(day+'T00:00:00.000Z')
+  if(!Number.isFinite(utc)||new Date(utc).toISOString().slice(0,10)!==day)throw new RangeError('invalid_date')
+  const target=new Date(utc+(end?86400000:0)).toISOString().slice(0,10)
+  let low=utc+(end?86400000:0)-129600000,high=low+259200000
+  while(low<high){const middle=Math.floor((low+high)/2);if(localDay(middle,zone)<target)low=middle+1;else high=middle}
+  return new Date(low).toISOString()
+}
+export function normalizeFilterTimestamp(value:string,end=false){
+  if(!value)return ''
+  if(/^\d{4}-\d{2}-\d{2}$/.test(value)){
+    try{return dayBoundaryUtc(value,'UTC',end)}catch{return value}
+  }
+  if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)){
+    const stamp=Date.parse(value)
+    if(Number.isFinite(stamp)&&new Date(stamp).toISOString().slice(0,10)===value.slice(0,10))return new Date(stamp).toISOString()
+  }
+  return value
 }

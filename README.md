@@ -33,6 +33,8 @@ Faza 4b: [nowa organizacja panelu i nawigacji](docs/phase-4b.md).
 Startowym widokiem jest Podsumowanie; Historia, Ustawienia i Raporty archiwalne
 są osobnymi sekcjami. Szczegóły synchronizacji znajdują się w Diagnostyce.
 
+Faza 5a: [lokalne preferencje prezentacji i filtry UTC w URL](docs/phase-5a.md).
+
 Faza 5: [interaktywne wykresy balansu](docs/phase-5.md). Osobne serie graczy
 i skrytek, ekstrema, dokładniejsze dane po zoomie i zwarty układ ze zwijaniem.
 Strefa ligi obejmuje również dni filtrów.

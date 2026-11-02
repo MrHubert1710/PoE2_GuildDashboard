@@ -6,13 +6,13 @@ import math
 import re
 
 from flask import current_app, jsonify, request
-from .browsing import ReadError, date_argument, number_argument, one_argument, stash_arguments
+from .browsing import request_timezone, ReadError, date_argument, number_argument, one_argument, stash_arguments
 from .database import connect, require_schema
 from .quantities import effective_settings
 from .quantity_api import league_row, metadata
 from .text_search import TextFilters
 
-FILTER_ARGUMENTS = {'account', 'account_regex', 'account_case', 'account_word', 'stash', 'item',
+FILTER_ARGUMENTS = {'timezone', 'account', 'account_regex', 'account_case', 'account_word', 'stash', 'item',
                     'item_regex', 'item_case', 'item_word', 'from', 'to'}
 
 
@@ -112,7 +112,7 @@ def read_series(league_id):
         expected,pinned=one_argument('revision'),one_argument('projection_id')
         if expected and expected!=meta['input_revision']: raise ReadError('revision_changed',409)
         if pinned and pinned!=meta['id']: raise ReadError('projection_changed',409)
-        settings=effective_settings(league,c)
+        settings=dict(effective_settings(league,c),timezone=request_timezone(effective_settings(league,c)['timezone']))
         start,end=date_argument('from',zone=settings['timezone']),date_argument('to',end=True,zone=settings['timezone'])
         if start and end and start>=end: raise ReadError('invalid_date_range')
         base=dict(league_id=league_id,projection=meta,timezone=settings['timezone'],view=view,unit='item_count',

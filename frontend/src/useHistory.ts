@@ -1,4 +1,8 @@
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { clientPreferences, initializeDisplayPreferences } from './client-settings'
+import { displayTimezone } from './i18n'
+import { dayBoundaryUtc, localDay } from './timezones'
+import { updateUrl } from './navigation'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { defaults, readQuery, writeQuery } from './browsing'
 import type { HistoryQuery, League, TransactionPage } from './browsing'
 
@@ -6,9 +10,16 @@ const errorCodes = new Set(['revision_changed', 'league_not_found', 'invalid_dat
 class HistoryError extends Error {}
 
 export function useHistory() {
+  const initialParams=new URLSearchParams(location.search)
+  const explicitWorkspace=[...initialParams.keys()].some(key=>key!=='lang'&&key!=='tz')
+  let initialized=false
   const leagues = ref<League[]>([])
   const query = ref<HistoryQuery>(readQuery())
-  const draft = reactive({ ...query.value })
+  function draftDates(){
+    const day=(value:string,end=false)=>{const stamp=Date.parse(value);return Number.isFinite(stamp)?localDay(stamp-(end?1:0),displayTimezone.value):''}
+    return {...query.value,stash:[...query.value.stash],from:day(query.value.from),to:day(query.value.to,true)}
+  }
+  const draft = reactive(draftDates())
   const result = ref<TransactionPage | null>(null)
   const loadingLeagues = ref(true)
   const loadingRows = ref(false)
@@ -35,7 +46,7 @@ export function useHistory() {
     loadingRows.value = true
     const timer = setTimeout(() => controller.abort(), 10_000)
     try {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({timezone:displayTimezone.value})
       for (const [key, value] of Object.entries(requested)) {
         if (key === 'stash') {
           for (const stash of requested.stash) params.append('stash', stash)
@@ -89,8 +100,17 @@ export function useHistory() {
       if (sequence !== leagueSequence) return
       if (!Array.isArray(payload.leagues)) throw new HistoryError('invalid_leagues')
       leagues.value = payload.leagues
-      if (!query.value.league && leagues.value[0]) query.value.league = leagues.value[0].id
-      if (!preserveDraft) Object.assign(draft, query.value)
+      if (!query.value.league && leagues.value[0]) query.value.league=leagues.value[0].id
+      if(!initialized){
+        initialized=true
+        if(!explicitWorkspace){
+          const url=new URL(location.href);url.searchParams.set('section',clientPreferences.value.defaultView);updateUrl(url,true)
+        }
+      }
+      if(selected.value){
+        initializeDisplayPreferences(selected.value.timezone??'UTC',selected.value.hour_format??'auto')
+      }
+      if (!preserveDraft) Object.assign(draft, draftDates())
       // Retire selections hidden by new settings, including saved URLs and unsaved drafts.
       if (selected.value) {
         const visible = new Set(selected.value.stashes)
@@ -116,21 +136,22 @@ export function useHistory() {
   }
   function change(next: HistoryQuery, resetRange = false, replace = false) {
     query.value = visibleQuery(next)
-    Object.assign(draft, query.value)
+    Object.assign(draft, draftDates())
     formError.value = ''
     writeQuery(query.value, replace, resetRange)
     void loadRows()
   }
 
-  function selectLeague(id: string) { change({ ...defaults, league: id }) }
+  function selectLeague(id: string) {change({...defaults,league:id},true)}
   function applyFilters() {
     if (draft.from && draft.to && draft.from > draft.to) {
       formError.value = 'invalid_date_range'
       return
     }
+    const displayed=draftDates(),changedDates=draft.from!==displayed.from||draft.to!==displayed.to
     change({ ...query.value, account: draft.account_regex ? draft.account : draft.account.trim(), stash: [...draft.stash].sort(), item: draft.item_regex ? draft.item : draft.item.trim(),
       account_regex: draft.account_regex, item_regex: draft.item_regex, account_case: draft.account_case, account_word: draft.account_word, item_case: draft.item_case, item_word: draft.item_word,
-      from: draft.from, to: draft.to, page: 1 }, draft.from !== query.value.from || draft.to !== query.value.to)
+      from: draft.from===displayed.from?query.value.from:draft.from?dayBoundaryUtc(draft.from,displayTimezone.value):'', to: draft.to===displayed.to?query.value.to:draft.to?dayBoundaryUtc(draft.to,displayTimezone.value,true):'', page: 1 }, changedDates)
   }
   function clearFilters() { change({ ...defaults, league: query.value.league, page_size: query.value.page_size }, true) }
   function setDateRange(from: string, to: string) { if (from === query.value.from && to === query.value.to) return; change({ ...query.value, from, to, page: 1 }, false, true) }
@@ -144,10 +165,11 @@ export function useHistory() {
     if (JSON.stringify(next) === JSON.stringify(query.value)) return
     query.value = visibleQuery(next)
     writeQuery(query.value, true)
-    Object.assign(draft, query.value)
+    Object.assign(draft, draftDates())
     formError.value = ''
     void loadRows()
   }
+  watch(displayTimezone,()=>{const dates=draftDates();draft.from=dates.from;draft.to=dates.to;if(selected.value&&!loadingLeagues.value)void loadRows()})
   onMounted(() => { window.addEventListener('popstate', popState); void loadLeagues() })
   onUnmounted(() => {
     window.removeEventListener('popstate', popState)

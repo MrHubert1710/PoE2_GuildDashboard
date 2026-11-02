@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 
 test.use({ locale: 'pl-PL' })
 
-const path = '/poe2guild/'
+const path = '/poe2guild/?lang=pl'
 const results = (page: import('@playwright/test').Page) => page.getByTestId('transaction-results')
 
 test('switches leagues and limits each server page', async ({ page }) => {
@@ -110,12 +110,12 @@ test('list failure can be retried and an empty list is distinct from failure', a
 })
 
 test('unknown URL league is explicit and out-of-range pages are canonicalized', async ({ page }) => {
-  await gotoHistory(page, path + '?league=missing')
+  await gotoHistory(page, path + '&league=missing')
   await expect(page.getByRole('alert')).toContainText('Liga wskazana w adresie')
   await page.getByRole('button', { name: 'Wybierz pierwszą ligę' }).click()
   await expect(results(page)).toBeVisible()
   const id = new URL(page.url()).searchParams.get('league')!
-  await gotoHistory(page, path + `?league=${id}&page=999`)
+  await gotoHistory(page, path + `&league=${id}&page=999`)
   await expect(results(page)).toContainText('strona 2 z 2')
   await expect(page).toHaveURL(/page=2/)
 })

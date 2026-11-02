@@ -9,8 +9,9 @@ export async function goSection(page: Page, name: string) {
 }
 
 export async function zoomTime(page:Page){
-  const nav=page.getByTestId('series-navigator'),box=(await nav.locator('svg').boundingBox())!
+  const nav=page.getByTestId('series-navigator')
   await expectCenteredForGesture(page)
+  const box=(await nav.locator('svg').boundingBox())!
   const end=(await page.getByRole('slider',{name:/^(End of chart range|Koniec zakresu wykresu)$/}).boundingBox())!
   await page.mouse.move(end.x+end.width/2,end.y+end.height/2);await page.mouse.down()
   await page.mouse.move(box.x+box.width*.5,end.y+end.height/2,{steps:4});await page.mouse.up()
@@ -19,6 +20,7 @@ export async function zoomTime(page:Page){
 async function expectCenteredForGesture(page:Page){
   const {expect}=await import('@playwright/test')
   await expect.poll(async()=>Math.abs(Number(await page.getByTestId('navigator-window').getAttribute('x'))-350)).toBeLessThan(.001)
+  await expect.poll(async()=>Math.abs(Number(await page.getByTestId('navigator-window').getAttribute('width'))-300)).toBeLessThan(.001)
 }
 export async function zoomValues(page:Page){
   const nav=page.getByTestId('value-navigator'),end=(await page.getByRole('slider',{name:'Maximum chart value',exact:true}).boundingBox())!,start=(await page.getByRole('slider',{name:'Minimum chart value',exact:true}).boundingBox())!
