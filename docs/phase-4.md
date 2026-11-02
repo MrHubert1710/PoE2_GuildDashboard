@@ -20,7 +20,9 @@ liczbę sztuk wywnioskowanych, już wliczonych do sumy. Nieustalone ruchy
 nie są traktowane jako zero ani doliczane do sum.
 
 Filtry historii konta, listy zakładek, przedmiotu i dni UTC działają również na sumy.
-Zakładki wybiera się niezależnymi checkboxami; wybrane nazwy tworzą sumę
+Filtr zakładek jest domyślnie zwinięty; kliknięcie rozwija listę niezależnych
+checkboxów. Lista pozostaje otwarta przy zaznaczaniu wielu nazw, a Escape
+lub kliknięcie poza filtrem zamyka ją i zachowuje wybór. Wybrane nazwy tworzą sumę
 zbiorów (OR). Brak wyboru oraz przycisk Wszystkie skrytki oznaczają brak
 ograniczenia. Wybór zatwierdza Zastosuj filtry; formularz można edytować bez
 zmiany bieżącego wyniku. Lista jest zachowywana po reloadzie i Back/Forward.
@@ -170,8 +172,8 @@ npm --prefix frontend run build
 npm --prefix frontend run test:browser
 ```
 
-Wyniki: 100 testów backendu (27 nowych testów fazy 4), 39 testów Chromium
-(7 nowych scenariuszy), 16 testów tłumaczeń oraz testy launchera/nginx —
+Wyniki: 100 testów backendu (27 nowych testów fazy 4), 40 testów Chromium
+(8 nowych scenariuszy), 16 testów tłumaczeń oraz testy launchera/nginx —
 wszystkie zakończone powodzeniem. TypeScript i produkcyjny build przechodzą.
 
 Testy obejmują parser, granice historii, znane stany, zamianę przedmiotu,

@@ -46,6 +46,7 @@ test('filters, sorts and restores state through reload and browser history', asy
 test('combines stash and inclusive day filters and shows no matches', async ({ page }) => {
   await page.goto(path)
   await expect(results(page)).toBeVisible()
+  await page.getByRole('group', { name: 'Skrytki', exact: true }).getByRole('button', { name: 'Skrytki', exact: true }).click()
   await page.getByRole('group', { name: 'Skrytki', exact: true }).getByRole('checkbox', { name: 'Special', exact: true }).check()
   await page.getByLabel('Od dnia (UTC)').fill('2026-01-01')
   await page.getByLabel('Do dnia (UTC)').fill('2026-01-01')
