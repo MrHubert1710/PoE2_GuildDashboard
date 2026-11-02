@@ -10,7 +10,7 @@ from .archive_import import canonical
 from .browsing import revision
 from .database import connect, require_schema, utc_now
 
-ALGORITHM = 'quantities-v1'
+ALGORITHM = 'quantities-v2'
 MAX_QUANTITY = 10**9  # Bounded integer arithmetic, safely representable by browser clients.
 DEFAULTS = {'target_stashes': None, 'stash_aliases': {}, 'timezone': 'UTC'}
 
@@ -82,11 +82,11 @@ def event_order(event):
             int(value) if value.isascii() and value.isdigit() else value, event['id'])
 
 
-def replay(events, settings, stop=None, *, initial_empty=False):
+def replay(events, settings, stop=None):
     """Pure full-history replay, isolated by source + canonical stash + coordinate.
 
     Added/Removed are signed movements. Modified describes the resulting stack.
-    An unseen coordinate has unknown quantity, never an invented zero baseline.
+    Every unseen coordinate starts at zero, independently for each league.
     """
     ordered = sorted(events, key=event_order)
     aliases, targets = settings['stash_aliases'], settings['target_stashes']
@@ -107,7 +107,7 @@ def replay(events, settings, stop=None, *, initial_empty=False):
         key = (event['source_id'], stash, event['x'], event['y'])
         current = states.get(key)
         before_item = current['item_name'] if current else None
-        before = current['quantity'] if current else 0 if initial_empty else None
+        before = current['quantity'] if current else 0
         row = {'transaction_id': event['id'], 'item_name': event['item'], 'stash': stash,
                'before_item': before_item, 'quantity_before': before, 'quantity_after': None,
                'quantity_delta': None, 'effective_action': 'unknown', 'confidence': 'unknown', 'resolution_reason': 'unknown_before'}
@@ -163,7 +163,7 @@ def replay(events, settings, stop=None, *, initial_empty=False):
                        confidence='source', resolution_reason='explicit_removed')
             if quantity:
                 changes = [(item, -quantity, 'source')]
-            if before_item == item and before is not None and quantity <= before:
+            if before is not None and quantity <= before and (before_item == item or quantity == 0):
                 after = before - quantity
             elif before is not None:
                 row['resolution_reason'] = 'state_conflict'
@@ -184,7 +184,7 @@ def replay(events, settings, stop=None, *, initial_empty=False):
 
 
 def projection_hash(league, connection):
-    return settings_hash({'settings': effective_settings(league, connection), 'initial_empty': bool(league['history_complete'])})
+    return settings_hash({'settings': effective_settings(league, connection), 'initial_empty': True})
 
 
 def current_run(connection, league, input_revision=None):
@@ -205,7 +205,7 @@ class QuantityAdapter:
             events = [dict(row) for row in c.execute('SELECT id,source_id,external_id,occurred_at,account,action,stash,item,x,y '
                                                    'FROM transactions WHERE league_id=?', (league['id'],))]
         try:
-            data = replay(events, settings, stop, initial_empty=bool(league['history_complete']))
+            data = replay(events, settings, stop)
         except InterruptedError:
             raise AdapterFailure('interrupted') from None
         identity = hashlib.sha256(canonical([league['id'], expected, digest, ALGORITHM]).encode()).hexdigest()
@@ -218,7 +218,7 @@ class QuantityAdapter:
                 inferred = sum(e['confidence'] == 'inferred' for e in data['events'])
                 excluded = sum(e['effective_action'] == 'excluded' for e in data['events'])
                 c.execute('INSERT INTO quantity_runs VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-                          (identity, league['id'], expected, digest, canonical(dict(settings, initial_empty=bool(league['history_complete']))), ALGORITHM, utc_now(), len(events), unknown, inferred, excluded))
+                          (identity, league['id'], expected, digest, canonical(dict(settings, initial_empty=True)), ALGORITHM, utc_now(), len(events), unknown, inferred, excluded))
                 for table, rows in [('event_quantities', data['events']), ('quantity_movements', data['movements']), ('quantity_state', data['states'])]:
                     if rows:
                         if table in {'event_quantities', 'quantity_state'}:

@@ -36,7 +36,8 @@ Obliczenia zawsze odtwarzają całą historię przed zastosowaniem filtrów:
 zmiana gracza/dnia nie kasuje poprzedniego stanu stosu. Stan końcowy obejmuje
 całą zapisaną historię i respektuje filtr zakładki/przedmiotu; nie ograniczamy
 go datą ani graczem. Jest to opisane przy tym widoku. Nie jest to kompletny
-inwentarz gildii: brak pozycji lub nieznana ilość nie dowodzi pustej skrytki.
+inwentarz gildii: brak transakcji oznacza 0 według przyjętego modelu; błędy
+lub konflikty danych nadal mogą powodować nieznany stan.
 
 Widok i strona analizy są w URL jako analysis / analysis_page. Zmiana języka
 nie przelicza danych. Daty w tabeli i analizie mają strefę wybraną dla ligi;
@@ -50,11 +51,10 @@ skrytek ani procesu resetującego stan innej ligi. Obliczenie ligi rozpoczyna
 nowe, lokalne odtwarzanie wyłącznie jej zdarzeń. Nazwa zakładki wspólna dla
 dwóch lig nigdy nie łączy ich stanów lub bilansów.
 
-Każda nowa liga w grze zaczyna z pustymi skrytkami. To odrębny fakt od
-pokrycia zachowanych logów: jeżeli obejmują tylko fragment ligi, nie zakładamy,
-że skrytka była pusta przy pierwszym zapisanym zdarzeniu. Potwierdzone
-history_complete=true pozwala przyjąć pusty początek; w obecnych archiwach
-kompletność nie jest potwierdzona i początek pozostaje nieznany.
+Każda liga i każde pole zaczynają od 0. Brak transakcji oznacza 0, również
+w archiwach bez potwierdzonego pokrycia logów. Jest to przyjęta reguła
+obliczeń, niezależna od history_complete. Znacznik kompletności nadal opisuje
+pokrycie źródła; nie warunkuje już zerowego stanu początkowego.
 
 Wspólna może być konfiguracja nazw, aliasów, wyboru zakładek i strefy czasu:
 
@@ -123,7 +123,7 @@ Publiczny smoke test przez nginx potwierdził połączenie Aa + całe słowa +
 regex na rzeczywistych danych, zgodne liczniki historii/analizy, reload,
 komunikat błędnego wzorca oraz układ desktop/mobile bez błędów JavaScript.
 
-## Reguły algorytmu quantities-v1
+## Reguły algorytmu quantities-v2
 
 - Parser obsługuje liczbę i x / × oraz zastany zapis Ă—; bez prefiksu ilość
   wynosi 1. Nazwa zaczynająca się od liczby, np. 7 League Boots, pozostaje
@@ -134,11 +134,13 @@ komunikat błędnego wzorca oraz układ desktop/mobile bez błędów JavaScript.
   Kilka wpisów z tym samym czasem/współrzędnymi bez jednoznacznej kolejności
   numerycznych ID daje ambiguous_order i nieznany stan, zamiast zgadywania.
 - Added / Removed oznaczają jawny ruch +q / −q, zgodnie z modelem starego kodu.
-  Sam ruch nie zawsze dowodzi całkowitego stanu stosu przy brakującym początku.
+  Pierwszy Added: 10 daje stan 10 od początkowego zera.
 - Modified opisuje stan po zdarzeniu. Ten sam przedmiot, znana poprzednia
   ilość 20, nowa 15: delta −5 / Removed. Równe ilości: delta 0 / unchanged.
-- Pierwszy Modified przy nieznanym stanie nie daje delty, ale ustala obserwowany
-  stan do kolejnego wpisu. Po obserwowanym zerze można odtwarzać nowe dodania.
+- Pierwszy Modified: 20 daje deltę +20 i Added, od początkowego zera.
+  Modified: 0 daje deltę 0. Brak zdarzeń pozostawia stan 0.
+  Po błędzie lub konflikcie stan może stać się nieznany; następny Modified
+  ustala wtedy nowy stan bez wyliczania nieznanej zmiany.
 - Inny przedmiot w zajętych współrzędnych: inferred −stary / +nowy. Nie jest
   to twierdzenie, że użytkownik aktualnego wpisu na pewno wykonał pominiętą
   operację usunięcia; w podsumowaniach te ruchy są jawnie wywnioskowane.
@@ -227,13 +229,13 @@ sprawdzają wspólną konfigurację oraz niezależne stany lig i innych gildii.
 
 Porównanie ze starym kodem wyciąga wyłącznie trzy funkcje arytmetyczne przez
 AST, bez importowania private_config ani uruchamiania IO starej aplikacji.
-Dla znanego pustego początku sumy i stan końcowy są zgodne. Test osobno
-potwierdza zamierzoną różnicę dla pierwszego Modified o nieznanym początku.
+Dla pustego początku sumy i stan końcowy są zgodne. Test potwierdza
+również deltę +20 dla pierwszego Modified: 20.
 Integracyjny test porównania używa sąsiedniego starego checkoutu; bez niego
 jest pomijany, a samodzielne testy reguł nadal działają.
 
-Audyt na tymczasowej kopii rzeczywistych danych, przy domyślnych wszystkich
-zakładkach i niepotwierdzonym początku:
+Historyczny audyt quantities-v1 (przed zmianą reguły początku na 0),
+na tymczasowej kopii rzeczywistych danych, przy wszystkich zakładkach:
 
 | Liga | Zdarzenia | Nieustalone ruchy | Wywnioskowane zdarzenia | Ostrzeżenia | Grupy przedmiotów |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -271,3 +273,33 @@ Stary projekt, jego dane i proces nie zostały zmienione.
    Surowe zdarzenia nie powinny się zmienić. Sprawdź PL/EN i wersję mobilną.
 
 Po odbiorze następny osobny zakres to faza 5: interaktywne wykresy.
+
+
+## Korekta po fazie 4b — początek od zera
+
+Na polecenie użytkownika model quantities-v2 zawsze inicjuje każde pole ligi
+zerem. Nie ma transakcji — nie ma ruchu, stan wynosi 0. Puste wyniki i sumy
+pozostają zerowe; nie materializujemy w bazie wszystkich nieużytych pól.
+Nie jest to zamiana każdego null na 0: null po konflikcie, błędzie ilości,
+niejednoznacznej kolejności lub przy mieszanej wymianie przedmiotu nadal ma
+znaczenie i jest wyjaśniany w interfejsie.
+
+Nowa wersja algorytmu unieważnia stare projekcje przy odczycie, bez ich usuwania.
+Przeliczane są tylko projekcje; transactions i raw_json pozostają niezmienione.
+Schemat SQLite pozostaje w wersji 3. history_complete nie jest nadpisywane.
+Testy obejmują pierwszy Added/Modified, zerowe ruchy, pustą historię, izolację
+lig i źródeł, niepotwierdzoną/niepełną/pełną historię oraz zachowanie starych
+projekcji po zmianie algorytmu.
+
+
+Po wdrożeniu quantities-v2 obie ligi mają gotowe projekcje: Forbidden Rites
+15 344 zdarzenia / 67 nieustalonych ruchów, Runes of Aldur 89 190 / 218.
+Pozostałe nieustalone przypadki wynikają z konfliktów lub niejednoznacznych
+danych, a nie domyślnego nieznanego początku. Kopia przed zmianą:
+data/poe2guild.before-zero-baseline.sqlite. Skrót wszystkich kolumn 104 534
+transakcji przed i po przeliczeniu jest identyczny.
+
+Końcowa walidacja obu poprawek po fazie 4b: 113 testów backendu,
+54 przeglądarkowe i 16 tłumaczeń zakończone powodzeniem, build TypeScript/Vite
+poprawny. Publiczny HTTP nginx potwierdza nową wersję, początek 0 w obu ligach
+oraz wspólny formularz włączania/wyłączania i zmiany nazw skrytek w PL/EN/mobile.

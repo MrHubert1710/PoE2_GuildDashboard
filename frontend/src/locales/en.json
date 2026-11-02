@@ -228,7 +228,7 @@
     "quantity.loading": "Loading analysis…",
     "quantity.generated": "Generated: {date} {zone} · algorithm {version}",
     "quantity.stats": "Events: {events} · unknown: {unknown} · inferred: {inferred} · excluded stashes: {excluded} · warnings: {warnings}",
-    "quantity.stateNote": "State after the entire recorded history. Player and date filters do not restrict this view; stash and item filters apply. An unknown quantity means unknown state, not zero.",
+    "quantity.stateNote": "State after the full stored history. Every slot starts at 0; no transactions means 0. Player and date filters do not restrict this view; stash and item filters apply. Unknown state indicates a conflict or invalid data.",
     "quantity.filtersNote": "Totals follow the applied history filters. Movement calculations use the full preceding history. Date filters remain in UTC.",
     "quantity.empty": "No entries for this selection.",
     "quantity.table": "Quantity analysis table — scroll horizontally",
@@ -255,10 +255,10 @@
     "quantity.confidence.inferred": "Inferred movements; history may have omitted an operation.",
     "quantity.confidence.unknown": "Insufficient evidence to determine direction and quantity.",
     "quantity.confidence.excluded": "This stash is excluded by this league’s settings.",
-    "quantity.reason.unknown_before": "The preceding state is unknown. Modified establishes a new state but cannot resolve the first change.",
+    "quantity.reason.unknown_before": "The preceding state became unknown due to invalid or conflicting data. Modified establishes a new state without resolving the change.",
     "quantity.reason.stack_difference": "Quantity change calculated from the previous known state.",
     "quantity.reason.replacement": "A different item appeared at these coordinates. Removal of the old item and addition of the new item are inferred; different items are not combined into one delta.",
-    "quantity.reason.explicit_added": "The source Added entry describes an added quantity. Without a baseline, the total stack quantity may remain unknown.",
+    "quantity.reason.explicit_added": "The source Added entry describes the added quantity. Every slot starts at 0.",
     "quantity.reason.explicit_removed": "The source Removed entry describes a removed quantity.",
     "quantity.reason.explicit_zero": "The entry has quantity zero; it creates no movement.",
     "quantity.reason.state_conflict": "Quantity or item conflicts with the reconstructed state. The resulting state remains unknown.",
@@ -327,6 +327,11 @@
     "workspace.ready": "Data available",
     "workspace.syncDetails": "Synchronization status",
     "workspace.settingsLoading": "Loading settings…",
-    "workspace.footer": "poe2guild · guild archive and analysis"
+    "workspace.footer": "poe2guild · guild archive and analysis",
+    "quantity.includeStash": "Include stash {name}",
+    "quantity.stashEnabled": "Included",
+    "quantity.stashDisabled": "Ignored",
+    "quantity.displayName": "Name in analysis",
+    "quantity.stashSelectionNote": "Uncheck a stash to ignore it in analysis. Its source history and name are preserved. Stashes sharing an analysis name share the same inclusion setting."
   }
 }

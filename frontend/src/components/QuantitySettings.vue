@@ -10,7 +10,33 @@ const scope = ref('league'), guildAvailable = ref(false), guildHash = ref(''), i
 const settingsHash = ref(''), rawStashes = ref<string[]>([])
 const allStashes = ref(true), targets = ref<string[]>([]), timezone = ref('UTC')
 const aliases = reactive<Record<string, string>>({})
-const canonicalStashes = computed(() => [...new Set(rawStashes.value.map(name => aliases[name]?.trim() || name))].sort())
+const stashNames = computed(() => {
+  const names = new Set([...rawStashes.value, ...Object.keys(aliases)])
+  const known = new Set([...names].map(canonicalName))
+  for (const name of targets.value) if (!known.has(name)) names.add(name)
+  return [...names].sort()
+})
+const canonicalName = (name: string) => aliases[name]?.trim() || name
+const included = (name: string) => allStashes.value || targets.value.includes(canonicalName(name))
+function toggleStash(name: string, enabled: boolean) {
+  const selected = new Set(allStashes.value ? stashNames.value.map(canonicalName) : targets.value)
+  if (enabled) selected.add(canonicalName(name)); else selected.delete(canonicalName(name))
+  targets.value = [...selected]
+  allStashes.value = false
+  dirty.value = true
+}
+function renameStash(name: string, value: string) {
+  const previous = canonicalName(name), enabled = included(name)
+  const sharedPrevious = stashNames.value.some(other => other !== name && canonicalName(other) === previous)
+  aliases[name] = value
+  if (!allStashes.value) {
+    const selected = new Set(targets.value)
+    if (!sharedPrevious) selected.delete(previous)
+    if (enabled) selected.add(canonicalName(name))
+    targets.value = [...selected]
+  }
+  dirty.value = true
+}
 const timezones = ['UTC', ...Intl.supportedValuesOf('timeZone')]
 async function loadSettings() {
   const result = await request('/quantity-settings')
@@ -30,7 +56,7 @@ async function loadSettings() {
 async function save(selectedScope = scope.value) {
   saving.value = true; settingsError.value = ''
   try {
-    const stash_aliases = Object.fromEntries(rawStashes.value.map(name => [name, aliases[name]?.trim() ?? '']).filter(([raw, alias]) => alias && alias !== raw))
+    const stash_aliases = Object.fromEntries(Object.entries(aliases).map(([name, alias]) => [name, alias.trim()]).filter(([raw, alias]) => alias && alias !== raw))
     const result = await request('/quantity-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected_hash: settingsHash.value, scope: selectedScope, expected_guild_hash: guildHash.value,
       settings: { target_stashes: allStashes.value ? null : targets.value, stash_aliases, timezone: timezone.value.trim() } }) })
     if (stopped()) return
@@ -54,10 +80,17 @@ onMounted(() => { void loadSettings().catch(() => { settingsError.value = 'repor
         <p>{{ t(inherited ? 'quantity.inheriting' : 'quantity.overridden') }}</p>
         <label>{{ t('quantity.saveScope') }}<select v-model="scope" :aria-label="t('quantity.saveScope')"><option value="league">{{ t('quantity.scopeLeague') }}</option><option v-if="guildAvailable" value="guild">{{ t('quantity.scopeGuild') }}</option></select></label>
         <label class="check-label"><input v-model="allStashes" type="checkbox" />{{ t('quantity.allStashes') }}</label>
-        <div v-if="!allStashes" class="target-stashes"><label v-for="name in canonicalStashes" :key="name" class="check-label"><input v-model="targets" type="checkbox" :value="name" />{{ name }}</label></div>
+
         <label>{{ t('quantity.timezone') }}<input v-model="timezone" list="quantity-timezones" required maxlength="100" /><datalist id="quantity-timezones"><option v-for="zone in timezones" :key="zone" :value="zone" /></datalist></label>
         <p class="footnote">{{ t('quantity.aliasNote') }}</p>
-        <div class="alias-grid"><label v-for="name in rawStashes" :key="name">{{ name }}<input v-model="aliases[name]" :aria-label="t('quantity.aliasFor', { name })" :placeholder="name" maxlength="200" /></label></div>
+        <p class="footnote">{{ t('quantity.stashSelectionNote') }}</p>
+        <div class="stash-settings-list">
+          <div v-for="name in stashNames" :key="name" class="stash-settings-row" :class="{ excluded: !included(name) }">
+            <label class="check-label"><input type="checkbox" :checked="included(name)" :aria-label="t('quantity.includeStash', { name })" @change="toggleStash(name, ($event.target as HTMLInputElement).checked)" /><span>{{ name }}</span></label>
+            <span class="stash-setting-status">{{ t(included(name) ? 'quantity.stashEnabled' : 'quantity.stashDisabled') }}</span>
+            <label>{{ t('quantity.displayName') }}<input :value="aliases[name] ?? ''" :aria-label="t('quantity.aliasFor', { name })" :placeholder="name" maxlength="200" @input="renameStash(name, ($event.target as HTMLInputElement).value)" /></label>
+          </div>
+        </div>
         <p v-if="settingsError" role="alert">{{ t(`quantity.error.${settingsError}`) }}</p>
         <div class="filter-actions"><button type="submit" :disabled="saving">{{ t('quantity.save') }}</button><button v-if="!inherited" type="button" :disabled="saving" @click="save('inherit')">{{ t('quantity.restoreInheritance') }}</button></div>
       </form>

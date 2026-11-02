@@ -34,7 +34,7 @@ def metadata(c, league):
     return {'state': 'ready' if run else 'stale' if previous else 'missing',
             'id': run['id'] if run else None, 'input_revision': expected,
             'algorithm_version': ALGORITHM, 'settings_hash': projection_hash(league, c),
-            'initial_state': 'empty' if league['history_complete'] else 'unknown',
+            'initial_state': 'empty',
             'generated_at': run['created_at'] if run else None,
             'previous_generated_at': previous['created_at'] if previous else None}, run
 

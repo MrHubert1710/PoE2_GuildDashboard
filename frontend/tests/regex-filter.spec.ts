@@ -25,7 +25,8 @@ test('regex toggles are independent, opt-in and kept in URL through reload/back/
   await item.click()
   await page.getByRole('button',{name:'Apply filters',exact:true}).click()
   await expect(page.locator('.result-count')).toContainText('Results: 29')
-  await expect(page.getByTestId('quantity-stats')).toContainText('Events: 29 ·')
+  // The replacement event also removes the preceding Token stack, now known from zero.
+  await expect(page.getByTestId('quantity-stats')).toContainText('Events: 30 ·')
   await expect(page).toHaveURL(/item_regex=1/)
   await page.reload()
   await expect(player).toHaveAttribute('aria-pressed','true')

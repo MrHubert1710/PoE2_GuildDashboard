@@ -184,3 +184,8 @@ Diagnostyka otrzymuje szczegóły synchronizacji, a panel danych zachowuje
 kompaktowy pasek odświeżania i wspólne filtry. Reaktywny URL jest wspólny
 dla nawigacji, filtrów, języka i paginacji. Szczegóły podziału komponentów
 i odbioru: [phase-4b.md](phase-4b.md).
+
+
+Stan początkowy ilości (korekta po fazie 4b): każde pole każdej ligi zaczyna
+od 0; brak transakcji oznacza 0. quantities-v2 stosuje tę regułę niezależnie
+od history_complete, zachowując ostrzeżenia dla konfliktów i błędnych danych.

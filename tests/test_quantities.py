@@ -7,6 +7,7 @@ import tempfile
 import threading
 import sqlite3
 import unittest
+from unittest.mock import patch
 
 from backend.app import create_app
 from backend.archive_import import canonical, normalize
@@ -24,31 +25,31 @@ def event(index, action, quantity, item='Token', **changes):
 
 
 class ReplayTests(unittest.TestCase):
-    def test_signed_changes_unknown_baseline_unchanged_and_empty_anchor(self):
+    def test_signed_changes_zero_baseline_unchanged_and_empty_anchor(self):
         data = replay([event(1,'modified',20), event(2,'modified',15), event(3,'added',2), event(4,'removed',3),
                        event(5,'modified',14), event(6,'modified',0), event(7,'added',5)], DEFAULTS)
-        self.assertEqual([r['quantity_delta'] for r in data['events']], [None,-5,2,-3,0,-14,5])
-        self.assertEqual([r['effective_action'] for r in data['events']], ['unknown','removed','added','removed','unchanged','removed','added'])
+        self.assertEqual([r['quantity_delta'] for r in data['events']], [20,-5,2,-3,0,-14,5])
+        self.assertEqual([r['effective_action'] for r in data['events']], ['added','removed','added','removed','unchanged','removed','added'])
         self.assertEqual(data['states'][0]['quantity'],5)
 
-    def test_first_added_is_a_known_flow_but_does_not_invent_empty_baseline(self):
+    def test_first_added_and_following_modified_use_zero_baseline(self):
         data = replay([event(1,'added',10), event(2,'modified',12), event(3,'modified',9)], DEFAULTS)
-        self.assertEqual([r['quantity_delta'] for r in data['events']], [10,None,-3])
-        self.assertIsNone(data['events'][0]['quantity_after'])
+        self.assertEqual([r['quantity_delta'] for r in data['events']], [10,2,-3])
+        self.assertEqual(data['events'][0]['quantity_after'],10)
 
     def test_item_replacement_has_two_inferred_movements_and_no_combined_delta(self):
         data = replay([event(1,'modified',10,'A'), event(2,'modified',5,'B')], DEFAULTS)
-        self.assertEqual([(m['item_name'],m['quantity_delta'],m['confidence']) for m in data['movements']], [('A',-10,'inferred'),('B',5,'inferred')])
+        self.assertEqual([(m['item_name'],m['quantity_delta'],m['confidence']) for m in data['movements']], [('A',10,'derived'),('A',-10,'inferred'),('B',5,'inferred')])
         self.assertEqual(data['events'][1]['effective_action'],'mixed')
         self.assertIsNone(data['events'][1]['quantity_delta'])
 
     def test_source_stash_and_coordinates_are_separate(self):
         rows = [event(1,'modified',10),event(2,'modified',5,source_id=2),event(3,'modified',6,stash='Other'),event(4,'modified',7,x=1)]
-        self.assertTrue(all(r['quantity_delta'] is None for r in replay(rows,DEFAULTS)['events']))
+        self.assertEqual([r['quantity_delta'] for r in replay(rows,DEFAULTS)['events']], [10,5,6,7])
 
     def test_numeric_id_tiebreak_and_ambiguous_ids_do_not_guess(self):
         rows = [event(10,'modified',8),event(2,'modified',10,occurred_at='2026-01-01T00:10:00.000000Z')]
-        self.assertEqual([r['quantity_delta'] for r in replay(rows,DEFAULTS)['events']], [None,-2])
+        self.assertEqual([r['quantity_delta'] for r in replay(rows,DEFAULTS)['events']], [10,-2])
         rows[0]['external_id']='opaque';rows[1]['external_id']='another'
         data = replay(rows,DEFAULTS)
         self.assertTrue(all(r['resolution_reason']=='ambiguous_order' for r in data['events']))
@@ -59,7 +60,7 @@ class ReplayTests(unittest.TestCase):
         data = replay(rows,DEFAULTS)
         self.assertEqual(data['events'][1]['resolution_reason'],'state_conflict')
         self.assertIsNone(data['events'][1]['quantity_after'])
-        self.assertEqual([r['quantity_delta'] for r in data['events']], [None,-5,None,-1])
+        self.assertEqual([r['quantity_delta'] for r in data['events']], [3,-5,None,-1])
         rows[1]['item']='-5x Token'
         self.assertEqual(replay(rows,DEFAULTS)['events'][1]['resolution_reason'],'invalid_quantity')
 
@@ -75,13 +76,22 @@ class ReplayTests(unittest.TestCase):
         rows=[event(1,'modified',10,stash='Typo'),event(2,'modified',7,stash='Main')]
         settings=dict(DEFAULTS,stash_aliases={'Typo':'Main'},target_stashes=['Main','Future stash'])
         self.assertEqual(replay(rows,settings)['events'][1]['quantity_delta'],-3)
-        self.assertIsNone(replay(rows,DEFAULTS)['events'][1]['quantity_delta'])
+        self.assertEqual(replay(rows,DEFAULTS)['events'][1]['quantity_delta'],7)
         self.assertEqual(replay(rows,dict(DEFAULTS,target_stashes=[]))['states'],[])
 
-    def test_confirmed_complete_history_anchors_an_empty_league_start(self):
-        data=replay([event(1,'added',10),event(2,'modified',7)],DEFAULTS,initial_empty=True)
+    def test_every_league_starts_empty(self):
+        data=replay([event(1,'added',10),event(2,'modified',7)],DEFAULTS)
         self.assertEqual([r['quantity_delta'] for r in data['events']],[10,-3])
         self.assertEqual(data['events'][0]['quantity_before'],0)
+
+    def test_empty_history_and_zero_movements_stay_zero(self):
+        self.assertEqual(replay([],DEFAULTS),dict(events=[],movements=[],states=[]))
+        for action in ('added','removed','modified'):
+            data=replay([event(1,action,0)],DEFAULTS)
+            row=data['events'][0]
+            self.assertEqual((row['quantity_before'],row['quantity_after'],row['quantity_delta']),(0,0,0))
+            self.assertEqual(row['effective_action'],'unchanged')
+            self.assertEqual(data['movements'],[])
 
     def test_settings_validation(self):
         self.assertEqual(validate_settings(dict(DEFAULTS,timezone='Europe/Warsaw'))['timezone'],'Europe/Warsaw')
@@ -106,7 +116,7 @@ class ReplayTests(unittest.TestCase):
         for m in data['movements']:totals[m['item_name']]['added' if m['quantity_delta']>0 else 'removed']+=abs(m['quantity_delta'])
         self.assertEqual(dict(totals),dict(namespace['player_summary']['Alice']))
         self.assertEqual(data['states'][0]['quantity'],namespace['final_stash_state'][('Main',0,0)]['quantity'])
-        self.assertIsNone(replay([event(1,'modified',20)],DEFAULTS)['events'][0]['quantity_delta'])
+        self.assertEqual(replay([event(1,'modified',20)],DEFAULTS)['events'][0]['quantity_delta'],20)
 
 
 class QuantityApiTests(unittest.TestCase):
@@ -151,7 +161,7 @@ class QuantityApiTests(unittest.TestCase):
         row=next(e for e in events if e['external_id']=='2')
         self.assertEqual(events[0]['action'],'modified');self.assertEqual(row['quantity']['quantity_delta'],-5)
         self.assertEqual(row['quantity']['effective_action'],'removed')
-        self.assertIsNone(events[0]['quantity']['quantity_delta'])
+        self.assertEqual(events[0]['quantity']['quantity_delta'],20)
         with connect(self.path) as c:self.assertEqual(before,[tuple(r) for r in c.execute('SELECT * FROM transactions')])
         self.assertEqual(self.queue.enqueue('A','quantities','automatic')['outcome'],'fresh')
 
@@ -180,7 +190,7 @@ class QuantityApiTests(unittest.TestCase):
         self.build('A');b=self.build('B')
         self.assertEqual(b['rows'][0]['removed'],10)
         rows=self.client.get('/api/leagues/B/transactions?direction=asc').json['rows']
-        self.assertIsNone(rows[0]['quantity']['quantity_delta'])
+        self.assertEqual(rows[0]['quantity']['quantity_delta'],100)
         self.assertEqual(self.client.get('/api/leagues/B/quantities?view=state').json['rows'][0]['quantity'],90)
 
     def test_per_league_override_and_restore_inheritance(self):
@@ -227,13 +237,28 @@ class QuantityApiTests(unittest.TestCase):
         self.build()
         with connect(self.path) as c:self.assertEqual(c.execute('SELECT COUNT(*) FROM automatic_attempts').fetchone()[0],0)
 
-    def test_coverage_policy_is_part_of_projection_identity(self):
+    def test_zero_baseline_does_not_depend_on_history_coverage(self):
         first=self.build()['projection']['id']
-        with connect(self.path) as c:c.execute("UPDATE leagues SET history_complete=1 WHERE id='A'")
+        for coverage in (None, 0, 1):
+            with connect(self.path) as c:c.execute("UPDATE leagues SET history_complete=? WHERE id='A'",(coverage,))
+            result=self.client.get('/api/leagues/A/quantities').json
+            self.assertEqual(result['projection']['state'],'ready')
+            self.assertEqual(result['projection']['id'],first)
+            self.assertEqual(result['projection']['initial_state'],'empty')
+
+    def test_no_transactions_has_zero_totals_and_empty_state(self):
+        with connect(self.path) as c:c.execute("DELETE FROM transactions WHERE league_id='C'")
+        result=self.build('C')
+        self.assertEqual(result['rows'],[])
+        self.assertTrue(all(value == 0 for value in result['stats'].values()))
+        self.assertEqual(self.client.get('/api/leagues/C/quantities?view=state').json['rows'],[])
+
+    def test_old_algorithm_projection_is_stale_and_preserved(self):
+        with patch('backend.quantities.ALGORITHM', 'quantities-v1'):
+            first=self.build()['projection']['id']
         self.assertEqual(self.client.get('/api/leagues/A/quantities').json['projection']['state'],'stale')
-        result=self.build()
-        self.assertNotEqual(result['projection']['id'],first)
-        self.assertEqual(result['projection']['initial_state'],'empty')
+        self.assertEqual(self.build()['projection']['algorithm_version'],'quantities-v2')
+        with connect(self.path) as c:self.assertEqual(c.execute('SELECT algorithm_version FROM quantity_runs WHERE id=?',(first,)).fetchone()[0],'quantities-v1')
 
     def test_database_rejects_cross_league_projection_links(self):
         run=self.build()['projection']['id']

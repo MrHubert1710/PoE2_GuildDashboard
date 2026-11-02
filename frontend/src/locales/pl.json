@@ -238,7 +238,7 @@
     "quantity.loading": "Odczytywanie analizy…",
     "quantity.generated": "Obliczono: {date} {zone} · algorytm {version}",
     "quantity.stats": "Zdarzenia: {events} · nieustalone: {unknown} · z wnioskowaniem: {inferred} · poza zakresem zakładek: {excluded} · ostrzeżenia: {warnings}",
-    "quantity.stateNote": "Stan po całej zapisanej historii. Filtry gracza i dat nie ograniczają tego widoku; działają filtry zakładki i przedmiotu. Brak ilości oznacza nieznany stan, nie zero.",
+    "quantity.stateNote": "Stan po całej zapisanej historii. Każde pole zaczyna od 0; brak transakcji oznacza 0. Filtry gracza i dat nie ograniczają tego widoku; działają filtry zakładki i przedmiotu. Nieznany stan oznacza konflikt lub błąd danych.",
     "quantity.filtersNote": "Sumy dotyczą zastosowanych filtrów historii. Stan potrzebny do wyliczenia ruchu pochodzi z całej wcześniejszej historii. Daty filtrów pozostają w UTC.",
     "quantity.empty": "Brak pozycji dla tego zakresu.",
     "quantity.table": "Tabela analizy ilościowej — przewijanie poziome",
@@ -265,10 +265,10 @@
     "quantity.confidence.inferred": "Ruchy wywnioskowane; historia mogła pominąć operację.",
     "quantity.confidence.unknown": "Brak podstaw do określenia kierunku i ilości.",
     "quantity.confidence.excluded": "Zakładka jest wyłączona w ustawieniach tej ligi.",
-    "quantity.reason.unknown_before": "Nie znamy wcześniejszego stanu. Modified ustala nowy stan, ale nie pozwala obliczyć pierwszej zmiany.",
+    "quantity.reason.unknown_before": "Wcześniejszy stan stał się nieznany wskutek błędu lub konfliktu danych. Modified ustala nowy stan bez określenia zmiany.",
     "quantity.reason.stack_difference": "Zmiana ilości obliczona względem wcześniejszego znanego stanu.",
     "quantity.reason.replacement": "W tych samych współrzędnych pojawił się inny przedmiot. Usunięcie poprzedniego i dodanie nowego są wywnioskowane; nie sumujemy różnych przedmiotów w jedną deltę.",
-    "quantity.reason.explicit_added": "Źródłowy wpis Added opisuje dodaną ilość. Bez wcześniejszego stanu całkowita ilość stosu może pozostać nieznana.",
+    "quantity.reason.explicit_added": "Źródłowy wpis Added opisuje dodaną ilość. Stan początkowy każdego pola wynosi 0.",
     "quantity.reason.explicit_removed": "Źródłowy wpis Removed opisuje zabraną ilość.",
     "quantity.reason.explicit_zero": "Wpis ma ilość zero; nie tworzy ruchu.",
     "quantity.reason.state_conflict": "Ilość lub przedmiot nie zgadzają się z odtworzonym stanem. Stan końcowy pozostaje nieznany.",
@@ -337,6 +337,11 @@
     "workspace.ready": "Dane dostępne",
     "workspace.syncDetails": "Stan synchronizacji",
     "workspace.settingsLoading": "Odczytywanie ustawień…",
-    "workspace.footer": "poe2guild · archiwum i analiza gildii"
+    "workspace.footer": "poe2guild · archiwum i analiza gildii",
+    "quantity.includeStash": "Uwzględniaj skrytkę {name}",
+    "quantity.stashEnabled": "Uwzględniana",
+    "quantity.stashDisabled": "Pomijana",
+    "quantity.displayName": "Nazwa w analizie",
+    "quantity.stashSelectionNote": "Odznacz skrytkę, aby pominąć ją w analizie. Jej historia źródłowa i nazwa zostaną zachowane. Skrytki o wspólnej nazwie w analizie mają wspólne ustawienie uwzględniania."
   }
 }

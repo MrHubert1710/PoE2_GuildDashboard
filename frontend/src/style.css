@@ -142,10 +142,8 @@ header { flex-wrap: wrap; }
 
 .quantity-settings form { display: grid; gap: 16px; margin: 18px 0; }
 .quantity-settings form > label { max-width: 480px; }
-.alias-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 .check-label { flex-direction: row; align-items: center; }
 .check-label input { width: 18px; min-height: 18px; margin: 0; }
-.target-stashes { display: flex; flex-wrap: wrap; gap: 16px; }
 .quantity-delta { white-space: nowrap; }
 .quantity-explanation { min-width: 150px; max-width: 250px; border-top: 0; padding-top: 8px; font-size: 11px; }
 .quantity-explanation p { line-height: 1.6; }
@@ -225,4 +223,15 @@ header { flex-wrap: wrap; }
   .workspace-filters { padding: 12px; }
   .overview-cards { grid-template-columns: 1fr; }
   .overview-cards article { flex-direction: row; align-items: center; justify-content: space-between; padding: 14px; }
+}
+
+.stash-settings-list { display: grid; gap: 10px; }
+.stash-settings-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(160px, 1fr); gap: 16px; align-items: center; padding: 14px; border: 1px solid #35424a; border-radius: 8px; }
+.stash-settings-row .check-label span { overflow-wrap: anywhere; }
+.stash-settings-row.excluded { background: #14191f; border-style: dashed; }
+.stash-setting-status { color: #b6d7bd; font-size: 12px; }
+.stash-settings-row.excluded .stash-setting-status { color: #a4adb3; }
+@media (max-width: 600px) {
+  .stash-settings-row { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  .stash-settings-row > label:last-child { grid-column: 1 / -1; }
 }

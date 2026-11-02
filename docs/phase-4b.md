@@ -131,3 +131,24 @@ ponownych automatycznych zgłoszeń oraz odświeżenie raportu bez przebudowy da
 6. Sprawdź Raporty archiwalne, PL/EN i szerokość mobilną.
 
 Po odbiorze fazy 4b kolejny osobny zakres to faza 5: interaktywne wykresy.
+
+
+## Poprawki po odbiorze układu — ustawienia skrytek
+
+W Ustawieniach każdy wiersz skrytki łączy checkbox uwzględniania w analizie,
+status Uwzględniana/Pomijana i pole Nazwa w analizie. Można bezpośrednio
+odznaczyć skrytkę przy włączonym domyślnym „Analizuj wszystkie skrytki”;
+pozostałe pozostają zaznaczone. Ta opcja pozwala też ponownie włączyć wszystkie.
+Zmiany wymagają jawnego zapisu i przeliczają projekcję, zachowując źródłowe logi.
+
+Zmiana nazwy przenosi wybór analizy na nową nazwę. Checkboxy nadal działają
+przy skrytkach pomijanych, a pole nazwy pozostaje edytowalne. Nazwy połączone
+wspólnym aliasem mają wspólny wybór, tak jak wspólne odtwarzane współrzędne.
+Formularz pokazuje także nazwy skonfigurowane w gildii nieobecne w tej lidze;
+zapis nie usuwa ich aliasów. Używa dotychczasowego target_stashes i stash_aliases,
+bez migracji schematu lub zmiany API. Zakres zapisu liga/gildia pozostaje dostępny.
+
+Test przeglądarkowy sprawdza wyłączenie, zmianę nazwy pomijanej skrytki,
+zachowanie 60 źródłowych zdarzeń, ponowne włączenie i zmianę nazwy aktywnej
+skrytki, zapis/reload oraz szerokość mobilną. Końcowa regresja: 54 testy
+przeglądarkowe, 113 backendu, 16 tłumaczeń i build zakończone powodzeniem.
