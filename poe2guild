@@ -137,7 +137,22 @@ nginx_edit() {
     rollback_nginx
     trap - EXIT
 }
-if [[ "$ACTION" == install || "$ACTION" == uninstall ]]; then nginx_edit; exit 0; fi
+if [[ "$ACTION" == install || "$ACTION" == uninstall ]]; then
+    nginx_edit
+    if [[ "$ACTION" == install ]] && ! "$DRY_RUN" && [[ -f "$ROOT_DIR/scripts/admin.py" ]]; then
+        admin_python=${VENV:-.venv}
+        [[ "$admin_python" == /* ]] || admin_python="$ROOT_DIR/$admin_python"
+        if [[ -t 0 && -x "$admin_python/bin/python" ]]; then
+            require runuser
+            app_owner=$(stat -c %U -- "$ROOT_DIR")
+            [[ "$app_owner" != root ]] || die 'The application directory must belong to its non-root account'
+            runuser -u "$app_owner" -- "$admin_python/bin/python" "$ROOT_DIR/scripts/admin.py" --install
+        else
+            printf 'Password setup skipped without an interactive terminal/environment (not recommended). Use ./poe2guild admin or the website.\n'
+        fi
+    fi
+    exit 0
+fi
 
 require flock
 mkdir -p -- "$RUN_DIR" "$ROOT_DIR/logs"

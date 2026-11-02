@@ -429,6 +429,16 @@
     "auth.errors.https_required": "Logowanie administratora wymaga HTTPS.",
     "auth.errors.csrf_rejected": "Weryfikacja sesji nie powiodła się. Otwórz okno ponownie.",
     "auth.errors.auth_unavailable": "Logowanie jest niedostępne.",
-    "auth.errors.admin_required": "Sesja wygasła. Zaloguj się ponownie."
+    "auth.errors.admin_required": "Sesja wygasła. Zaloguj się ponownie.",
+    "auth.setPassword": "Ustaw hasło administratora",
+    "auth.currentPassword": "Obecne hasło",
+    "auth.newPassword": "Nowe hasło (minimum 12 znaków)",
+    "auth.confirmPassword": "Powtórz nowe hasło",
+    "auth.changeAccount": "Zmiana hasła konta admin wyloguje wszystkie jego sesje.",
+    "auth.defaultPasswordWarning": "Konto admin nadal używa domyślnego hasła. Ustaw nowe hasło.",
+    "auth.skipPassword": "Później (not recommended)",
+    "auth.passwordChanged": "Hasło zmienione. Zaloguj się nowym hasłem.",
+    "auth.errors.invalid_password": "Nowe hasło musi mieć od 12 do 1024 znaków.",
+    "auth.errors.password_mismatch": "Nowe hasła nie są jednakowe."
   }
 }

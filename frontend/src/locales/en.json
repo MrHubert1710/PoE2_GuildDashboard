@@ -419,6 +419,16 @@
     "auth.errors.https_required": "Administrator login requires HTTPS.",
     "auth.errors.csrf_rejected": "Session verification failed. Reopen this window.",
     "auth.errors.auth_unavailable": "Login is unavailable.",
-    "auth.errors.admin_required": "Your session has expired. Log in again."
+    "auth.errors.admin_required": "Your session has expired. Log in again.",
+    "auth.setPassword": "Set administrator password",
+    "auth.currentPassword": "Current password",
+    "auth.newPassword": "New password (at least 12 characters)",
+    "auth.confirmPassword": "Repeat new password",
+    "auth.changeAccount": "Change the password for account admin. All its sessions will be signed out.",
+    "auth.defaultPasswordWarning": "The admin account still uses its default password. Set a new password.",
+    "auth.skipPassword": "Later (not recommended)",
+    "auth.passwordChanged": "Password updated. Log in with your new password.",
+    "auth.errors.invalid_password": "The new password must contain 12–1024 characters.",
+    "auth.errors.password_mismatch": "The new passwords do not match."
   }
 }

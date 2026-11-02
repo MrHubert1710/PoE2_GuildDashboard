@@ -385,6 +385,9 @@ Działają reload, Wstecz/Dalej, migracja kolorów oraz zablokowany localStorage
 - Rozważyć konfigurację GUILD_ID i SESSION_ID albo oficjalnych odpowiedników
   GGG: sekrety przechowywać po stronie serwera, nie zwracać ich w odczytach
   publicznych ani ujawniać w logach. Powiązać z oficjalnym OAuth w etapie 7B.
+- Konto początkowe admin / kalandra; instalacja pyta o nowe hasło, z Enter
+  pomijającym zmianę (not recommended). Gdy domyślne hasło obowiązuje, strona
+  automatycznie otwiera popup zmiany hasła po uwierzytelnieniu administratora.
 - Ustalić sposób pierwszego utworzenia administratora, hasła/sesje, CSRF,
   limity prób i wygasanie sesji. Nie utożsamiać logowania Admin z autoryzacją GGG.
 

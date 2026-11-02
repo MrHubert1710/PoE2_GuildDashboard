@@ -15,6 +15,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 SESSION = 'poa_admin'
 CSRF = 'poa_csrf'
+DEFAULT_PASSWORD = 'kalandra'
 auth = Blueprint('auth', __name__)
 
 
@@ -30,6 +31,18 @@ class AuthStore:
               CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY, username TEXT NOT NULL, expires REAL NOT NULL);
               CREATE TABLE IF NOT EXISTS attempts(address TEXT PRIMARY KEY, started REAL NOT NULL, count INTEGER NOT NULL);
             ''')
+            db.execute('BEGIN IMMEDIATE')
+            columns = {row[1] for row in db.execute('PRAGMA table_info(accounts)')}
+            if 'default_password' not in columns:
+                db.execute('ALTER TABLE accounts ADD COLUMN default_password INTEGER NOT NULL DEFAULT 0')
+            if not db.execute('SELECT 1 FROM accounts WHERE username=?', ('admin',)).fetchone():
+                db.execute('INSERT INTO accounts(username,password_hash,default_password) VALUES(?,?,1)',
+                           ('admin', generate_password_hash(DEFAULT_PASSWORD)))
+
+    def default_password_active(self):
+        with self.connect() as db:
+            row = db.execute('SELECT default_password FROM accounts WHERE username=?', ('admin',)).fetchone()
+        return bool(row and row[0])
 
     @contextmanager
     def connect(self):
@@ -47,8 +60,24 @@ class AuthStore:
             raise ValueError('Password must contain 12–1024 characters.')
         hashed = generate_password_hash(password)
         with self.connect() as db:
-            db.execute('INSERT OR REPLACE INTO accounts VALUES(?,?)', (username.strip(), hashed))
+            db.execute('INSERT OR REPLACE INTO accounts(username,password_hash,default_password) VALUES(?,?,0)', (username.strip(), hashed))
             db.execute('DELETE FROM sessions WHERE username=?', (username.strip(),))
+
+    def change_password(self, username, current_password, password):
+        if not isinstance(password, str) or not 12 <= len(password) <= 1024:
+            return 'invalid_password'
+        with self.connect() as db:
+            row = db.execute('SELECT password_hash FROM accounts WHERE username=?', (username,)).fetchone()
+        if not row or not check_password_hash(row[0], current_password):
+            return 'invalid_credentials'
+        hashed = generate_password_hash(password)
+        with self.connect() as db:
+            updated = db.execute('UPDATE accounts SET password_hash=?,default_password=0 WHERE username=? AND password_hash=?',
+                                 (hashed, username, row[0]))
+            if updated.rowcount != 1:
+                return 'invalid_credentials'
+            db.execute('DELETE FROM sessions WHERE username=?', (username,))
+        return None
 
     def identity(self, token):
         if not token or len(token) > 200:
@@ -75,6 +104,10 @@ class AuthStore:
             return None, 'invalid_credentials'
         token = secrets.token_urlsafe(48)
         with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            current = db.execute('SELECT password_hash FROM accounts WHERE username=?', (username,)).fetchone()
+            if not current or current[0] != row[0]:
+                return None, 'invalid_credentials'
             db.execute('INSERT INTO sessions VALUES(?,?,?)', (digest(token), username, now + 8 * 3600))
             db.execute('DELETE FROM attempts WHERE address=?', (address,))
         return token, None
@@ -118,6 +151,7 @@ def csrf_valid():
 def status():
     response = jsonify(role='Admin' if is_admin() else 'Player',
                        username=g.admin, login_available=secure_transport(),
+                       default_password=store().default_password_active(),
                        csrf_token=request.cookies.get(CSRF) or secrets.token_urlsafe(32))
     response.set_cookie(CSRF, response.get_json()['csrf_token'], **cookie_options())
     return response
@@ -142,9 +176,29 @@ def login():
         return response
     store().revoke(request.cookies.get(SESSION))
     csrf = secrets.token_urlsafe(32)
-    response = jsonify(role='Admin', username=payload['username'], csrf_token=csrf, login_available=True)
+    response = jsonify(role='Admin', username=payload['username'], csrf_token=csrf, login_available=True,
+                       default_password=store().default_password_active())
     response.set_cookie(SESSION, token, max_age=8 * 3600, **cookie_options())
     response.set_cookie(CSRF, csrf, **cookie_options())
+    return response
+
+
+@auth.post('/api/auth/password')
+def change_password():
+    if not is_admin():
+        return jsonify(error='admin_required'), 401
+    if not csrf_valid():
+        return jsonify(error='csrf_rejected'), 403
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or set(payload) != {'current_password', 'password'} or any(
+            not isinstance(payload[key], str) or len(payload[key]) > 1024 for key in payload):
+        return jsonify(error='invalid_password'), 400
+    error = store().change_password(g.admin, payload['current_password'], payload['password'])
+    if error:
+        return jsonify(error=error), 400
+    response = jsonify(role='Player', default_password=store().default_password_active())
+    response.delete_cookie(SESSION, **cookie_options())
+    response.delete_cookie(CSRF, **cookie_options())
     return response
 
 
