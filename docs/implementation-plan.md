@@ -1,9 +1,9 @@
 # Plan implementacji poe2guild
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: fazy 0–2 odebrane przez użytkownika; faza 2a zaimplementowana,
-oczekuje weryfikacji manualnej. Faza 3 i dalsze nie są rozpoczęte.
-Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md).
+Status: fazy 0–2a odebrane przez użytkownika; faza 3 zaimplementowana,
+oczekuje weryfikacji manualnej. Faza 4 i dalsze nie są rozpoczęte.
+Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -101,8 +101,7 @@ Kamień milowy A: aplikacja do przeglądania archiwów.
 
 ## Etap 2a — wybór języka i tłumaczenia interfejsu
 
-Status: implementacja zakończona, oczekuje weryfikacji manualnej.
-Wyniki i instrukcja odbioru: [phase-2a.md](phase-2a.md).
+Status: odebrana przez użytkownika; wyniki: [phase-2a.md](phase-2a.md).
 Nie łączyć jej automatycznie z fazą 3.
 
 Zakres:
@@ -156,6 +155,9 @@ Odbiór:
   z reguł fallbacku. Brak en.json lub nieprawidłowy słownik angielski blokuje build.
 
 ## Etap 3 — worker i kontrakt odświeżania
+
+Status: implementacja zakończona, oczekuje weryfikacji manualnej.
+Wyniki i instrukcja odbioru: [phase-3.md](phase-3.md).
 
 Zależność: etapy 1–2 i warstwa tekstów z 2a. Nie wymaga dostępu do historii GGG.
 
@@ -300,7 +302,7 @@ Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
-Faza 2a (języki) oczekuje odbioru. Po jej akceptacji i osobnym poleceniu
-następuje faza 3: worker i odświeżanie.
+Faza 3 (worker i odświeżanie) oczekuje odbioru. Po jej akceptacji i osobnym
+poleceniu następuje faza 4: obliczenia ilościowe.
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.

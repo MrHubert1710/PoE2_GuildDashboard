@@ -20,10 +20,13 @@ Faza 2a: [języki PL/EN, katalogi tłumaczeń i instrukcja odbioru](docs/phase-2
 English jest językiem domyślnym i fallbackiem. Wybór w nagłówku zachowuje
 kontekst ligi i filtrów; języki wynikają z frontend/src/locales/*.json.
 
+Faza 3: [worker, kolejka i odświeżanie](docs/phase-3.md). Panel Historii pozwala
+zweryfikować lokalne dane; archiwa nie pobierają historii GGG.
+
 ## Instalacja i uruchamianie
 
 Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny
-LTS) z npm, Bash, flock, curl i narzędzia systemowe. Na tym serwerze Node.js
+LTS) z npm, Bash, flock, setsid, curl i narzędzia systemowe. Na tym serwerze Node.js
 jest zainstalowany w katalogu użytkownika i dostępny przez `~/.local/bin`.
 
 ```sh
@@ -36,15 +39,16 @@ cd /home/nginx-http/poe2guild
 
 `build` tworzy `.venv`, instaluje zależności Pythona i npm (`npm ci`),
 sprawdza TypeScript oraz buduje frontend. Node jest potrzebny tylko do budowania
-i developmentu; produkcję obsługuje Gunicorn. `restart` nie przebudowuje kodu.
+i developmentu; produkcję obsługuje Gunicorn. `restart` nie przebudowuje kodu. Start/restart stosuje migracje SQLite i uruchamia
+web oraz osobny worker.
 
 | Komenda | Działanie |
 | --- | --- |
 | `build` | Przygotowanie zależności i produkcyjnego frontendu |
-| `start` | Uruchomienie w tle; ponowne wywołanie jest bezpieczne |
-| `stop` / `restart` | Zatrzymanie / restart wyłącznie procesu tego katalogu |
-| `status` | Sprawdzenie PID, katalogu, portu i `/health` |
-| `logs` lub `log` | Blokujący podgląd `logs/gunicorn.log` |
+| `start` | Migracje i web + worker w tle; ponowne wywołanie jest bezpieczne |
+| `stop` / `restart` | Zatrzymanie / restart obu procesów tego katalogu |
+| `status` | PID-y obu procesów, heartbeat workera i `/health`; częściowa awaria: kod 1 |
+| `logs` lub `log` | Blokujący podgląd `logs/gunicorn.log` i `logs/worker.log` |
 | `install` / `uninstall` | Dodanie / usunięcie trasy Nginx; root/sudo |
 
 Konfiguracja jest w `service.ini`: port `127.0.0.1:9002`, prefiks `/poe2guild`.
@@ -96,7 +100,7 @@ Odtworzenie danych ze starego katalogu:
 
 Importer kopiuje pliki i weryfikuje SHA-256. Powtórzenie z tymi samymi danymi
 jest bezpieczne; przy różnej zawartości istniejącego archiwum przerywa pracę.
-Baza SQLite jest tworzona z tych danych lub z niezależnej kopii starego
+Baza SQLite (obecnie schemat 2) jest tworzona z tych danych lub z niezależnej kopii starego
 katalogu. Komendy fazy 1:
 
 ```sh

@@ -3,6 +3,9 @@
 Status: faza 1 odebrana przez użytkownika na podstawie testów i walidacji.
 Dalszy zakres: [phase-2.md](phase-2.md).
 
+Obecny schemat rozszerza migracja 002 z [fazy 3](phase-3.md); opis poniżej
+dokumentuje pierwotny import. Dane historyczne pozostają zachowane.
+
 ## Wynik
 
 - Niezależna baza `data/poe2guild.sqlite`, schemat 1 i dziennik WAL.

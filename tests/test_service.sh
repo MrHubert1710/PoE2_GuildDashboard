@@ -85,6 +85,21 @@ printf 'gunicorn: master [app:app]\n' > "$TEST_WORK/proc/$pid/args"
 printf '%s\n' "$pid" > "$pidfile"
 EOF
 chmod +x "$project/venv/bin/gunicorn"
+cat > "$project/venv/bin/python" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == -c ]]; then exit "${MOCK_WORKER_HEALTH_FAIL:-0}"; fi
+if [[ "$1" != -m ]]; then printf '{}\n'; exit 0; fi
+printf 'worker\n' >> "$MOCK_LOG"
+pid=$$
+printf '%s\n' "$pid" >> "$TEST_WORK/masters"
+mkdir -p "$TEST_WORK/proc/$pid"
+printf '%s\n' "$TEST_PROJECT" > "$TEST_WORK/proc/$pid/cwd-value"
+printf 'python -m backend.worker\n' > "$TEST_WORK/proc/$pid/args"
+{ printf '%s (python) ' "$pid"; for _ in {1..19}; do printf '0 '; done; printf '12345\n'; } > "$TEST_WORK/proc/$pid/stat"
+exec "$TEST_WORK/fake-master" "$TEST_PROJECT/.run/worker.pid"
+EOF
+chmod +x "$project/venv/bin/python"
 export PATH="$work/bin:$PATH"
 : > "$MOCK_LOG"
 settings() {
@@ -128,12 +143,19 @@ expect_exit 3 "$project/poe2guild" status
 read -r pid < "$project/.run/gunicorn.pid"
 "$project/poe2guild" status > "$work/output"
 assert_contains "$work/output" "Running: PID $pid"
+assert_contains "$work/output" 'Worker running:'
+read -r worker_pid < "$project/.run/worker.pid"
+worker_session=$("$real_ps" -p "$worker_pid" -o sid=)
+[[ "${worker_session//[[:space:]]/}" == "$worker_pid" ]] # Survives the caller's process-group cleanup.
+MOCK_WORKER_HEALTH_FAIL=1 expect_exit 1 "$project/poe2guild" status
 "$project/poe2guild" start > "$work/output"
 [[ $(grep -c '^gunicorn$' "$MOCK_LOG") == 1 ]]
+[[ $(grep -c '^worker$' "$MOCK_LOG") == 1 ]]
 assert_absent "$MOCK_LOG" sudo
 MOCK_HEALTH_FAIL=1 expect_exit 1 "$project/poe2guild" status
 "$project/poe2guild" restart > "$work/output"
 [[ $(grep -c '^gunicorn$' "$MOCK_LOG") == 2 ]]
+[[ $(grep -c '^worker$' "$MOCK_LOG") == 2 ]]
 "$project/poe2guild" stop > "$work/output"
 expect_exit 3 "$project/poe2guild" status
 MOCK_UID=0 expect_exit 1 "$project/poe2guild" start
@@ -147,6 +169,26 @@ kill -0 "$pid"
 printf '%s\n' "$project" > "$work/proc/$pid/cwd-value"
 printf '%s\n' "$pid" > "$project/.run/gunicorn.pid"
 printf '%s 12345\n' "$pid" > "$project/.run/gunicorn.identity"
+"$project/poe2guild" stop > "$work/output"
+
+# A worker from another checkout must never be signaled by stop.
+"$project/poe2guild" start > "$work/output"
+read -r worker_pid < "$project/.run/worker.pid"
+printf '/unrelated/checkout\n' > "$work/proc/$worker_pid/cwd-value"
+"$project/poe2guild" stop > "$work/output"
+kill -0 "$worker_pid"
+printf '%s\n' "$project" > "$work/proc/$worker_pid/cwd-value"
+printf '%s\n' "$worker_pid" > "$project/.run/worker.pid"
+printf '%s 12345\n' "$worker_pid" > "$project/.run/worker.identity"
+"$project/poe2guild" stop > "$work/output"
+"$project/poe2guild" start > "$work/output"
+read -r worker_pid < "$project/.run/worker.pid"
+kill -TERM "$worker_pid"
+sleep .3
+expect_exit 1 "$project/poe2guild" status
+web_starts=$(grep -c '^gunicorn$' "$MOCK_LOG")
+"$project/poe2guild" start > "$work/output"
+[[ $(grep -c '^gunicorn$' "$MOCK_LOG") == "$web_starts" ]]
 "$project/poe2guild" stop > "$work/output"
 
 # Existing locations, including custom access controls, are not rewritten.

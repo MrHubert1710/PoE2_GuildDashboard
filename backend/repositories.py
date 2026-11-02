@@ -1,5 +1,5 @@
 """Read-only database diagnostics for phase 1. No transaction browsing yet."""
-from .database import connect, require_schema, DatabaseError
+from .database import connect, require_schema, DatabaseError, SCHEMA_VERSION
 
 
 def database_status(path):
@@ -34,7 +34,7 @@ def database_status(path):
         if check:
             check['current'] = check['last_completed_import_id'] == (last_completed[0] if last_completed else None)
             del check['last_completed_import_id']
-        result = {'state': 'ready', 'schema_version': 1, 'instance_id': instance,
+        result = {'state': 'ready', 'schema_version': SCHEMA_VERSION, 'instance_id': instance,
                   'journal_mode': connection.execute('PRAGMA journal_mode').fetchone()[0],
                   'leagues': leagues, 'transactions': sum(league['transactions'] for league in leagues),
                   'last_import': dict(last_run) if last_run else None, 'integrity': check}

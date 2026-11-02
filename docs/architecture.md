@@ -76,7 +76,7 @@ statycznych wykresów; nie jest źródłem danych interaktywnej aplikacji.
 ## Język i lokalizacja
 
 Faza 2a wprowadza PL/EN i rozszerzalne katalogi tłumaczeń; implementacja
-oczekuje odbioru. Szczegóły: [phase-2a.md](phase-2a.md).
+została odebrana. Szczegóły: [phase-2a.md](phase-2a.md).
 Angielski (en) jest językiem domyślnym, bazą słowników oraz fallbackiem
 brakujących tłumaczeń. en.json musi być obecny i poprawny; walidacja innych
 języków porównuje ich klucze i parametry z angielskim słownikiem.
@@ -159,3 +159,11 @@ odświeżania powstają przed integracją GGG i są testowane na adapterze lokal
 ich wdrożenie nie wymaga dostępu do zewnętrznego źródła historii.
 
 Nie uzależniać implementacji odczytu archiwów od uzyskania dostępu OAuth.
+
+## Worker i odświeżanie — stan fazy 3
+
+Trwała kolejka SQLite, dzierżawy z fencingiem, wspólny limit zakresu źródła
+i osobny worker są zaimplementowane. Stan oczekuje odbioru; szczegóły:
+[phase-3.md](phase-3.md). Frontend nie wykonuje zadań w procesie Gunicorna.
+Archiwa są blokowane także po stronie API/kolejki. Adapter lokalnej weryfikacji
+nie jest synchronizacją GGG i nie zapisuje fikcyjnej daty pobrania.

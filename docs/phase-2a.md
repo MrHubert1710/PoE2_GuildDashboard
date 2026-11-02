@@ -1,7 +1,8 @@
 # Faza 2a — języki interfejsu
 
-Status: implementacja zakończona, oczekuje odbioru manualnego.
-Faza 2 została odebrana poleceniem przejścia dalej. Faza 3 nie jest rozpoczęta.
+Status: odebrana przez użytkownika poleceniem przejścia do fazy 3.
+Faza 2 została odebrana poleceniem przejścia dalej.
+Dalszy zakres opisuje [phase-3.md](phase-3.md).
 
 ## Rezultat
 

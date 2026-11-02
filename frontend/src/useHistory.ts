@@ -65,7 +65,7 @@ export function useHistory() {
     }
   }
 
-  async function loadLeagues() {
+  async function loadLeagues(preserveDraft = false) {
     const sequence = ++leagueSequence
     leagueController?.abort()
     const controller = new AbortController()
@@ -85,7 +85,7 @@ export function useHistory() {
       if (!Array.isArray(payload.leagues)) throw new HistoryError('invalid_leagues')
       leagues.value = payload.leagues
       if (!query.value.league && leagues.value[0]) query.value.league = leagues.value[0].id
-      Object.assign(draft, query.value)
+      if (!preserveDraft) Object.assign(draft, query.value)
       writeQuery(query.value, true)
       loadingLeagues.value = false
       await loadRows()
@@ -136,5 +136,5 @@ export function useHistory() {
   })
 
   return { leagues, query, draft, result, loadingLeagues, loadingRows, leagueError, rowError, formError,
-    selected, loadLeagues, selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy }
+    selected, loadLeagues, refreshRevision: () => loadLeagues(true), selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy }
 }

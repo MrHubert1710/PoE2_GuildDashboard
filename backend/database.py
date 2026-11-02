@@ -1,4 +1,4 @@
-"""SQLite lifecycle. Web requests open read-only; only CLI operations migrate."""
+"""SQLite lifecycle. Reads are read-only; refresh POSTs/worker write jobs. Only CLI operations migrate."""
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
@@ -10,7 +10,7 @@ import uuid
 
 
 MIGRATIONS = Path(__file__).with_name('migrations')
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class DatabaseError(ValueError):

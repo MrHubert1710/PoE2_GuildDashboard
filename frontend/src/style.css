@@ -130,3 +130,9 @@ header { flex-wrap: wrap; }
   .app-nav { gap: 12px; }
   .pagination { flex-wrap: wrap; }
 }
+
+.refresh-panel { border: 1px solid #333d45; border-radius: 8px; padding: 16px; margin: 16px 0 24px; font-size: 12px; }
+.refresh-panel .section-heading { margin: 0 0 10px; }
+.refresh-panel h2 { font-size: 16px; }
+.refresh-facts { display: flex; flex-wrap: wrap; gap: 0 24px; color: #a9b0b6; }
+.refresh-job p { margin: 12px 0 4px; }

@@ -16,11 +16,11 @@ usage() {
 Usage: ./poe2guild COMMAND [--dry-run]
 
   build      Install Python/npm dependencies and build the Vue frontend
-  start      Start Gunicorn in the background, recording its PID and logs
-  stop       Gracefully stop only this checkout's recorded Gunicorn process
+  start      Migrate SQLite, start web and worker with separate PIDs/logs
+  stop       Gracefully stop this checkout's worker and web processes
   restart    Stop and start the application (does not rebuild dependencies)
-  status     Show process, checkout, listen address and health status
-  logs/log   Follow logs (Ctrl+C closes the viewer)
+  status     Show both processes and health; partial failure exits 1
+  logs/log   Follow web and worker logs (Ctrl+C closes the viewer)
   install    Add/update this route in nginx services (sudo/root)
   uninstall  Remove this route from nginx services (sudo/root)
   help       Show this help
@@ -245,6 +245,91 @@ stop_app() {
     done
     die 'Gunicorn did not stop within 35 seconds; leaving process records for inspection'
 }
+WORKER_PID_FILE="$RUN_DIR/worker.pid"
+WORKER_IDENTITY_FILE="$RUN_DIR/worker.identity"
+WORKER_LOG="$ROOT_DIR/logs/worker.log"
+worker_owned() {
+    local pid=$1 args details
+    [[ "$pid" =~ ^[1-9][0-9]*$ ]] && kill -0 "$pid" 2>/dev/null || return 1
+    [[ $(stat -c %u "/proc/$pid" 2>/dev/null) == "$UID_NUMBER" ]] || return 1
+    [[ $(readlink -f "/proc/$pid/cwd" 2>/dev/null) == "$ROOT_DIR" ]] || return 1
+    details=$(cat "/proc/$pid/stat" 2>/dev/null) || return 1
+    [[ "${details##*) }" != Z* ]] || return 1
+    args=$(ps -p "$pid" -o args= 2>/dev/null) || return 1
+    [[ "$args" == *"-m backend.worker"* ]]
+}
+worker_pid() {
+    local pid recorded stamp
+    [[ -f "$WORKER_PID_FILE" && -f "$WORKER_IDENTITY_FILE" ]] || return 1
+    read -r pid < "$WORKER_PID_FILE" || return 1
+    read -r recorded stamp < "$WORKER_IDENTITY_FILE" || return 1
+    [[ "$pid" == "$recorded" ]] && worker_owned "$pid" || return 1
+    [[ $(process_stamp "$pid") == "$stamp" ]] || return 1
+    printf '%s' "$pid"
+}
+prepare_database() {
+    resolve_venv
+    [[ -x "$VENV/bin/python" ]] || die 'Python environment is missing; run ./poe2guild build'
+    load_environment
+    "$VENV/bin/python" "$ROOT_DIR/scripts/database.py" migrate --database "${POE2GUILD_DATABASE:-$ROOT_DIR/data/poe2guild.sqlite}" > "$RUN_DIR/migration-status.json" 9>&-
+}
+worker_healthy() {
+    local pid=$1
+    (cd "$ROOT_DIR"; "$VENV/bin/python" -c 'import os,sys,time; from backend.database import connect; from pathlib import Path
+with connect(os.environ.get("POE2GUILD_DATABASE",Path.cwd()/"data/poe2guild.sqlite"),readonly=True) as c:
+ r=c.execute("SELECT state,heartbeat_at,pid FROM worker_status WHERE singleton=1").fetchone()
+ sys.exit(0 if r and r[0]=="running" and r[1]>time.time()-15 and r[2]==int(sys.argv[1]) else 1)' "$pid" 9>&- 2>/dev/null)
+}
+start_worker() {
+    local pid stamp deadline
+    if pid=$(worker_pid); then
+        worker_healthy "$pid" || die 'Worker process exists but its heartbeat is stale; inspect status/logs and restart'
+        printf 'Worker already running: PID %s\n' "$pid"; return
+    fi
+    if [[ -f "$WORKER_PID_FILE" ]]; then
+        read -r pid < "$WORKER_PID_FILE" || true
+        if worker_owned "$pid"; then
+            [[ ! -f "$WORKER_IDENTITY_FILE" ]] || die 'Worker PID identity changed; inspect before starting'
+            printf '%s %s\n' "$pid" "$(process_stamp "$pid")" > "$WORKER_IDENTITY_FILE"
+            printf 'Worker already running: PID %s\n' "$pid"; return
+        fi
+    fi
+    rm -f -- "$WORKER_PID_FILE" "$WORKER_IDENTITY_FILE"
+    require setsid
+    (cd "$ROOT_DIR"; exec setsid nohup "$VENV/bin/python" -m backend.worker </dev/null >> "$WORKER_LOG" 2>&1 9>&-) &
+    pid=$!
+    printf '%s\n' "$pid" > "$WORKER_PID_FILE"
+    deadline=$((SECONDS + 10))
+    while ((SECONDS < deadline)); do
+        if worker_owned "$pid"; then
+            stamp=$(process_stamp "$pid")
+            printf '%s %s\n' "$pid" "$stamp" > "$WORKER_IDENTITY_FILE"
+            if worker_healthy "$pid"; then
+                printf 'Worker started: PID %s, logs: %s\n' "$pid" "$WORKER_LOG"; return
+            fi
+        fi
+        kill -0 "$pid" 2>/dev/null || break
+        sleep .1
+    done
+    tail -n 20 "$WORKER_LOG" >&2 || true
+    die 'Worker failed to start; web may still be running. Check status and logs'
+}
+stop_worker() {
+    local pid
+    if ! pid=$(worker_pid); then
+        printf 'Worker not running (no matching recorded process).\n'
+        rm -f -- "$WORKER_PID_FILE" "$WORKER_IDENTITY_FILE"; return
+    fi
+    kill -TERM "$pid"
+    for _ in {1..140}; do
+        if ! worker_pid >/dev/null; then
+            rm -f -- "$WORKER_PID_FILE" "$WORKER_IDENTITY_FILE"
+            printf 'Worker stopped.\n'; return
+        fi
+        sleep .25
+    done
+    die 'Worker did not stop within 35 seconds; leaving process records for inspection'
+}
 case "$ACTION" in
     build)
         resolve_venv; require python3
@@ -254,13 +339,21 @@ case "$ACTION" in
         npm --prefix "$ROOT_DIR/frontend" ci 9>&-
         VITE_BASE_PATH="$URL_PREFIX/" npm --prefix "$ROOT_DIR/frontend" run build 9>&-
         printf 'Build complete.\n' ;;
-    start) require curl; start_app ;;
-    stop) stop_app ;;
-    restart) require curl; stop_app; start_app ;;
+    start) require curl; prepare_database; start_app; start_worker ;;
+    stop) stop_worker; stop_app ;;
+    restart) require curl; stop_worker; stop_app; prepare_database; start_app; start_worker ;;
     status)
-        if pid=$(running_pid); then
-            printf 'Running: PID %s\nProject: %s\nListen: http://%s\nLogs: %s\n' "$pid" "$ROOT_DIR" "$BIND" "$LOG_FILE"
-            if curl --noproxy '*' -fsS --max-time 3 "http://$BIND/health" >/dev/null 2>&1; then printf 'Health: ok\n'; else printf 'Health: unavailable\n'; exit 1; fi
-        else printf 'Stopped (no matching recorded process).\n'; exit 3; fi ;;
-    logs) touch "$LOG_FILE"; flock -u 9; exec tail -n 100 -f "$LOG_FILE" ;;
+        web_ok=false worker_ok=false worker_alive=false healthy=false
+        if pid=$(running_pid); then web_ok=true; printf 'Running: PID %s (web)\n' "$pid"; else printf 'Web stopped.\n'; fi
+        resolve_venv; load_environment
+        if pid=$(worker_pid); then
+            worker_alive=true
+            if worker_healthy "$pid"; then worker_ok=true; printf 'Worker running: PID %s\n' "$pid"; else printf 'Worker unhealthy: PID %s (heartbeat unavailable)\n' "$pid"; fi
+        else printf 'Worker stopped.\n'; fi
+        printf 'Project: %s\nListen: http://%s\nLogs: %s, %s\n' "$ROOT_DIR" "$BIND" "$LOG_FILE" "$WORKER_LOG"
+        if "$web_ok" && curl --noproxy '*' -fsS --max-time 3 "http://$BIND/health" >/dev/null 2>&1; then healthy=true; printf 'Health: ok\n'; else printf 'Health: unavailable\n'; fi
+        if "$web_ok" && "$worker_ok" && "$healthy"; then exit 0; fi
+        if ! "$web_ok" && ! "$worker_alive"; then exit 3; fi
+        printf 'Partial service failure.\n'; exit 1 ;;
+    logs) touch "$LOG_FILE" "$WORKER_LOG"; flock -u 9; exec tail -n 100 -f "$LOG_FILE" "$WORKER_LOG" ;;
 esac

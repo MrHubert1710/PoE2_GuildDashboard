@@ -1,7 +1,7 @@
 # Kontrakty modułów — faza 0
 
-Definicje typów i Protocol: `backend/contracts.py`. To granice przyszłych
-implementacji, nie działające integracje. Sam opis capabilities nie jest
+Definicje typów i Protocol: `backend/contracts.py`. To granice modułów; faza 3 implementuje kolejkę
+i worker, pozostałe integracje powstają w następnych fazach. Sam opis capabilities nie jest
 potwierdzeniem dostępności źródła. Stan researchu zapisuje
 `backend/provider_findings.json` z datą i źródłem informacji.
 
@@ -77,3 +77,12 @@ wygaśnięcie poświadczeń, cooldown/rate limit, chwilowy błąd sieci,
 nieobsługiwany format, konflikt danych i brak wskazanej rewizji.
 Adapter nie zwraca pustej historii lub katalogu w zastępstwie błędu.
 Publiczny komunikat nie zawiera treści poświadczeń ani surowego requestu.
+
+## Implementacja kolejki w fazie 3
+
+`backend/jobs.py` udostępnia Queue: enqueue(league_id, kind, trigger), claim, renew,
+complete(lease, publish) i fail. Fasada rozwiązuje serwerowy zakres źródła oraz
+politykę ligi; klient nie podaje ownera. complete publikuje przygotowane dane
+i kursor w tej samej transakcji co wynik zadania, pod warunkiem ważnego lease.
+`backend/contracts.py:JobQueue` odzwierciedla tę sygnaturę. Szczegóły, polityki
+czasowe i API: [phase-3.md](phase-3.md).

@@ -2,9 +2,10 @@
 import { t, number, date } from '../i18n'
 import { useHistory } from '../useHistory'
 import LeaguePicker from './LeaguePicker.vue'
+import RefreshPanel from './RefreshPanel.vue'
 
 const { leagues, query, draft, result, loadingLeagues, loadingRows, leagueError, rowError, formError,
-  selected, loadLeagues, selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy } = useHistory()
+  selected, loadLeagues, refreshRevision, selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy } = useHistory()
 const actionNames: Record<string, string> = { added: 'added', removed: 'removed', modified: 'modified' }
 const columns = [
   { key: 'date', label: 'dateColumn' }, { key: 'account', label: 'player' },
@@ -20,7 +21,7 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
     </Teleport>
     <div class="history-heading">
       <div><p class="eyebrow">POE2 GUILD</p><h1 id="history-title">{{ t('historyTitle') }}<span>.</span></h1><p class="intro">{{ t('historyIntro') }}</p></div>
-      <button type="button" :disabled="loadingLeagues" @click="loadLeagues">{{ t('refreshHistory') }} <span aria-hidden="true">↗</span></button>
+      <button type="button" :disabled="loadingLeagues" @click="loadLeagues()">{{ t('refreshHistory') }} <span aria-hidden="true">↗</span></button>
     </div>
 
     <p v-if="leagueError" role="alert" class="alert">{{ t(leagueError) }}</p>
@@ -33,6 +34,7 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
       </div>
 
       <template v-if="selected">
+        <RefreshPanel :key="selected.id" :league-id="selected.id" :revision="selected.revision" @revision-changed="refreshRevision" />
         <div class="league-summary">
           <p>{{ t('historyCount', { count: selected.transactions }) }}</p>
           <p>{{ t('range') }} <strong>{{ date(selected.oldest_at) }}</strong> — <strong>{{ date(selected.newest_at) }}</strong> UTC</p>

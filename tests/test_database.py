@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from backend.app import create_app
 from backend.archive_import import import_bundle, ImportRejected, normalize
-from backend.database import connect, migrate, verify, maintenance_lock, DatabaseError
+from backend.database import connect, migrate, verify, maintenance_lock, DatabaseError, SCHEMA_VERSION
 from backend.database_lifecycle import rebuild, snapshot_legacy
 from backend.reference import FIELDS, sha256
 from backend.repositories import database_status
@@ -62,9 +62,9 @@ class DatabaseTests(unittest.TestCase):
     def test_migration_is_repeatable_and_enforces_foreign_keys_and_wal(self):
         migrate(self.database)
         with connect(self.database) as connection:
-            self.assertEqual(connection.execute('PRAGMA user_version').fetchone()[0], 1)
+            self.assertEqual(connection.execute('PRAGMA user_version').fetchone()[0], SCHEMA_VERSION)
             self.assertEqual(connection.execute('PRAGMA journal_mode').fetchone()[0], 'wal')
-            self.assertEqual(connection.execute('SELECT COUNT(*) FROM schema_migrations').fetchone()[0], 1)
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM schema_migrations').fetchone()[0], SCHEMA_VERSION)
             with self.assertRaises(sqlite3.IntegrityError):
                 connection.execute("INSERT INTO league_external_ids VALUES ('missing','test','id')")
 

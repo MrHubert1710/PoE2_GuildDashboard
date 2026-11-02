@@ -1,6 +1,7 @@
 """HTTP shell for the rework. Domain code will be added independently of Vue."""
 from pathlib import Path
 import json
+import os
 import sqlite3
 from datetime import datetime
 
@@ -9,6 +10,7 @@ from .reference import public_reference
 from .repositories import database_status
 from .database import DatabaseError
 from .browsing import browser
+from .refresh_api import refresh
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,10 +20,13 @@ def create_app(config=None):
     app = Flask(__name__, static_folder=None)
     app.config.from_mapping(FRONTEND_DIST=ROOT / 'frontend' / 'dist',
                             REFERENCE_FILE=ROOT / 'data/reference/phase0.json',
-                            DATABASE_FILE=ROOT / 'data/poe2guild.sqlite', DATA_DIRECTORY=ROOT / 'data')
+                            DATABASE_FILE=Path(os.environ.get('POE2GUILD_DATABASE', ROOT / 'data/poe2guild.sqlite')),
+                            DATA_DIRECTORY=ROOT / 'data', HISTORY_AVAILABLE=False,
+                            HISTORY_SCOPE=('ggg', os.environ.get('POE2GUILD_GUILD_REFERENCE', 'unconfigured'), 'guild_history'))
     if config:
         app.config.update(config)
     app.register_blueprint(browser)
+    app.register_blueprint(refresh)
 
     @app.get('/health')
     def health():

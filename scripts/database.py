@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 1 database maintenance. No database mutations are exposed over HTTP."""
+"""Database maintenance. Only this CLI migrates/imports; phase 3 HTTP writes jobs."""
 import argparse
 import json
 from pathlib import Path
