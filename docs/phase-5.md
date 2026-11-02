@@ -331,3 +331,47 @@ próbkowanie dopiero po sumowaniu i uwzględnienie 101. grupy. W przeglądarce
 potwierdzono linię przerywaną, osobną legendę, niezależne ukrywanie serii,
 reload i brak powielonej sumy w podsumowaniu. Publiczny nginx: potwierdzono
 kolorowe I-beamy pod przywróconym zaznaczeniem, sumę, zoom i mobile bez błędów JS.
+
+### Linie, tooltip stanu i nowe sterowanie
+
+Wykresy rysują wyłącznie linie: usunięto symbole punktów i znaczniki ekstremów.
+Tooltip jest niezależny od punktów próbkowanych. Używa czasu kursora i odczytu
+quantity-series z parametrem at (UTC ms), uwzględniając wszystkie pasujące ruchy
+do końca wskazanej milisekundy. Stan między zmianami jest stały, a operacje z
+identycznym czasem dają jeden końcowy stan. Każda seria i suma mają jeden wpis.
+Odczyt respektuje filtry poza datami, rewizję i projekcję; nie używa próbkowania.
+Zapytania kursora są opóźnione o 90 ms i mają ochronę przed spóźnioną odpowiedzią.
+
+Usunięto zoom i pan z głównego wykresu oraz przyciski zoom/reset. Czas i wartości
+zmienia się uchwytami/zaznaczeniem właściwej miniatury. Dwuklik miniatury czasu
+resetuje tylko czas i daty filtrów; dwuklik wartości resetuje tylko oś Y.
+Refresh chart pozostaje ponownym odczytem bieżących szczegółów. Podczas pierwszego
+gestu po ręcznych datach zachowujemy komponenty miniatur, aby nie przerwać gestu.
+
+Wybór All (API all_items=1, URL chart_item=__all__) sumuje ilości wszystkich typów
+przedmiotów pasujących do filtrów. To suma jednostek, bez przeliczenia cenowego.
+Przełącznik trybu wartości ukrywa wybór przedmiotu, wybiera All i pokazuje pusty
+wykres z informacją o przyszłej wycenie. Nie pobiera wykresu ilościowego jako
+zastępczej wyceny. Przełącznik cen historycznych/aktualnych jest zablokowany,
+wybrane są historyczne. Powrót do ilości przywraca poprzedni przedmiot.
+Domyślny tryb jest ilościowy; w fazie 6 zostanie zmieniony na wartościowy.
+
+Kliknięcie kolorowego koła w legendzie otwiera popup pickera. Kolor aktualizuje
+linię, obie miniatury i tooltip. Jest zapisany lokalnie pod kluczem
+poe2guild.chart-colors.v1; nie zmienia konfiguracji serwera ani innych klientów.
+Pozostałe ustawienia zostaną przeniesione do klienta w oddzielnej fazie 5a.
+Fazy 5a/5b/5c są opisane w implementation-plan.md i nie zostały rozpoczęte.
+
+Walidacja tej zmiany: 141 testów backendu, 76 przeglądarkowych oraz 16 tłumaczeń
+przeszły; build TypeScript/Vite poprawny. Po korekcie zwartego układu legendy
+przeszły też 4 testy jej wyglądu, pickera, trybów i tooltipa. Test regresji
+najpierw odtworzył dwa wpisy Combined balance dla tego samego czasu. Nowe testy
+obejmują jeden końcowy stan na serię, stan między snapshotami, All i filtry,
+sterowanie wyłącznie miniaturami, reset osi, powrót z trybu wartościowego,
+zablokowane ceny oraz zachowanie wybranego koloru po reloadzie.
+
+Publiczny nginx: wartość tooltipa po filtrze gracza zgadza się z dokładnym
+odczytem API dla czasu kursora, suma nie jest zdublowana. Sprawdzono miniatury,
+All, placeholder wyceny, popup koloru i mobile. Brak błędów JavaScript.
+Hash wszystkich surowych transakcji oraz konfiguracje lig/gildii są identyczne
+przed i po weryfikacji. Faza 5 kończy się ponownie odbiorem manualnym.

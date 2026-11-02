@@ -1,6 +1,6 @@
 """Cumulative movement balances with viewport-aware, extrema-preserving sampling."""
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import math
 import re
@@ -89,7 +89,7 @@ def event_order(row):
 
 
 def read_series(league_id):
-    if set(request.args) - FILTER_ARGUMENTS - {'revision', 'projection_id', 'series_item', 'max_points', 'view', 'window_start', 'window_end'}:
+    if set(request.args) - FILTER_ARGUMENTS - {'revision', 'projection_id', 'series_item', 'max_points', 'view', 'window_start', 'window_end', 'all_items', 'at'}:
         raise ReadError('unknown_parameter')
     limit = number_argument('max_points', 240, 24, 600)
     view = one_argument('view','summary')
@@ -98,6 +98,10 @@ def read_series(league_id):
     lower, upper = viewport_argument('window_start'), viewport_argument('window_end')
     if (lower is None) != (upper is None) or (lower is not None and lower >= upper):
         raise ReadError('invalid_viewport')
+    at=viewport_argument('at')
+    all_items=one_argument('all_items','0')
+    if all_items not in {'0','1'}:raise ReadError('invalid_all_items')
+    all_items=all_items=='1'
     filters = TextFilters()
     stashes, item = stash_arguments(), one_argument('series_item')
     with connect(current_app.config['DATABASE_FILE'], readonly=True) as c:
@@ -126,16 +130,26 @@ def read_series(league_id):
         common=(' FROM quantity_movements m JOIN event_quantities q ON q.run_id=m.run_id AND q.transaction_id=m.transaction_id '
                 'JOIN transactions t ON t.id=m.transaction_id WHERE '+' AND '.join(conditions))
         catalog=[row[0] for row in c.execute('SELECT m.item_name'+common+' GROUP BY m.item_name ORDER BY SUM(ABS(m.quantity_delta)) DESC,m.item_name LIMIT 50',args)]
-        item=item or (catalog[0] if catalog else None);base.update(items=catalog,item=item)
-        if not item:return jsonify(base)
+        item=None if all_items else item or (catalog[0] if catalog else None);base.update(items=catalog,item=item,all_items=all_items)
+        item_sql,item_args=('',[]) if all_items else (' AND m.item_name=?',[item])
+        if at is not None:
+            try:cutoff=(datetime(1970,1,1,tzinfo=timezone.utc)+timedelta(milliseconds=at+1)).isoformat(timespec='microseconds').replace('+00:00','Z')
+            except (OverflowError,ValueError):raise ReadError('invalid_viewport')
+            column='t.account' if view=='players' else 'q.stash' if view=='stashes' else "'summary'"
+            cursor_rows=c.execute('SELECT '+column+' AS name,SUM(CASE WHEN t.occurred_at<? THEN m.quantity_delta ELSE 0 END) AS balance'+common+item_sql+' GROUP BY '+column+' ORDER BY SUM(ABS(m.quantity_delta)) DESC,name',[cutoff,*args,*item_args]).fetchall()
+            total=sum(row['balance'] for row in cursor_rows)
+            balances=[dict(id=hashlib.sha256((view+'\0'+row['name']).encode()).hexdigest()[:16],name=row['name'],balance=row['balance']) for row in cursor_rows[:100]]
+            if view!='summary':balances.append(dict(id='combined',name='Combined balance',balance=total))
+            return jsonify(league_id=league_id,projection=meta,timezone=settings['timezone'],timestamp=at,balances=balances)
+        if not item and not all_items:return jsonify(base)
         event_conditions=[value.replace('m.run_id','q.run_id').replace('m.item_name','q.item_name') for value in conditions]
         extra,extra_args='',[]
         if start:extra+=' AND t.occurred_at>=?';extra_args.append(start)
         if end:extra+=' AND t.occurred_at<?';extra_args.append(end)
         unknown_sql=('SELECT COUNT(*) FROM event_quantities q JOIN transactions t ON t.id=q.transaction_id WHERE '+' AND '.join(event_conditions)+
-                     " AND q.item_name=? AND (q.effective_action='unknown' OR q.resolution_reason='invalid_quantity')"+extra)
-        base['unresolved_events']=c.execute(unknown_sql,[*args,item,*extra_args]).fetchone()[0]
-        rows=[dict(row) for row in c.execute('SELECT t.id,t.external_id,t.occurred_at,t.account,q.stash,m.sequence,m.quantity_delta,m.confidence'+common+' AND m.item_name=?',[*args,item])]
+                     (" AND q.item_name=?" if not all_items else "")+" AND (q.effective_action='unknown' OR q.resolution_reason='invalid_quantity')"+extra)
+        base['unresolved_events']=c.execute(unknown_sql,[*args,*([] if all_items else [item]),*extra_args]).fetchone()[0]
+        rows=[dict(row) for row in c.execute('SELECT t.id,t.external_id,t.occurred_at,t.account,q.stash,m.sequence,m.quantity_delta,m.confidence'+common+item_sql,[*args,*item_args])]
         if not rows:return jsonify(base)
         rows.sort(key=event_order)
         for row in rows:row['timestamp']=stamp(row['occurred_at'])

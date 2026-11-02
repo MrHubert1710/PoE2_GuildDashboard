@@ -158,6 +158,41 @@ class SeriesTests(unittest.TestCase):
         self.assertEqual(data['total_series']['closing_balance'],101)
         self.assertEqual(data['navigator']['total_series']['closing_balance'],101)
 
+    def test_all_items_sums_quantities_and_still_respects_text_and_stash_filters(self):
+        self.insert(event(30,'added',7,'Other',x=7,stash='Special'),'A');self.build()
+        data=self.series(all_items='1')
+        self.assertTrue(data['all_items']);self.assertIsNone(data['item'])
+        self.assertEqual(data['series'][0]['closing_balance'],27)
+        self.assertEqual(self.series(all_items='1',stash='Special')['series'][0]['closing_balance'],7)
+        self.assertEqual(self.series(all_items='1',item='Token')['series'][0]['closing_balance'],15)
+        grouped=self.series(all_items='1',view='players')
+        self.assertEqual(grouped['total_series']['closing_balance'],27)
+
+    def test_cursor_state_is_exact_between_changes_and_has_one_row_per_series(self):
+        self.build()
+        before=self.series(series_item='Token',view='players',at=0)
+        self.assertTrue(all(row['balance']==0 for row in before['balances']))
+        # No snapshot at noon on day one: the previously established balance persists.
+        middle=self.series(series_item='Token',view='players',at=1767268800123)
+        self.assertEqual(middle['timestamp'],1767268800123)
+        self.assertEqual(next(row['balance'] for row in middle['balances'] if row['id']=='combined'),20)
+        self.assertEqual(len({row['id'] for row in middle['balances']}),len(middle['balances']))
+        later=self.series(series_item='Token',view='players',at=1767441600000)
+        self.assertEqual(next(row['balance'] for row in later['balances'] if row['id']=='combined'),15)
+        filtered=self.series(series_item='Token',view='players',account='Buyer',at=1767441600000)
+        self.assertEqual([row['balance'] for row in filtered['balances']],[-5,-5])
+
+    def test_cursor_uses_final_operation_at_a_shared_millisecond_and_all_item_mode(self):
+        for index,action in ((30,'added'),(31,'removed')):
+            self.insert(event(index,action,10,'Flash',x=5,occurred_at='2026-01-02T02:00:00.000000Z'),'A')
+        self.build()
+        state=self.series(series_item='Flash',view='players',at=1767319200000)
+        self.assertTrue(all(row['balance']==0 for row in state['balances']))
+        all_state=self.series(all_items='1',at=1767319200123)
+        self.assertEqual(all_state['balances'][0]['balance'],20)
+        for query in ('all_items=wrong','at=NaN','at=8640000000000000'):
+            self.assertEqual(self.client.get('/api/leagues/A/quantity-series?'+query).status_code,400)
+
     def test_extrema_sampler_keeps_order_and_limit(self):
         points=[dict(timestamp=i,balance=(50 if i==123 else -30 if i==234 else i%10)) for i in range(1000)]
         result,resolution=sample_extrema(points,24)

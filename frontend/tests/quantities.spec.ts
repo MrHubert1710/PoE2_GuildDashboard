@@ -1,4 +1,4 @@
-import { gotoHistory, goSection } from './workspace-helpers'
+import { gotoHistory, goSection, zoomTime } from './workspace-helpers'
 import { test, expect } from '@playwright/test'
 import type { APIRequestContext } from '@playwright/test'
 
@@ -244,7 +244,7 @@ test('league timezone applies to date filters, chart range and diagnostics label
     await goSection(page,'Summary')
     const chart=page.getByTestId('quantity-chart')
     await expect(chart.getByRole('img')).toBeVisible()
-    await chart.getByRole('button',{name:'Zoom in',exact:true}).click()
+    await zoomTime(page)
     await expect(page.getByLabel('From day (UTC+13:00)',{exact:true})).toHaveValue('2026-01-02')
     await expect(page.getByLabel('To day (UTC+13:00)',{exact:true})).toHaveValue('2026-01-02')
     await page.getByRole('link',{name:'Diagnostics',exact:true}).click()

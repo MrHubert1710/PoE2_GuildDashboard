@@ -329,7 +329,7 @@ usunięcie katalogu wymaga osobnego polecenia użytkownika.
 
 ## Zależności i następny zakres pracy
 
-Główna ścieżka: 0 → 1 → 2 → 2a → 3 → 4 → 4b → 5 → 6 → 8.
+Główna ścieżka: 0 → 1 → 2 → 2a → 3 → 4 → 4b → 5 → 5a → 5b → 5c → 6 → 8.
 Etap 3 dostarcza mechanizm aktualizacji używany następnie przez 4, 6 i 7.
 Rozpoznanie dostępu z etapu 0 trwa niezależnie od portowania archiwów.
 Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
@@ -337,6 +337,72 @@ Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
 Faza 5 (interaktywne wykresy) oczekuje odbioru. Po jej akceptacji i osobnym
-poleceniu następuje faza 6: katalog kategorii, snapshoty cen i wycena.
+poleceniu następuje faza 5a: lokalne ustawienia klienta. Nowe fazy 5b i 5c
+poprzedzają fazę 6: katalog kategorii, snapshoty cen i wycena.
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.
+
+## Aktualizacja zakresu po testach wykresów — 2026-11-02
+
+W bieżącej fazie 5: linie bez punktów, dokładny tooltip stanu w dowolnym czasie,
+wybór All (suma ilości wszystkich typów), zoom wyłącznie miniaturami i reset
+odpowiedniej osi dwuklikiem. Refresh chart pozostaje ręcznym ponowieniem odczytu.
+Przełącznik ilość/wartość: domyślnie ilość, tryb wartościowy ukrywa wybór
+przedmiotu i wybiera All. Do fazy 6 pokazuje pusty wykres. Przełącznik cen
+historyczne/aktualne jest w nim zablokowany, z wybraną opcją historyczną.
+Faza 6 uruchomi wycenę i zmieni domyślny tryb na wartościowy. Kliknięcie koloru
+w legendzie otwiera picker, a kolory są zapisywane po stronie klienta.
+
+### Etap 5a — ustawienia i filtry klienta (do realizacji)
+
+- Przenieść preferencje prezentacji (język, strefa czasu, 12/24 h, kolory,
+  domyślne widoki i filtry) do wersjonowanego magazynu przeglądarki.
+- Każdy klient ma własną konfigurację; zmiana preferencji nie modyfikuje ligi,
+  gildii, projekcji ani ustawień innych użytkowników.
+- URL pozostaje przenośnym, jawnym opisem widoku i ma określony priorytet wobec
+  zapisanych domyślnych filtrów. Migracja zachowuje istniejące kolory klienta.
+- Aliasów i ignorowanych zakładek nie przenosić do ustawień klienta: są
+  konfiguracją źródła na serwerze, z docelowym zarządzaniem administracyjnym.
+
+Odbiór: dwie przeglądarki mogą mieć różne ustawienia i filtry bez wzajemnego
+wpływu; działają reload, współdzielony URL i brak dostępu do localStorage.
+
+### Etap 5b — administracja i logowanie (do realizacji)
+
+- Widoczny status Player / Admin; kliknięcie otwiera popup logowania lub
+  wylogowania. Konto administracyjne i sesja są weryfikowane na backendzie.
+- Diagnostyka oraz konfiguracja serwera wymagają zalogowania. Bez logowania
+  ukryć wybór Workspace / Diagnostics, a endpointy administracyjne chronić
+  niezależnie od widoczności interfejsu.
+- Przenieść serwerowe aliasy i ignorowane zakładki do panelu administratora.
+  Publiczne widoki nadal respektują te wyłączenia.
+- Rozważyć konfigurację GUILD_ID i SESSION_ID albo oficjalnych odpowiedników
+  GGG: sekrety przechowywać po stronie serwera, nie zwracać ich w odczytach
+  publicznych ani ujawniać w logach. Powiązać z oficjalnym OAuth w etapie 7B.
+- Ustalić sposób pierwszego utworzenia administratora, hasła/sesje, CSRF,
+  limity prób i wygasanie sesji. Nie utożsamiać logowania Admin z autoryzacją GGG.
+
+Odbiór: gracz nie może odczytać diagnostyki ani zmieniać konfiguracji także
+bezpośrednio przez API; administrator może zalogować się, skonfigurować źródło
+oraz wylogować. Sekrety nie trafiają do odpowiedzi ani frontendu.
+
+### Etap 5c — symulacja Stash state (do realizacji po ustaleniu designu)
+
+**Przed rozpoczęciem zapytać użytkownika o design i poczekać na doprecyzowanie.**
+Nie budować wizualnej symulacji na podstawie domyślnych założeń.
+
+- Zastąpić tabelę odwzorowaniem skrytek z przedmiotami i tooltipem zawierającym
+  ostatnie zdarzenie dla danego przedmiotu/slotu.
+- Suwak czasu rekonstruuje stan skrytek w wybranym momencie, z osobną historią
+  każdej ligi. Removed opróżnia slot, a brak operacji zachowuje wcześniejszy stan.
+- Filtry strony nie wpływają na ten widok i mogą być w nim ukryte. Serwerowa
+  lista ignorowanych zakładek pozostaje wiążąca i nie może być obchodzona.
+- Rozważyć snapshoty stanów i odtwarzanie przyrostowe dla płynnego suwaka,
+  z testami spójności względem pełnego replay i kolejności równoczesnych operacji.
+
+Odbiór: uzgodniony design, zgodność układu i stanów z replay, ostatnie zdarzenia
+w tooltipach, płynna zmiana czasu i izolacja lig oraz ukrytych skrytek.
+
+Proponowana kolejność po odbiorze fazy 5: 5a → 5b → 5c → 6 → 7 / 8.
+Każdy etap wymaga osobnego polecenia rozpoczęcia i kończy się zatrzymaniem do
+odbioru. Powyższe dopisanie planu nie oznacza rozpoczęcia faz 5a–5c ani wyceny.

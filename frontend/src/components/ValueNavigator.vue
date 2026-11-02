@@ -6,7 +6,7 @@ import type {ChartWindow} from '../chart-window'
 import {clampValueRange} from '../chart-window'
 import {t,number} from '../i18n'
 const props=defineProps<{series:BalanceSeries[];enabled:string[];bounds:ChartWindow;window:ChartWindow}>()
-const emit=defineEmits<{zoom:[window:ChartWindow]}>()
+const emit=defineEmits<{zoom:[window:ChartWindow];reset:[]}>()
 const root=ref<SVGSVGElement|null>(null)
 const height=300,width=34,padding=8
 const trackHeight=height-2*padding
@@ -43,7 +43,7 @@ function key(event:KeyboardEvent,kind:'move'|'min'|'max'){
 }
 </script>
 <template><div class="value-navigator" data-testid="value-navigator" :data-domain-min="bounds.start" :data-domain-max="bounds.end" :data-value-min="window.start" :data-value-max="window.end">
-  <svg ref="root" role="group" :aria-label="t('chart.valueNavigator')" :viewBox="`0 0 ${width} ${height}`" preserveAspectRatio="none" @pointermove="move" @pointerup="up" @pointercancel="up">
+  <svg ref="root" role="group" :aria-label="t('chart.valueNavigator')" :viewBox="`0 0 ${width} ${height}`" preserveAspectRatio="none" @dblclick.prevent.stop="emit('reset')" @pointermove="move" @pointerup="up" @pointercancel="up">
     <rect :width="width" :height="height" class="navigator-background" />
     <template v-for="range in ranges" :key="range.id"><path v-if="enabled.includes(range.id)" :d="range.path" :stroke="range.color" :stroke-dasharray="range.aggregate?'4 3':undefined" class="value-series-beam" vector-effect="non-scaling-stroke" aria-hidden="true" data-testid="value-series-beam" :data-series-id="range.id" :data-series-name="range.name" :data-min="range.min" :data-max="range.max" /></template>
     <rect :width="width" :height="top" class="navigator-mask" />

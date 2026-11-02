@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test'
 import type {Locator} from '@playwright/test'
-import {goSection} from './workspace-helpers'
+import {goSection,zoomTime,zoomValues,resetTime,resetValues} from './workspace-helpers'
 test.use({locale:'en-US'})
 const path='/poe2guild/?lang=en'
 const chart=(page:import('@playwright/test').Page)=>page.getByTestId('quantity-chart')
@@ -39,7 +39,7 @@ test('balance chart is compact and group series differ between Players and Stash
   await page.screenshot({path:'test-results/phase-5-compact-desktop.png',fullPage:false})
 })
 
-test('wheel zoom requests a finer viewport, tooltip works and refresh preserves grouped selection',async({page})=>{
+test('miniature zoom requests a finer viewport, tooltip works and refresh preserves grouped selection',async({page})=>{
   let requested=''
   page.on('request',request=>{if(request.url().includes('/quantity-series?'))requested=request.url()})
   await page.goto(path+'&section=players')
@@ -48,8 +48,8 @@ test('wheel zoom requests a finer viewport, tooltip works and refresh preserves 
   await chart(page).getByRole('checkbox',{name:'Synthetic Alice',exact:true}).uncheck()
   const box=(await graph.boundingBox())!
   await page.mouse.move(box.x+box.width*.6,box.y+box.height*.4)
-  await expect(graph.locator('svg')).toContainText('Żółw')
-  await page.mouse.wheel(0,-350)
+  await expect(page.getByRole('tooltip')).toContainText('Żółw')
+  await zoomTime(page)
   await expect(page).toHaveURL(/chart_from=/)
   await expect.poll(()=>requested).toContain('window_start=')
   const from=new URL(page.url()).searchParams.get('chart_from')
@@ -57,7 +57,7 @@ test('wheel zoom requests a finer viewport, tooltip works and refresh preserves 
   await expect(graph).toBeVisible()
   expect(new URL(page.url()).searchParams.get('chart_from')).toBe(from)
   await expect(chart(page).getByRole('checkbox',{name:'Synthetic Alice',exact:true})).not.toBeChecked()
-  await chart(page).getByRole('button',{name:'Reset view',exact:true}).click()
+  await resetTime(page)
   await expect(page).not.toHaveURL(/chart_from=/)
 })
 
@@ -83,7 +83,7 @@ test('chart, table and information collapse independently and survive reload',as
 test('zoom range applies local calendar dates and league changes reset chart context',async({page})=>{
   await page.goto(path)
   await expect(chart(page).getByRole('img')).toBeVisible()
-  await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+  await zoomTime(page)
   await expect(page.getByLabel('From day (UTC)')).not.toHaveValue('')
   await goSection(page,'History')
   await expect(page.locator('.result-count')).toBeVisible()
@@ -123,9 +123,9 @@ test('a late coarse viewport response cannot replace newer zoom details',async({
   try{
     await page.goto(path)
     await expect(chart(page).getByRole('img')).toBeVisible()
-    await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+    await zoomTime(page)
     await expect.poll(()=>held).toBe(true)
-    await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+    await zoomTime(page)
     const from=Number(new URL(page.url()).searchParams.get('chart_from'))
     await chart(page).locator('.chart-info > summary').click()
     await chart(page).getByText('Show chart data',{exact:true}).click()
@@ -140,7 +140,7 @@ test('navigator centers the local overview and synchronizes selected days at bot
   await page.goto(path)
   const graph=page.getByTestId('time-series-chart'),navigator=page.getByTestId('series-navigator')
   await expect(graph).toBeVisible()
-  for(let index=0;index<3;index++)await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+  for(let index=0;index<3;index++)await zoomTime(page)
   const fullEnd=Number(await navigator.getAttribute('data-domain-end'))
   const width=Number(await navigator.getAttribute('data-window-end'))-Number(await navigator.getAttribute('data-window-start'))
   const response=page.waitForResponse(r=>r.url().includes('/quantity-series?')&&r.url().includes('window_start='+String(fullEnd-width)))
@@ -157,23 +157,24 @@ test('navigator centers the local overview and synchronizes selected days at bot
   await expect(page.getByLabel('From day (UTC)',{exact:true})).toHaveValue('2026-01-01')
   await expect(page.getByLabel('To day (UTC)',{exact:true})).toHaveValue('2026-01-01')
   await expectCentered(navigator)
-  await chart(page).getByRole('button',{name:'Reset view',exact:true}).click()
+  await resetTime(page)
   await expect(page.getByLabel('From day (UTC)',{exact:true})).toHaveValue('')
   await expect(page.getByLabel('To day (UTC)',{exact:true})).toHaveValue('')
 })
 
-test('repeated main-chart pans load detail beyond the original central window and keep navigator aligned',async({page})=>{
+test('repeated miniature pans load detail beyond the original central window and keep navigator aligned',async({page})=>{
   await page.goto(path)
   const graph=page.getByTestId('time-series-chart'),navigator=page.getByTestId('series-navigator')
   await expect(graph).toBeVisible()
-  for(let index=0;index<3;index++)await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+  for(let index=0;index<3;index++)await zoomTime(page)
   const fullEnd=Number(await navigator.getAttribute('data-domain-end'))
   const width=Number(await navigator.getAttribute('data-window-end'))-Number(await navigator.getAttribute('data-window-start'))
   const response=page.waitForResponse(r=>r.url().includes('/quantity-series?')&&r.url().includes('window_start='+String(fullEnd-width)))
-  const box=(await graph.boundingBox())!
+  const box=(await navigator.locator('svg').boundingBox())!
   for(let index=0;index<9;index++){
-    await page.mouse.move(box.x+box.width*.8,box.y+box.height*.4)
-    await page.mouse.down();await page.mouse.move(box.x+box.width*.2,box.y+box.height*.4,{steps:3});await page.mouse.up()
+    await expectCentered(navigator)
+    await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5)
+    await page.mouse.down();await page.mouse.move(box.x+box.width*.8,box.y+box.height*.5,{steps:3});await page.mouse.up()
   }
   const data=await(await response).json()
   expect(data.series[0].event_count).toBe(30)
@@ -189,7 +190,7 @@ test('linked dates and manual dates select time without restricting either navig
   const graph=page.getByTestId('time-series-chart'),navigator=page.getByTestId('series-navigator')
   await expect(graph).toBeVisible()
   const start=await navigator.getAttribute('data-domain-start'),end=await navigator.getAttribute('data-domain-end')
-  for(let i=0;i<3;i++)await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+  for(let i=0;i<3;i++)await zoomTime(page)
   await page.getByRole('slider',{name:'Chart overview range',exact:true}).press('End')
   await expect(page.getByLabel('From day (UTC)',{exact:true})).toHaveValue('2026-01-02')
   await page.reload();await expect(graph).toBeVisible()
@@ -227,7 +228,7 @@ test('vertical value navigator zooms and pans independently of time and survives
   }
   const timeStart=await graph.getAttribute('data-window-start'),timeEnd=await graph.getAttribute('data-window-end')
   const before=requests,initialMin=Number(await graph.getAttribute('data-value-min')),initialMax=Number(await graph.getAttribute('data-value-max'))
-  await chart(page).getByRole('button',{name:'Zoom values',exact:true}).click()
+  await zoomValues(page)
   await expect(page).toHaveURL(/chart_ymin=/)
   const yMin=await graph.getAttribute('data-value-min'),yMax=await graph.getAttribute('data-value-max')
   expect(Number(yMax)-Number(yMin)).toBeLessThan(initialMax-initialMin)
@@ -238,8 +239,8 @@ test('vertical value navigator zooms and pans independently of time and survives
   expect(requests).toBe(before)
   const handle=(await page.getByRole('slider',{name:'Minimum chart value',exact:true}).boundingBox())!
   await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);await page.mouse.down()
-  await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2+12,{steps:4});await page.mouse.up()
-  expect(Number(await graph.getAttribute('data-value-min'))).toBeLessThan(Number(yMin))
+  await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2-12,{steps:4});await page.mouse.up()
+  expect(Number(await graph.getAttribute('data-value-min'))).toBeGreaterThan(Number(yMin))
   expect(await graph.getAttribute('data-value-max')).toBe(yMax)
   await page.getByRole('slider',{name:'Chart value range',exact:true}).press('Home')
   expect(Number(await graph.getAttribute('data-value-min'))).toBeGreaterThan(Number(yMin))
@@ -248,7 +249,7 @@ test('vertical value navigator zooms and pans independently of time and survives
   expect(await graph.getAttribute('data-value-min')).toBe(moved)
   await page.reload();await expect(graph).toBeVisible()
   expect(await graph.getAttribute('data-value-min')).toBe(moved)
-  await chart(page).getByRole('button',{name:'Reset values',exact:true}).click()
+  await resetValues(page)
   await expect(page).not.toHaveURL(/chart_ymin=|chart_ymax=/)
   await page.setViewportSize({width:390,height:844})
   await expect(values).toBeVisible()
@@ -268,7 +269,7 @@ test('time navigator freezes context while dragging and animates back to the cen
   await page.goto(path)
   const navigator=page.getByTestId('series-navigator'),graph=page.getByTestId('time-series-chart')
   await expect(graph).toBeVisible()
-  for(let i=0;i<3;i++)await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+  for(let i=0;i<3;i++)await zoomTime(page)
   await expectCentered(navigator)
   const selection=navigator.getByTestId('navigator-window'),box=(await navigator.locator('svg').boundingBox())!
   const domain=await navigator.getAttribute('data-display-start')
@@ -359,4 +360,96 @@ test('combined balance is dashed, independently toggleable and consistent across
   await goSection(page,'Summary')
   await expect(legend.getByRole('checkbox')).toHaveCount(1)
   await expect(graph.locator('path[stroke-dasharray]')).not.toHaveCount(0)
+})
+
+test('player filter tooltip shows one row per series for operations sharing a timestamp',async({page})=>{
+  await page.route('**/quantity-series?*',async route=>{
+    const response=await route.fetch(),data=await response.json()
+    if(new URL(route.request().url()).searchParams.has('at')){for(const row of data.balances??[])row.balance=29}
+    if(new URL(route.request().url()).searchParams.has('account')&&data.total_series&&data.window){
+      const {start,end}=data.window,middle=Math.floor((start+end)/2)
+      for(const series of [...data.series,data.total_series]){
+        series.points=[{timestamp:start,balance:0},{timestamp:middle,balance:11},{timestamp:middle,balance:29},{timestamp:end,balance:29}]
+        series.overview=series.points
+      }
+    }
+    await route.fulfill({response,json:data})
+  })
+  await page.goto(path+'&section=players')
+  const graph=page.getByTestId('time-series-chart'),legend=page.getByTestId('chart-legend')
+  await expect(graph).toBeVisible()
+  await page.getByLabel('Player',{exact:true}).fill('Synthetic Alice')
+  await page.getByRole('button',{name:'Apply filters',exact:true}).click()
+  await expect(legend.getByRole('checkbox')).toHaveCount(2)
+  const box=(await graph.boundingBox())!
+  await page.mouse.move(box.x+65+(box.width-85)*.5,box.y+box.height*.4)
+  await expect(page.getByRole('tooltip').locator('.chart-tooltip-row span').filter({hasText:/^Combined balance$/})).toHaveCount(1)
+  await expect(page.getByRole('tooltip').locator('.chart-tooltip-row span').filter({hasText:/^Synthetic Alice$/})).toHaveCount(1)
+  await expect(page.getByRole('tooltip').locator('strong').filter({hasText:/^29$/})).toHaveCount(2)
+})
+
+test('All sums quantities, value mode stays empty and historical pricing is locked',async({page})=>{
+  await page.goto(path+'&section=players')
+  const graph=page.getByTestId('time-series-chart')
+  await expect(graph).toBeVisible()
+  await expect(chart(page).getByRole('button',{name:/^(Zoom in|Zoom values|Reset view|Reset values)$/})).toHaveCount(0)
+  await chart(page).getByLabel('Chart item',{exact:true}).selectOption('__all__')
+  await expect(page).toHaveURL(/chart_item=__all__/)
+  await expect(graph).toBeVisible()
+  const league=new URL(page.url()).searchParams.get('league')
+  const data=await(await page.request.get(`/poe2guild/api/leagues/${league}/quantity-series?view=players&all_items=1`)).json()
+  expect(data.all_items).toBe(true)
+  expect(data.total_series.closing_balance).toBeGreaterThan(63)
+  let quantityRequests=0
+  page.on('request',request=>{if(request.url().includes('/quantity-series?'))quantityRequests++})
+  await page.getByRole('switch',{name:'Value mode',exact:true}).check()
+  await expect(page.getByTestId('valuation-chart')).toBeVisible()
+  await expect(page.getByLabel('Chart item',{exact:true})).toHaveCount(0)
+  await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toBeDisabled()
+  await expect(page.getByRole('switch',{name:'Current prices',exact:true})).not.toBeChecked()
+  await expect(graph).toHaveCount(0)
+  await page.waitForTimeout(300)
+  expect(quantityRequests).toBe(0)
+  await page.reload();await expect(page.getByTestId('valuation-chart')).toBeVisible()
+  await page.getByRole('switch',{name:'Value mode',exact:true}).uncheck()
+  await expect(graph).toBeVisible()
+  await expect(page.getByLabel('Chart item',{exact:true})).toHaveValue('__all__')
+})
+
+test('legend color popup changes line and range beam, persists locally and does not toggle the series',async({page})=>{
+  await page.goto(path+'&section=players')
+  const graph=page.getByTestId('time-series-chart'),legend=page.getByTestId('chart-legend')
+  await expect(graph).toBeVisible()
+  const checkbox=legend.getByRole('checkbox',{name:'Synthetic Alice',exact:true})
+  await legend.getByRole('button',{name:'Color: Synthetic Alice',exact:true}).click()
+  const popup=page.getByRole('dialog',{name:'Color: Synthetic Alice',exact:true})
+  await expect(popup).toBeVisible()
+  await popup.getByLabel('Series color',{exact:true}).fill('#ff2244')
+  await popup.getByRole('button',{name:'Close',exact:true}).click()
+  await expect(checkbox).toBeChecked()
+  await expect(graph.locator('path[stroke="#ff2244"]')).not.toHaveCount(0)
+  await expect(page.getByTestId('value-navigator').locator('[data-series-name="Synthetic Alice"]')).toHaveAttribute('stroke','#ff2244')
+  await page.reload();await expect(graph).toBeVisible()
+  await expect(graph.locator('path[stroke="#ff2244"]')).not.toHaveCount(0)
+  await expect(checkbox).toBeChecked()
+})
+
+test('tooltip uses pointer time between snapshots, keeps state and main wheel does not zoom',async({page})=>{
+  await page.goto(path+'&section=players')
+  const graph=page.getByTestId('time-series-chart')
+  await expect(graph).toBeVisible()
+  const box=(await graph.boundingBox())!
+  const start=Number(await graph.getAttribute('data-window-start')),end=Number(await graph.getAttribute('data-window-end'))
+  for(const ratio of [.2,.3]){
+    await page.mouse.move(box.x+65+(box.width-85)*ratio,box.y+box.height*.4)
+    const tooltip=page.getByRole('tooltip')
+    await expect(tooltip.locator('.chart-tooltip-row')).toHaveCount(3)
+    const timestamp=Number(await tooltip.getAttribute('data-state-at'))
+    expect(Math.abs(timestamp-(start+(end-start)*ratio))).toBeLessThan((end-start)*.002)
+    expect(await tooltip.locator('[data-series-id="combined"] strong').textContent()).toBe('33')
+  }
+  await page.mouse.wheel(0,-300)
+  expect(await graph.getAttribute('data-window-start')).toBe(String(start))
+  expect(await graph.getAttribute('data-window-end')).toBe(String(end))
+  await expect(graph.locator('svg circle')).toHaveCount(0)
 })

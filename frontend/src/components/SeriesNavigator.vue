@@ -6,7 +6,7 @@ import {clampWindow,navigatorDomain} from '../chart-window'
 import type {ChartWindow} from '../chart-window'
 import {t,date} from '../i18n'
 const props=defineProps<{series:BalanceSeries[];bounds:ChartWindow;window:ChartWindow;enabled:string[]}>()
-const emit=defineEmits<{zoom:[window:ChartWindow];commit:[window:ChartWindow]}>()
+const emit=defineEmits<{zoom:[window:ChartWindow];commit:[window:ChartWindow];reset:[]}>()
 const root=ref<SVGSVGElement|null>(null)
 const width=1000,height=34
 const domain=ref(navigatorDomain(props.window))
@@ -71,7 +71,7 @@ function key(event:KeyboardEvent,kind:'move'|'start'|'end'){
 }
 </script>
 <template><div class="series-navigator" data-testid="series-navigator" :data-display-start="domain.start" :data-display-end="domain.end" :data-domain-start="bounds.start" :data-domain-end="bounds.end" :data-window-start="window.start" :data-window-end="window.end">
-  <svg role="group" :aria-label="t('chart.navigator')" ref="root" :viewBox="`0 0 ${width} ${height}`" preserveAspectRatio="none" @pointermove="move" @pointerup="up" @pointercancel="up">
+  <svg role="group" :aria-label="t('chart.navigator')" ref="root" :viewBox="`0 0 ${width} ${height}`" preserveAspectRatio="none" @dblclick.prevent.stop="emit('reset')" @pointermove="move" @pointerup="up" @pointercancel="up">
     <rect :width="width" :height="height" class="navigator-background" />
     <path v-for="(series,index) in series" :key="series.id" :d="path(series)" :stroke="balanceColor(series,index)" :stroke-dasharray="series.aggregate?'4 3':undefined" :opacity="enabled.includes(series.id)?'.65':'0'" fill="none" stroke-width="1" vector-effect="non-scaling-stroke" data-testid="navigator-series" />
     <rect x="0" :width="Math.max(0,left)" :height="height" class="navigator-mask" />
