@@ -30,11 +30,32 @@ class DatabaseTests(unittest.TestCase):
             directory.mkdir(parents=True)
             self.write_history(directory / 'history.csv', [self.row(name)])
             (directory / 'reports').mkdir()
-            (directory / 'reports/currentday.html').write_text('<html>archive</html>')
+            (directory / 'reports/price_cache').mkdir()
+            (directory / 'reports/price_cache/currency.json').write_text('{"lines":[]}')
             files = {str(path.relative_to(self.data)): sha256(path) for path in directory.rglob('*') if path.is_file()}
             self.manifest['leagues'].append({'name': name, 'directory': name, 'transactions': 1, 'files': files})
         self.save_manifest()
         migrate(self.database)
+
+    def test_data_only_migration_preserves_history_prices_and_rejects_presentation_files(self):
+        import_bundle(self.database,self.data)
+        with connect(self.database) as c:
+            before=[tuple(row) for row in c.execute('SELECT * FROM transactions ORDER BY id')]
+            files=[tuple(row) for row in c.execute('SELECT * FROM archive_files ORDER BY id')]
+            initial=(Path(__file__).resolve().parents[1]/'backend/migrations/001_initial.sql').read_text()
+            definition=initial[initial.index('CREATE TABLE archive_files'):initial.index('CREATE TABLE revisions')]
+            c.executescript('ALTER TABLE archive_files RENAME TO current_files;'+definition+
+                            'INSERT INTO archive_files SELECT * FROM current_files; DROP TABLE current_files;')
+            c.execute("INSERT INTO archive_files SELECT id+1000,source_id,league_id,archive_key||'.retired',relative_path||'.retired','report',sha256,bytes,provenance_json,import_id FROM archive_files WHERE kind='history'")
+            c.execute('DELETE FROM schema_migrations WHERE version=4')
+            c.execute('PRAGMA user_version=3')
+        migrate(self.database)
+        migrate(self.database)
+        with connect(self.database) as c:
+            self.assertEqual([tuple(row) for row in c.execute('SELECT * FROM transactions ORDER BY id')],before)
+            self.assertEqual([tuple(row) for row in c.execute('SELECT * FROM archive_files ORDER BY id')],files)
+            with self.assertRaises(sqlite3.IntegrityError):
+                c.execute("UPDATE archive_files SET kind='report' WHERE kind='history'")
 
     def row(self, league='Alpha', event_id='1', **changes):
         result = dict(zip(FIELDS, ['2026-01-01T23:30:00Z', event_id, league, 'PRIVATE_ACCOUNT',

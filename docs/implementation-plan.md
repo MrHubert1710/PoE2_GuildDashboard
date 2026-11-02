@@ -68,7 +68,7 @@ Zakres:
 - Oddzielić kompletność lokalnej historii od zakończenia ligi. Archiwalne
   nazwy nie wystarczają do odtworzenia brakujących dat czy zasad ligi.
 - Importować obie ligi z istniejących kopii lub wskazanego starego katalogu.
-  Osobno zarejestrować HTML, SVG i cache cen jako archiwa z pochodzeniem.
+  Osobno zarejestrować cache cen z pochodzeniem.
 - Polecenia inicjalizacji, migracji, importu i jawnego odtworzenia bazy.
   Odtwarzanie buduje nowy plik bazy i podmienia go dopiero po walidacji;
   nie kasuje źródeł i wymaga zatrzymania zapisujących procesów.
@@ -88,14 +88,11 @@ Zakres:
   sortowaniem i filtrami: gracz, skrytka, przedmiot, zakres dat.
 - Zapisać ligę i filtry w URL; obsłużyć odświeżenie i historię przeglądarki.
 - Wyświetlać stan pusty, brak danych, archiwum i błąd API.
-- Udostępnić konkretne archiwalne raporty przez kontrolowane identyfikatory;
-  nie wystawiać całego katalogu data. Historyczny HTML otwierać jako osobny
-  dokument, bez wstrzykiwania go jako kodu do aplikacji Vue.
 
 Odbiór: użytkownik przełącza ligi i przegląda rzeczywistą historię w nowym UI;
 URL odtwarza wybór; baza nie wymaga ładowania wszystkich rekordów do przeglądarki.
 Zmiana ligi w trakcie żądania nie pozwala starej odpowiedzi nadpisać nowego widoku.
-Możliwy podgląd starego raportu bez połączenia z dostawcami.
+Archiwalne ligi działają bez połączenia z dostawcami.
 
 Kamień milowy A: aplikacja do przeglądania archiwów.
 
@@ -211,7 +208,7 @@ Wyniki i instrukcja odbioru: [phase-4b.md](phase-4b.md).
 
 Zakres:
 - Domyślne Podsumowanie i osobne widoki graczy, skrytek, stanu, historii,
-  ustawień oraz raportów archiwalnych.
+  ustawień klienta i konfiguracji serwera.
 - Jeden kontekst ligi i filtrów; zachowanie draftów, URL, paginacji i języka.
 - Kompaktowe odświeżanie oraz szczegóły workera i źródeł w Diagnostyce.
 - Oddzielenie prezentacji, formularzy i odczytu danych w komponentach/composables.
@@ -305,15 +302,11 @@ jest oficjalnym, trwalszym rozwiązaniem. Nie deklarować fetchowania jako gotow
 Kamień milowy B: analityka i ceny. Kamień milowy C: pełna synchronizacja,
 o ile wymagane źródła są dostępne.
 
-## Etap 8 — eksport, zgodność i przejście na rework
+## Etap 8 — zgodność i przejście na rework
 
 Zależność: etapy 2, 4–6; etap 7B tylko dla odbioru synchronizacji.
 
 Zakres:
-- Eksport offline currentday.html/lastday.html z jednej zatwierdzonej rewizji,
-  według ustalonej polityki rotacji. Nie przebudowywać archiwów automatycznie.
-- Nowy eksport ma wybrany język i zapisaną wersję tłumaczeń. Zastane historyczne
-  HTML pozostają w oryginalnym języku i nie są automatycznie przepisywane.
 - Porównanie wyników obu aplikacji na tym samym wejściu i jawne opisanie
   zamierzonych różnic, zwłaszcza wyceny i przypadków wcześniej błędnych.
 - Kopia i odtworzenie bazy, migracje, test restartu i awarii worker/web,

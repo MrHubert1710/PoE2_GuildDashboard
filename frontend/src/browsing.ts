@@ -1,12 +1,5 @@
 import { normalizeFilterTimestamp } from './timezones'
 import { updateUrl } from './navigation'
-export interface HistoricalReport {
-  id: number
-  name: string
-  sha256: string
-  bytes: number
-}
-
 export interface League {
   id: string
   name: string
@@ -24,7 +17,6 @@ export interface League {
   display_settings_hash?: string
   timezone?: string
   stashes: string[]
-  reports: HistoricalReport[]
 }
 
 export interface HistoryQuery {

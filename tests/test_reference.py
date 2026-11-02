@@ -31,7 +31,6 @@ class ReferenceTests(unittest.TestCase):
                 ['2026-01-01T12:00:00Z', '1', league, 'PRIVATE_PLAYER', 'added', 'Test', 'Chaos Orb', '0', '0']])
             reports = self.source / 'stash_reports' / league
             (reports / 'price_cache').mkdir(parents=True)
-            (reports / 'currentday.html').write_text('<html>saved report</html>')
             (reports / 'price_cache/currency.json').write_text('{"lines": [{"id": "one"}]}')
         importer.import_archives(self.source, self.data)
 
@@ -42,20 +41,20 @@ class ReferenceTests(unittest.TestCase):
             writer.writerow(FIELDS)
             writer.writerows(rows)
 
-    def test_audit_verifies_files_counts_reports_and_uncertain_price_provenance(self):
+    def test_audit_verifies_files_counts_and_uncertain_price_provenance(self):
         result = build_reference(self.data, self.source)
         self.assertEqual(result['cross_league_shared_ids'], 1)
         for league in result['leagues']:
             self.assertEqual(league['transactions'], 1)
             self.assertEqual(league['issues'], {})
             self.assertTrue(league['source_matches'])
-            self.assertEqual(len(league['verified_files']), 3)
+            self.assertEqual(len(league['verified_files']), 2)
             self.assertEqual(league['prices'][0]['timestamp_provenance'], 'unknown')
         self.assertEqual(result['legacy_settings']['stash_aliases'], {'Typo': 'Test'})
 
     def test_source_or_archive_mutation_fails_validation(self):
-        for path in (self.source / 'stash_reports/Alpha/currentday.html',
-                     self.data / 'leagues/Alpha/reports/currentday.html'):
+        for path in (self.source / 'stash_reports/Alpha/price_cache/currency.json',
+                     self.data / 'leagues/Alpha/reports/price_cache/currency.json'):
             original = path.read_bytes()
             path.write_text('changed')
             with self.assertRaisesRegex(ValueError, 'differs'):
@@ -71,7 +70,7 @@ class ReferenceTests(unittest.TestCase):
             build_reference(self.data, self.source)
 
     def test_untracked_archive_file_cannot_be_claimed_as_verified(self):
-        extra = self.data / 'leagues/Alpha/reports/extra.html'
+        extra = self.data / 'leagues/Alpha/reports/price_cache/extra.json'
         extra.write_text('not in manifest')
         with self.assertRaisesRegex(ValueError, 'inventory differs'):
             build_reference(self.data, self.source)

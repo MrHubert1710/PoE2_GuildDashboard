@@ -27,7 +27,6 @@ Zmiana parametrów biznesowych nadal odczytuje odpowiednie dane.
 Liczby, daty i liczba mnoga korzystają z Intl. Daty nadal pokazują UTC,
 a wartości filtrów pozostają YYYY-MM-DD. Aktualizowane są `html.lang` i tytuł
 karty. Konta, skrytki, nazwy lig i surowe nazwy przedmiotów pozostają źródłowe.
-Zastane HTML pozostają w oryginalnym języku.
 
 ## Implementacja i dodawanie tłumaczeń
 
@@ -109,7 +108,7 @@ języka oraz brak błędów JavaScript. Usługa na porcie 9002 zgłasza health O
    powinny pozostać, a teksty i daty przełączyć się od razu.
 3. Sprawdź reload oraz Wstecz/Dalej po zmianie języka.
 4. W Diagnostyce rozwiń szczegóły plików/importu i zmień język; szczegóły pozostają otwarte.
-5. Sprawdź szerokość mobilną. Archiwalny raport otwiera się w swoim oryginalnym języku.
+5. Sprawdź szerokość mobilną.
 
 Po odbiorze kolejna osobna faza to 3: worker i odświeżanie. Jej rozpoczęcie
 wymaga nowego polecenia użytkownika.

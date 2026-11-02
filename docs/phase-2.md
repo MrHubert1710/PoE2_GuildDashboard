@@ -23,7 +23,6 @@ audytu, integralności/importu i możliwości źródeł pozostają w Diagnostyce
   dodatkowy, jednoznaczny klucz ID wiersza, aby granice stron były stabilne.
 - Zdarzenia pokazują opis przedmiotu i akcję źródłową. Nie przeliczają ilości,
   wyceny, przepływów ani stanu skrytki z przyszłych faz.
-- Archiwalne HTML otwierane w osobnej karcie, z zachowaniem ich interakcji.
 
 ## URL i stan widoku
 
@@ -55,7 +54,7 @@ parametry historii. Nie wymaga Vue Router ani osobnego serwera frontendu.
 ### GET /api/leagues
 
 Lista lokalnych lig z liczbami, zakresami czasu, skrytkami, rewizją i metadanymi
-zarejestrowanych raportów. Brak lig to poprawna pusta lista. API nie wykrywa
+lokalnych danych. Brak lig to poprawna pusta lista. API nie wykrywa
 jeszcze nowych lig u dostawców ani nie odczytuje plików CSV przy każdym żądaniu.
 
 ### GET /api/leagues/<id>/transactions
@@ -81,19 +80,6 @@ Frontend używa AbortController i numeru generacji żądania, a przed przyjęcie
 wyniku sprawdza ligę i rewizję. Podczas nowego odczytu stare wiersze są usuwane,
 aby nie sugerować, że odpowiadają nowemu kontekstowi.
 
-### GET /archives/<id>
-
-Udostępnia wyłącznie zarejestrowany rekord `archive_files.kind=report`.
-Nie przyjmuje ścieżki od klienta. Plik musi pozostać w katalogu danych i mieć
-SHA-256 zgodne z rejestrem. Zmieniony plik daje 409, brak/niewłaściwy typ 404.
-CSV, baza, cache cen, ustawienia i dowolne pliki `data/` nie są wystawiane.
-
-HTML nie jest wstrzykiwany do Vue. CSP sandbox pozwala na historyczny inline JS
-i style, ale nie na same-origin, połączenia sieciowe, formularze i osadzanie
-w ramkach. Dzięki temu zakładki, sortowanie i modal wykresu działają, a raport
-nie uzyskuje dostępu do API/cookies aplikacji. Link ma noopener/noreferrer.
-Raporty zachowują oryginalną treść i wycenę; nie dopisujemy toolbaru odświeżania.
-
 Wszystkie powyższe odpowiedzi mają Cache-Control: no-store. Błąd bazy zwraca
 503 bez lokalnych ścieżek. Nieznana liga daje 404, niepoprawne parametry 400.
 Poprawne zapytanie bez wyników daje 200 z pustymi rows i total=0.
@@ -103,12 +89,12 @@ Poprawne zapytanie bez wyników daje 200 z pustymi rows i total=0.
 Backend: 47 testów Pythona łącznie. Nowe przypadki obejmują izolację lig,
 wszystkie filtry, zakresy UTC, stabilność stron, korektę numeru strony,
 Unicode/literalne znaki specjalne, walidację i SQL injection, rewizje, puste
-bazy/ligi, izolację HTML, brak pliku, checksum mismatch i ścieżkę poza data.
+bazy/ligi oraz brak dostępu do prywatnych plików data.
 
 Chromium: 17 scenariuszy łącznie, z 10 dla historii. Używają prawdziwych API
 na odrębnej syntetycznej bazie z 60/3 zdarzeniami. Obejmują reload, back/forward,
 wyścig spóźnionych odpowiedzi, błędy i retry, brak wyników, mobilny overflow,
-bezpieczne wyświetlenie HTML w polu przedmiotu i interaktywny dokument archiwum.
+bezpieczne wyświetlenie tekstu w polu przedmiotu.
 Starsze scenariusze diagnostyczne pozostają uruchamiane z view=diagnostics.
 
 ```sh
@@ -127,7 +113,6 @@ Odbiór w przeglądarce:
 2. Zastosuj gracza, skrytkę, przedmiot i daty. Kliknij nagłówek sortowania,
    zmień stronę/rozmiar strony. Skopiuj adres i sprawdź reload/back/forward.
 3. Sprawdź brak wyników dla nieistniejącego przedmiotu i wyczyść filtry.
-4. Otwórz currentday/lastday tam, gdzie istnieją, w osobnej karcie.
 5. Sprawdź mobilny układ i zakładkę Diagnostyka.
 
 Po zakończeniu fazy praca zatrzymuje się. Faza 3 wymaga osobnego polecenia.

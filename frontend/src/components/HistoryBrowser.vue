@@ -12,7 +12,6 @@ import ClientSettings from './ClientSettings.vue'
 import QuantitySettings from './QuantitySettings.vue'
 import HistoryTable from './HistoryTable.vue'
 import HistoryFilters from './HistoryFilters.vue'
-import ArchiveReports from './ArchiveReports.vue'
 import WorkspaceNavigation from './WorkspaceNavigation.vue'
 defineProps<{ diagnostics: boolean }>()
 const { leagues, query, draft, result, loadingLeagues, loadingRows, leagueError, rowError, formError,
@@ -39,7 +38,7 @@ async function settingsSaved() {
   refreshToken.value++
 }
 async function refreshView() { await loadLeagues(true); refreshToken.value++ }
-const dataSection = computed(() => !['settings', 'configuration', 'archives'].includes(section.value))
+const dataSection = computed(() => !['settings', 'configuration'].includes(section.value))
 </script>
 
 <template>
@@ -74,7 +73,6 @@ const dataSection = computed(() => !['settings', 'configuration', 'archives'].in
           <HistoryTable v-show="section === 'history'" :query="query" :result="result" :loading-rows="loadingRows" :row-error="rowError" :timezone="displayTimezone" @set-page="setPage" @set-page-size="setPageSize" @sort-by="sortBy" />
           <ClientSettings v-show="section === 'settings'" />
           <QuantitySettings v-if="isAdmin" v-show="section === 'configuration'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" :display-hash="selected.display_settings_hash" @saved="settingsSaved" />
-          <ArchiveReports v-show="section === 'archives'" :selected="selected" />
           </div>
         </div>
       </div>

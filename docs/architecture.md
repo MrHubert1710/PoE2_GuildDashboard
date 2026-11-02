@@ -24,7 +24,7 @@ dostawców przed implementacją, ponieważ dokumentacja i zakres dostępu mogą 
   Na początek jeden worker; bez obowiązkowego Redis/Celery.
 - Adaptery źródeł: historia gildii, metadane lig, katalog kategorii i ceny.
   Każdy deklaruje dostępne możliwości, stan autoryzacji i świeżość danych.
-- Osobno normalizacja transakcji, obliczenia ilościowe, wycena i eksport HTML.
+- Osobno normalizacja transakcji, obliczenia ilościowe, wycena.
 - Vue zarządza stanem widoku, a nie poświadczeniami dostawców.
 
 ## Odświeżanie
@@ -70,8 +70,6 @@ Wstępny kandydat: Apache ECharts. Dane wykresów udostępnia API jako szeregi
 czasowe niezależne od biblioteki. Zakres i rozdzielczość są parametrami zapytań;
 backend agreguje duże historie. Interakcja może sterować filtrem tabeli.
 Wybór ligi i filtry w URL, pamięć widoków rozdzielona między ligi.
-Eksport `currentday.html`/`lastday.html` pozostaje osobną funkcją i może używać
-statycznych wykresów; nie jest źródłem danych interaktywnej aplikacji.
 
 ## Język i lokalizacja
 
@@ -101,8 +99,7 @@ zachowuje filtry, ligę, stronę i stan widoku. Serializer query string nie moż
 usuwać lang podczas nawigacji lub zastosowania filtrów.
 
 Wszystkie kolejne fazy korzystają z tych samych katalogów, również teksty
-wykresów, statusów synchronizacji i nowo generowanych eksportów HTML.
-Zastane raporty historyczne pozostają w oryginalnym języku.
+wykresów i statusów synchronizacji.
 
 ## GGG: zweryfikowane możliwości i ograniczenia
 
@@ -185,7 +182,6 @@ kompaktowy pasek odświeżania i wspólne filtry. Reaktywny URL jest wspólny
 dla nawigacji, filtrów, języka i paginacji. Szczegóły podziału komponentów
 i odbioru: [phase-4b.md](phase-4b.md).
 
-
 Stan początkowy ilości (korekta po fazie 4b): każde pole każdej ligi zaczyna
 od 0; brak transakcji oznacza 0. quantities-v3 stosuje tę regułę niezależnie
 od history_complete, zachowując ostrzeżenia dla konfliktów i błędnych danych.
@@ -196,7 +192,6 @@ ubytek stosu opisuje Modified. Korekta i test regresji: docs/phase-4.md.
 Wykresy fazy 5 korzystają z ograniczonego API szeregów UTC, niezależnego od
 ECharts. Jednostki nie są łączone między różnymi przedmiotami; zakres wykresu
 można zastosować do wspólnych filtrów dni. Szczegóły: [phase-5.md](phase-5.md).
-
 
 Korekta fazy 5: wykresy pokazują narastające balanse, osobne dla kont/skrytek.
 Próbkowanie zachowuje kolejność i ekstrema rzeczywistych zdarzeń; zoom pobiera

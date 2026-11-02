@@ -15,7 +15,7 @@ Faza 0: [wyniki audytu i instrukcja odbioru](docs/phase-0.md),
 
 Faza 1: [SQLite, import i instrukcja odbioru](docs/phase-1.md).
 
-Faza 2: [historia transakcji, filtry i archiwa HTML](docs/phase-2.md).
+Faza 2: [historia transakcji i filtry](docs/phase-2.md).
 Domyślny widok to Historia; wcześniejsze wyniki audytu są w Diagnostyce.
 
 Faza 2a: [języki PL/EN, katalogi tłumaczeń i instrukcja odbioru](docs/phase-2a.md).
@@ -30,7 +30,7 @@ Historia pokazuje źródłową akcję oraz własną deltę i akcję zastępczą;
 dane pozostają niezmienione. Każda liga ma niezależną historię i stan.
 
 Faza 4b: [nowa organizacja panelu i nawigacji](docs/phase-4b.md).
-Startowym widokiem jest Podsumowanie; Historia, Ustawienia i Raporty archiwalne
+Startowym widokiem jest Podsumowanie; Historia, Ustawienia i Konfiguracja serwera
 są osobnymi sekcjami. Szczegóły synchronizacji znajdują się w Diagnostyce.
 
 Faza 5a: [lokalne preferencje prezentacji i filtry UTC w URL](docs/phase-5a.md).
@@ -93,7 +93,7 @@ Adres: http://dyyyl.ovh/poe2guild/ . Stara aplikacja używa `/poe2-guild/` i por
 backend/                 Flask API i obsługa zbudowanego frontendu
 frontend/src/            Vue + TypeScript
 frontend/dist/           wynik builda (poza Git)
-data/leagues/<liga>/     niezależne kopie CSV, raportów, wykresów i cen
+data/leagues/<liga>/     niezależne kopie historii CSV i cache cen
 data/import-manifest.json  liczby transakcji i SHA-256 skopiowanych plików
 data/poe2guild.sqlite     baza SQLite (poza Git)
 backend/migrations/      wersjonowany schemat bazy
@@ -102,11 +102,8 @@ deploy/nginx/            przykład konfiguracji reverse proxy
 tests/                   testy API, importu i launchera
 ```
 
-Stary generator raportów, fetcher, globalny stan oraz stary frontend zostały
-usunięte z tego katalogu. Historyczne HTML są wyłącznie danymi archiwalnymi,
-nie implementacją nowego interfejsu. Faza 2 udostępnia zarejestrowane raporty
-w osobnych, izolowanych dokumentach; katalog danych nie jest publicznym statycznym katalogiem.
-Szkielet nie pobiera danych gry, nie używa sesji PoE i nie przelicza archiwów.
+Aplikacja prezentuje dane przez API i interfejs Vue. Katalog danych nie jest
+publicznym katalogiem statycznym.
 
 Odtworzenie danych ze starego katalogu:
 
@@ -116,7 +113,7 @@ Odtworzenie danych ze starego katalogu:
 
 Importer kopiuje pliki i weryfikuje SHA-256. Powtórzenie z tymi samymi danymi
 jest bezpieczne; przy różnej zawartości istniejącego archiwum przerywa pracę.
-Baza SQLite (obecnie schemat 3) jest tworzona z tych danych lub z niezależnej kopii starego
+Baza SQLite (obecnie schemat 4) jest tworzona z tych danych lub z niezależnej kopii starego
 katalogu. Komendy fazy 1:
 
 ```sh

@@ -22,10 +22,8 @@
       "archived": true,
       "baseline_match": true,
       "files": {
-        "chart": 8,
         "history": 1,
-        "price_cache": 14,
-        "report": 1
+        "price_cache": 14
       },
       "history_complete": null,
       "history_sha256": "e3c405ba065f8348f92ca993a6548bc66fd2d947f4f6e7707b16b31f93a09766",
@@ -40,10 +38,8 @@
       "archived": true,
       "baseline_match": true,
       "files": {
-        "chart": 15,
         "history": 1,
-        "price_cache": 14,
-        "report": 2
+        "price_cache": 14
       },
       "history_complete": null,
       "history_sha256": "e31a282ca4f4f50fe4ff21a6e218b94ff596dcce118b41529d9a871f3b255b20",

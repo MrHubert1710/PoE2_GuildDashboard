@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { normalizeDisplayTimezone } from './timezones'
 
 export const preferencesKey = 'path-of-accounting.preferences.v1'
-export const defaultViews = ['summary','players','stashes','state','history','archives'] as const
+export const defaultViews = ['summary','players','stashes','state','history'] as const
 export interface ClientPreferences {
   version: 1; language: string; timezone: string | null; hourFormat: 'auto'|'12'|'24'|null
   defaultView: string; panels: Record<string,boolean>; colors: Record<string,string>

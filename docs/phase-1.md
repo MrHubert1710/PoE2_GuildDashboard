@@ -3,14 +3,14 @@
 Status: faza 1 odebrana przez użytkownika na podstawie testów i walidacji.
 Dalszy zakres: [phase-2.md](phase-2.md).
 
-Obecny schemat rozszerza migracja 002 z [fazy 3](phase-3.md); opis poniżej
+Obecny schemat 4 obejmuje migracje workera, ilości oraz rejestru plików danych; opis poniżej
 dokumentuje pierwotny import. Dane historyczne pozostają zachowane.
 
 ## Wynik
 
 - Niezależna baza `data/poe2guild.sqlite`, schemat 1 i dziennik WAL.
 - 89 190 transakcji Runes of Aldur i 15 344 Forbidden Rites: łącznie 104 534.
-- 56 zarejestrowanych plików wejściowych: historie, raporty, wykresy i cache cen.
+- 30 zarejestrowanych plików wejściowych: historie i cache cen.
 - Drugie wczytanie tego samego wejścia: 0 nowych rekordów, 104 534 duplikaty.
 - Dane można odtworzyć z lokalnych kopii lub ze wskazanego starego projektu.
   Źródła nie są modyfikowane, a baza i pliki pozostają poza Git.
@@ -47,7 +47,7 @@ aliasów skrytek i nie przelicza cen — to zakres dalszych faz.
 
 Ustawienia starego projektu są przechowywane jako kandydat z jawnym,
 niepotwierdzonym historycznie pochodzeniem. Ponowny import nie nadpisuje
-ustawień istniejącej ligi. Zachowanie cen/pliku HTML nie potwierdza daty
+ustawień istniejącej ligi. Zachowanie cache cen nie potwierdza daty
 wyceny ani kompletności historii. Importowane ligi mają nieustalony status,
 niepotwierdzoną kompletność i lokalną politykę archiwum bez fetchowania.
 
@@ -96,7 +96,7 @@ Niezależna kopia ze starego katalogu:
 ```
 
 To polecenie tworzy własny bundle w `data/source-imports/<hash>/`, zawierający
-historie, raporty, wykresy, ceny oraz wyłącznie dozwolone ustawienia starego
+historie, ceny oraz wyłącznie dozwolone ustawienia starego
 configu. Nie importuje poświadczeń i nie uruchamia kodu źródłowej aplikacji.
 Identyczne wejście wykorzystuje ten sam bundle. Po utworzeniu bundle baza
 nie zależy od istnienia starego katalogu. Lokalne źródłowe kopie nie są usuwane.
@@ -153,3 +153,15 @@ obu lig oraz sprawdzenie publicznej strony z produkcyjną bazą.
 6. Odśwież podgląd i sprawdź układ mobilny. Dawny audyt nadal jest dostępny niżej.
 
 Po odbiorze praca zatrzymuje się. Przejście do fazy 2 wymaga osobnego polecenia.
+
+## Aktualny rejestr danych
+
+Migracja 004 ogranicza `archive_files` do `history` i `price_cache`, zachowując
+identyfikatory oraz sumy kontrolne tych wpisów. Nie zmienia transakcji,
+ustawień lig ani projekcji ilościowych. Import i audyt obejmują historie CSV
+oraz źródłowy cache cen. Aktualne dane obu lig to 104 534 transakcje i 30
+zarejestrowanych plików wejściowych. Schemat SQLite: 4.
+
+Weryfikacja po uporządkowaniu zakresu: 160 testów backendu, 86 scenariuszy
+Chromium i 16 testów tłumaczeń. Potwierdzono identyczne transakcje, ustawienia
+oraz sumy kontrolne wszystkich kopii cen przed i po zmianie.

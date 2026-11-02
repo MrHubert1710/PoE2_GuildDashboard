@@ -13,7 +13,7 @@ def build_browsing_fixture(data):
     manifest = {'leagues': []}
     for league, count in (('Forbidden Rites', 60), ('Runes of Aldur', 3)):
         folder = data / 'leagues' / league
-        (folder / 'reports').mkdir(parents=True)
+        folder.mkdir(parents=True)
         with (folder / 'history.csv').open('w', encoding='utf-8-sig', newline='') as stream:
             writer = csv.DictWriter(stream, fieldnames=FIELDS)
             writer.writeheader()
@@ -30,9 +30,6 @@ def build_browsing_fixture(data):
                 writer.writerow(dict(zip(FIELDS, [f'2026-01-{1 if index <= 30 else 2:02}T12:00:00Z', str(index),
                     league, 'Synthetic Alice' if index % 2 == 0 else 'Żółw', action,
                     'Special' if index == 3 else 'Main', item, '0', '0'])))
-        (folder / 'reports/currentday.html').write_text(
-            f'<!doctype html><html><body><h1>Archiwum {league}</h1>'
-            '<button onclick="this.textContent=Number(this.textContent)+1">0</button></body></html>')
         manifest['leagues'].append({'name': league, 'directory': league, 'transactions': count,
             'files': {str(path.relative_to(data)): sha256(path) for path in folder.rglob('*') if path.is_file()}})
     (data / 'import-manifest.json').write_text(json.dumps(manifest))

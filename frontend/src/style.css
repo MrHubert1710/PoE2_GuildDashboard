@@ -94,10 +94,6 @@ button.primary:hover { background: #cbe7d0; }
 .pagination { display: flex; justify-content: flex-end; align-items: center; gap: 16px; padding: 20px 0; font-size: 12px; color: #a9b0b6; }
 .empty-state { color: #a9b0b6; border: 1px dashed #414c54; border-radius: 8px; padding: 32px 20px; line-height: 1.7; }
 .loading-state { padding: 24px 0; color: #a9b0b6; }
-.historical-reports { margin: 24px 0 36px; }
-.report-links { display: flex; flex-wrap: wrap; gap: 12px; }
-.report-links a { display: flex; gap: 16px; justify-content: space-between; border: 1px solid #414c54; border-radius: 6px; padding: 12px; text-decoration: none; font-size: 13px; }
-.report-links a span { color: #9da8ae; font-size: 12px; }
 @media (max-width: 1100px) { .filters { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 650px) { .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }  .app-nav { gap: 16px; }  .transactions { min-width: 900px; } }
 @media (max-width: 380px) { .filters { grid-template-columns: 1fr; } .pagination { gap: 8px; } }
@@ -208,8 +204,6 @@ header { flex-wrap: wrap; }
 .settings-view { padding: 0; border: 0; }
 .settings-view > h2 { margin-top: 0; }
 .settings-view form { margin: 20px 0; }
-.workspace-content .historical-reports { margin-top: 0; }
-.workspace-content .historical-reports .section-heading { margin-top: 0; }
 .league-context { margin-top: 28px; padding: 20px; border: 1px solid #333d45; border-radius: 8px; font-size: 12px; color: #a9b0b6; line-height: 1.7; }
 .league-context h2 { color: #d8ebdc; }
 .history-view > .results-heading { margin-top: 0; }

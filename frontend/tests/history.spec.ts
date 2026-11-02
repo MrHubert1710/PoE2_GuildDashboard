@@ -120,25 +120,14 @@ test('unknown URL league is explicit and out-of-range pages are canonicalized', 
   await expect(page).toHaveURL(/page=2/)
 })
 
-test('HTML text is escaped and archive opens as an isolated interactive document', async ({ page, context }) => {
+test('HTML text in source item names is escaped', async ({ page }) => {
   await gotoHistory(page, path)
   await expect(results(page)).toBeVisible()
   await page.getByLabel('Przedmiot', { exact: true }).fill('<img')
   await page.getByRole('button', { name: 'Zastosuj filtry' }).click()
   await expect(page.locator('.history-transactions tbody')).toContainText('<img src=x')
   await expect(page.locator('.history-transactions tbody img')).toHaveCount(0)
-  await goSection(page, 'Raporty archiwalne')
-  const opening = context.waitForEvent('page')
-  await page.getByRole('link', { name: 'currentday.html', exact: false }).click()
-  const report = await opening
-  await report.waitForLoadState()
-  await expect(report.getByRole('heading')).toHaveText('Archiwum Forbidden Rites')
-  await report.getByRole('button', { name: '0', exact: true }).click()
-  await expect(report.getByRole('button', { name: '1', exact: true })).toBeVisible()
-  expect(await report.evaluate(() => window.opener === null)).toBe(true)
-  expect(await report.evaluate(async () => {
-    try { await fetch('/poe2guild/api/leagues'); return false } catch { return true }
-  })).toBe(true)
+
 })
 
 test('mobile page stays within viewport and diagnostics remain accessible', async ({ page }) => {

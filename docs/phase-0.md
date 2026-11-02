@@ -8,12 +8,12 @@ Bez SQLite, importera do bazy, tabeli transakcji, fetchera i workera z dalszych 
 
 ## Wynik danych referencyjnych
 
-| Liga | Transakcje | Zakres UTC | Zweryfikowane pliki | Cache cen | HTML |
-| --- | --- | --- | --- | --- | --- |
-| Runes of Aldur | 89 190 | 2026-05-29 21:40:59 – 2026-07-23 23:34:07 | 32 | 14 | 2 |
-| Forbidden Rites | 15 344 | 2026-09-17 14:01:47 – 2026-10-22 19:55:05 | 24 | 14 | 1 |
+| Liga | Transakcje | Zakres UTC | Zweryfikowane pliki | Cache cen |
+| --- | --- | --- | --- | --- |
+| Runes of Aldur | 89 190 | 2026-05-29 21:40:59 – 2026-07-23 23:34:07 | 15 | 14 |
+| Forbidden Rites | 15 344 | 2026-09-17 14:01:47 – 2026-10-22 19:55:05 | 15 | 14 |
 
-Łącznie 104 534 transakcje i 56 plików. W audytowanych CSV nie znaleziono
+Łącznie 104 534 transakcje i 30 plików danych. W audytowanych CSV nie znaleziono
 brakujących/nadmiarowych pól, obcej ligi, niepoprawnych lub naiwnych dat,
 nieznanych akcji ani identycznych/konfliktujących powtórzeń ID.
 Brak wspólnych ID między tymi dwoma plikami nie dowodzi ich globalnej unikalności.
@@ -45,7 +45,7 @@ zerowe współrzędne oraz nieznany przedmiot. Audyt identyfikuje problemy struk
 nie implementuje jeszcze normalizacji ilości, aliasów ani wyceny.
 
 Przy portowaniu ilości/wyceny używać prawdziwych wskazanych zdarzeń i SHA
-zachowanych raportów. Nie wymagać zgodności kwot dla innych cen lub algorytmu.
+zachowanych danych wejściowych. Nie wymagać zgodności kwot dla innych cen lub algorytmu.
 Golden wyniki obliczeń powstaną w odpowiedniej fazie na tych samych wejściach.
 
 ## Integracje
@@ -91,7 +91,7 @@ Nie jest to przycisk pobierania historii, który powstanie w dalszej fazie.
 
 1. Otwórz http://dyyyl.ovh/poe2guild/ i sprawdź oznaczenie Faza 0.
 2. Sprawdź dwie karty lig, liczby transakcji, zakresy UTC i zgodność kopii.
-3. Rozwiń sumy kontrolne; sprawdź nazwy raportów i po 14 plików cen na ligę.
+3. Rozwiń sumy kontrolne; sprawdź historię i po 14 plików cen na ligę.
 4. Sprawdź, że daty cen są opisane jako niepotwierdzone, a zgodność kopii nie
    jest przedstawiana jako dowód kompletności historii.
 5. Przejrzyj statusy integracji i linki do dokumentacji.

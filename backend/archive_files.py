@@ -44,7 +44,7 @@ def import_archives(source, destination):
             files.extend((path, target / 'reports' / path.relative_to(reports))
                          for path in sorted(reports.rglob('*'))
                          if path.is_file() and not path.is_symlink()
-                         and (path.suffix in {'.html', '.svg'} or ('price_cache' in path.parts and path.suffix == '.json')))
+                         and 'price_cache' in path.parts and path.suffix == '.json')
         hashes = {}
         for original, copied in files:
             expected = checksum(original)

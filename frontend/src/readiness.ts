@@ -1,9 +1,3 @@
-export interface ArchiveReport {
-  name: string
-  sha256: string
-  bytes: number
-}
-
 export interface ArchivePrice {
   category_file: string
   sha256: string
@@ -24,7 +18,6 @@ export interface Readiness {
     history_sha256: string
     source_matches: boolean
     issues: Record<string, number>
-    reports: ArchiveReport[]
     prices: ArchivePrice[]
   }>
   providers: {

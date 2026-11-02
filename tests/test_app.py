@@ -57,7 +57,7 @@ class AppTests(unittest.TestCase):
             'legacy_settings': {'SESSION_ID': 'SECRET'},
             'leagues': [{'name': 'Alpha', 'transactions': 1, 'oldest_at': None,
                          'newest_at': None, 'history_sha256': 'hash', 'issues': {},
-                         'reports': [], 'prices': [], 'source_matches': True,
+                         'prices': [], 'source_matches': True,
                          'samples': {'Account': 'PRIVATE'}}]}))
         response = self.client.get('/api/rework-readiness')
         self.assertEqual(response.status_code, 200)

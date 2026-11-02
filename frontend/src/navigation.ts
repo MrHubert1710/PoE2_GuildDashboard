@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { isAdmin } from './auth'
 
-export const workspaceSections = ['summary', 'players', 'stashes', 'state', 'history', 'archives', 'settings', 'configuration'] as const
+export const workspaceSections = ['summary', 'players', 'stashes', 'state', 'history', 'settings', 'configuration'] as const
 export type WorkspaceSection = typeof workspaceSections[number]
 export const currentUrl = ref(location.href)
 export function updateUrl(url: URL, replace = false) {

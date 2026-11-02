@@ -120,7 +120,6 @@ onMounted(refreshView)
             <dl class="facts">
               <div><dt>{{ t('firstTransaction') }}</dt><dd>{{ date(league.oldest_at) }}</dd></div>
               <div><dt>{{ t('lastTransaction') }}</dt><dd>{{ date(league.newest_at) }}</dd></div>
-              <div><dt>{{ t('htmlReports') }}</dt><dd>{{ number(league.reports.length) }}</dd></div>
               <div><dt>{{ t('priceFiles') }}</dt><dd>{{ number(league.prices.length) }} · {{ t('priceTimeUnknown') }}</dd></div>
             </dl>
             <p class="audit" :class="Object.keys(league.issues).length ? 'warning' : 'good'">
@@ -130,8 +129,6 @@ onMounted(refreshView)
             <details>
               <summary>{{ t('evidence') }}</summary>
               <p class="small">{{ t('historyChecksum') }}</p><code>{{ league.history_sha256 }}</code>
-              <p class="small">{{ t('reports') }}</p>
-              <ul class="file-list"><li v-for="report in league.reports" :key="report.name">{{ report.name }}<code>{{ report.sha256 }}</code></li></ul>
               <p class="small">{{ t('cachedCategories') }}</p>
               <ul class="file-list"><li v-for="price in league.prices" :key="price.category_file">{{ price.category_file }} · {{ t('entries', { count: price.lines }) }}</li></ul>
             </details>

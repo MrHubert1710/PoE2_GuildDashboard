@@ -122,23 +122,20 @@ def build_reference(data_root, legacy_root):
         if 'history.csv' not in {entry['file'] for entry in verified}:
             raise ValueError('History missing from import manifest')
         archive_files = {str(path.relative_to(league_root)) for path in league_root.rglob('*')
-                         if path.is_file() and path.suffix in {'.csv', '.html', '.svg', '.json'}}
+                         if path.is_file() and (path.name == 'history.csv' or ('price_cache' in path.parts and path.suffix == '.json'))}
         if archive_files != {entry['file'] for entry in verified}:
             raise ValueError('Archive inventory differs from import manifest')
         stats = inspect_history(league_root / 'history.csv', name)
         if stats['transactions'] != entry['transactions']:
             raise ValueError('Transaction count differs from import manifest')
         id_sets.append(stats.pop('ids'))
-        reports = []
-        for report in sorted((league_root / 'reports').glob('*.html')):
-            reports.append({'name': report.name, 'sha256': sha256(report), 'bytes': report.stat().st_size})
         prices = []
         for price in sorted((league_root / 'reports/price_cache').glob('*.json')):
             payload = json.loads(price.read_text(encoding='utf-8'))
             prices.append({'category_file': price.name, 'sha256': sha256(price),
                            'lines': len(payload.get('lines', [])),
                            'timestamp_provenance': 'unknown', 'league_provenance': 'legacy_directory'})
-        result['leagues'].append({'name': name, **stats, 'reports': reports, 'prices': prices,
+        result['leagues'].append({'name': name, **stats, 'prices': prices,
                                   'verified_files': verified, 'source_matches': True})
     counts = Counter(event_id for ids in id_sets for event_id in ids)
     result['cross_league_shared_ids'] = sum(count > 1 for count in counts.values())
@@ -153,4 +150,4 @@ def public_reference(reference):
             'providers': json.loads(Path(__file__).with_name('provider_findings.json').read_text(encoding='utf-8')),
             'leagues': [{key: league[key] for key in (
                 'name', 'transactions', 'oldest_at', 'newest_at', 'history_sha256',
-                'issues', 'reports', 'prices', 'source_matches')} for league in reference['leagues']]}
+                'issues', 'prices', 'source_matches')} for league in reference['leagues']]}

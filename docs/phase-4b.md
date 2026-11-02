@@ -6,8 +6,8 @@ Faza 4 jest odebrana; dalsza implementacja wykresów: [phase-5.md](phase-5.md).
 
 ## Układ aplikacji
 
-Domyślny widok to Podsumowanie. Panel gildii ma siedem osobnych sekcji:
-Podsumowanie, Gracze, Skrytki, Stan skrytek, Historia, Raporty archiwalne
+Domyślny widok to Podsumowanie. Panel gildii ma osobne sekcje:
+Podsumowanie, Gracze, Skrytki, Stan skrytek, Historia
 oraz Ustawienia. Na komputerze nawigacja jest po lewej; na telefonie to
 przewijany poziomo pasek nad treścią. Wyświetlana jest jedna sekcja naraz.
 
@@ -77,7 +77,6 @@ zachowuje wynik. Polling statusu i wykrywanie rewizji działają w tle.
 - QuantityPanel.vue — prezentacja pojedynczego widoku raportu.
 - composables/useQuantityReport.ts — odczyt, paginacja, polling obliczeń i retry.
 - QuantitySettings.vue — osobny formularz konfiguracji ligi i gildii.
-- ArchiveReports.vue — zachowane, izolowane dokumenty HTML.
 - RefreshPanel.vue — kompaktowy pasek i szczegóły przeniesione do Diagnostyki.
 - composables/useApiRequest.ts — wspólny timeout, anulowanie po opuszczeniu
   kontekstu i stabilne błędy odczytu. Spóźnione odpowiedzi nie zastępują nowej ligi.
@@ -91,7 +90,7 @@ osadzenia wykresów w widokach danych w osobnej fazie 5.
 
 Zmiany dotyczą frontendu, tłumaczeń, testów i dokumentacji. API, algorytm ilościowy,
 baza SQLite w schemacie 3, worker, źródłowe dane i zapisane projekcje nie wymagają
-migracji. Nie dodano wykresów, wyceny, fetchera GGG ani nowego generatora HTML.
+migracji. Nie dodano wykresów, wyceny, fetchera GGG.
 Stary projekt nie został zmodyfikowany. Build Vite jest serwowany przez istniejący
 Flask/nginx; zmiana frontendu nie wymaga restartowania usług.
 
@@ -128,7 +127,7 @@ ponownych automatycznych zgłoszeń oraz odświeżenie raportu bez przebudowy da
    formularz powinien zachować treść. To samo dotyczy niezapisanych ustawień.
 5. Otwórz Stan synchronizacji, sprawdź lokalną weryfikację i zmień ligę
    w nagłówku. Powrót do Panelu gildii powinien pokazać wybraną ligę.
-6. Sprawdź Raporty archiwalne, PL/EN i szerokość mobilną.
+6. Sprawdź PL/EN i szerokość mobilną.
 
 Po odbiorze fazy 4b kolejny osobny zakres to faza 5: interaktywne wykresy.
 
@@ -196,9 +195,7 @@ zwraca zero zdarzeń. Zapisane URL i drafty są czyszczone z ukrytych zaznaczeń
 Pełna lista pozostaje dostępna w Ustawieniach, aby można było przywrócić
 skrytki. Wybór respektuje aliasy i dziedziczenie gildii; nadpisania ligi są
 niezależne. transactions/raw_json i stare projekcje nie są usuwane ani zmieniane.
-Oryginalne archiwalne dokumenty HTML nadal pozostają historycznymi plikami,
-których treść nie jest dynamicznie generowana na podstawie bieżących ustawień.
-Diagnostyka integralności nadal opisuje wszystkie przechowywane dane źródłowe.
+
 
 Zapis pokazuje status zapisywania, a w panelu nad treścią widoczny jest stan
 aktualizacji analizy: oczekiwanie, gotowe lub błąd z przejściem do ponowienia.

@@ -1,11 +1,10 @@
-"""Phase 2 read-only APIs and isolated access to registered historical HTML."""
+"""Read-only league history APIs."""
 from datetime import date, datetime, timedelta, timezone
 import hashlib
-from pathlib import Path
 import re
 import sqlite3
 
-from flask import Blueprint, Response, current_app, jsonify, request, g
+from flask import Blueprint, current_app, jsonify, request, g
 
 from .database import connect, require_schema, DatabaseError
 
@@ -56,11 +55,6 @@ def league_or_error(connection, league_id):
     return league
 
 
-def reports(connection, league_id):
-    return [dict(row) for row in connection.execute(
-        "SELECT id,archive_key AS name,sha256,bytes FROM archive_files "
-        "WHERE league_id=? AND kind='report' ORDER BY archive_key,id DESC", (league_id,))]
-
 
 @browser.get('/api/leagues')
 def leagues():
@@ -83,7 +77,6 @@ def leagues():
             league['quantity_settings_hash'] = projection_hash(row, connection)
             league.pop('settings_json', None)
             league['revision'] = revision(connection, row['id'])
-            league['reports'] = reports(connection, row['id'])
             league['stashes'] = visible_stashes(connection, row['id'], configured)
             if configured['target_stashes'] is not None:
                 names = league['stashes']
@@ -231,31 +224,3 @@ def transactions(league_id):
         return jsonify(league_id=league_id, revision=current_revision, projection=meta, page=page, page_size=page_size,
                        total=total, pages=pages, sort=sort, direction=direction,
                        rows=result_rows)
-
-
-@browser.get('/archives/<int:archive_id>')
-def archive(archive_id):
-    with connect(current_app.config['DATABASE_FILE'], readonly=True) as connection:
-        require_schema(connection)
-        entry = connection.execute("SELECT relative_path,sha256 FROM archive_files WHERE id=? AND kind='report'",
-                                   (archive_id,)).fetchone()
-    if not entry:
-        raise ReadError('archive_not_found', 404)
-    root = Path(current_app.config['DATA_DIRECTORY']).resolve()
-    path = (root / entry['relative_path']).resolve()
-    if not path.is_relative_to(root) or not path.is_file():
-        raise ReadError('archive_unavailable', 404)
-    try:
-        content = path.read_bytes()
-    except OSError:
-        raise ReadError('archive_unavailable', 404) from None
-    if hashlib.sha256(content).hexdigest() != entry['sha256']:
-        raise ReadError('archive_checksum_mismatch', 409)
-    response = Response(content, mimetype='text/html')
-    response.headers['Content-Security-Policy'] = (
-        "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; "
-        "style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; "
-        "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['Referrer-Policy'] = 'no-referrer'
-    return response

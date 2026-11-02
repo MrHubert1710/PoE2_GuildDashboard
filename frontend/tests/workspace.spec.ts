@@ -5,7 +5,7 @@ test.use({ locale: 'en-US' })
 const base='/poe2guild/?lang=en'
 const nav=(page: import('@playwright/test').Page)=>page.getByRole('navigation',{name:'League views'})
 
-test('default workspace presents summary and separates history, settings, archives and technical details',async({page})=>{
+test('default workspace presents summary and separates history, settings and technical details',async({page})=>{
   await page.goto(base)
   await expect(nav(page).getByRole('link',{name:'Summary',exact:true})).toHaveAttribute('aria-current','page')
   await expect(page.locator('.overview-cards')).toContainText('60')
@@ -22,8 +22,6 @@ test('default workspace presents summary and separates history, settings, archiv
   await goSection(page,'System settings')
   await expect(page.getByTestId('quantity-settings')).toBeVisible()
   await expect(page.locator('.workspace-filters')).toBeHidden()
-  await goSection(page,'Archived reports')
-  await expect(page.getByRole('link',{name:'currentday.html',exact:false})).toBeVisible()
   await page.getByRole('link',{name:'Diagnostics',exact:true}).click()
   await expect(page.getByTestId('refresh-panel')).toBeVisible()
   await expect(page.getByRole('button',{name:'Verify local data'})).toBeVisible()
@@ -79,7 +77,7 @@ test('section changes do not restart the automatic source request',async({page})
   })
   await page.goto(base)
   await expect(page.getByTestId('quantity-panel')).toContainText('Generated:')
-  for(const target of ['Players','Stashes','Stash state','History','Settings','Archived reports','Summary'])await goSection(page,target)
+  for(const target of ['Players','Stashes','Stash state','History','Settings','Summary'])await goSection(page,target)
   expect(automatic).toBe(1)
 })
 
@@ -95,7 +93,7 @@ test('mobile workspace has scrollable navigation and no document overflow in PL/
   await page.setViewportSize({width:390,height:844})
   await page.goto(base)
   await expect(page.getByTestId('time-series-chart')).toBeVisible()
-  for(const target of ['Settings','Archived reports','History','Summary']) {
+  for(const target of ['Settings','History','Summary']) {
     await goSection(page,target)
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   }

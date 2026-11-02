@@ -27,7 +27,6 @@ Nie włączono integracji historii GGG: dla niearchiwalnej ligi bez adaptera
 status to source_unavailable, nie udana synchronizacja ani pusta historia.
 Lokalna weryfikacja działa także dla archiwów i jest jednoznacznie podpisana.
 Brak daty nowej synchronizacji/generowania jest zatem poprawnym stanem.
-Zachowane HTML nadal są niezależnymi dokumentami historycznymi.
 
 Instrukcja:
 

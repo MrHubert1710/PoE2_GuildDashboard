@@ -10,13 +10,6 @@
       "newest_at": "2026-10-22T19:55:05+00:00",
       "history_sha256": "e3c405ba065f8348f92ca993a6548bc66fd2d947f4f6e7707b16b31f93a09766",
       "issues": {},
-      "reports": [
-        {
-          "name": "currentday.html",
-          "sha256": "d387ea175d406514afd5067dd64916e99f6e6cb82593af1fcabf6c986a555a8b",
-          "bytes": 3113912
-        }
-      ],
       "prices": [
         {
           "category_file": "abyss.json",
@@ -126,18 +119,6 @@
       "newest_at": "2026-07-23T23:34:07+00:00",
       "history_sha256": "e31a282ca4f4f50fe4ff21a6e218b94ff596dcce118b41529d9a871f3b255b20",
       "issues": {},
-      "reports": [
-        {
-          "name": "currentday.html",
-          "sha256": "4e4b45ee1bc6cb366bca4b0e4abe710f5ad8a5a9863b67f6e825aa1a1854240e",
-          "bytes": 23589322
-        },
-        {
-          "name": "lastday.html",
-          "sha256": "596683efe5d7285dd38ce431effb626be98cf5fc592dfc13ace219b347b5c244",
-          "bytes": 24022278
-        }
-      ],
       "prices": [
         {
           "category_file": "abyss.json",

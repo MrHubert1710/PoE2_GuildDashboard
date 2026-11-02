@@ -69,6 +69,8 @@ def load_bundle(archive_root, data_directory):
             path = (archive_root / relative).resolve()
             if not path.is_relative_to(directory):
                 raise DatabaseError('Archive path escapes league directory')
+            if path.name != 'history.csv' and not ('price_cache' in path.parts and path.suffix == '.json'):
+                raise DatabaseError('Unsupported archive data file')
             if sha256(path) != digest:
                 raise DatabaseError('Archive checksum differs from manifest')
             files.append((path, digest))
@@ -76,7 +78,7 @@ def load_bundle(archive_root, data_directory):
         if history not in {path for path, _ in files}:
             raise DatabaseError('History missing from archive manifest')
         inventory = {path.resolve() for path in directory.rglob('*') if path.is_file()
-                     and path.suffix in {'.csv', '.html', '.svg', '.json'}}
+                     and (path.name == 'history.csv' or ('price_cache' in path.parts and path.suffix == '.json'))}
         if inventory != {path for path, _ in files}:
             raise DatabaseError('Archive inventory differs from manifest')
         bundles.append((entry, directory, history, files))
@@ -154,9 +156,7 @@ def import_bundle(database_path, archive_root, *, source_key='legacy-primary', g
                 for path, expected in files:
                     if sha256(path) != expected:
                         raise DatabaseError('Archive changed while importing')
-                    kind = ('history' if path == history else
-                            'price_cache' if 'price_cache' in path.relative_to(directory).parts else
-                            'report' if path.suffix == '.html' else 'chart')
+                    kind = 'history' if path == history else 'price_cache'
                     cursor = connection.execute('INSERT OR IGNORE INTO archive_files(source_id,league_id,archive_key,'
                                                 'relative_path,kind,sha256,bytes,provenance_json,import_id) '
                                                 'VALUES (?,?,?,?,?,?,?,?,?)',

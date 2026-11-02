@@ -31,7 +31,6 @@ class BrowsingTests(unittest.TestCase):
                 writer = csv.DictWriter(stream, fieldnames=FIELDS)
                 writer.writeheader()
                 writer.writerows(rows)
-            (folder / 'reports/currentday.html').write_text(f'<html><body>{league}</body></html>')
             manifest['leagues'].append({'name': league, 'directory': league, 'transactions': len(rows),
                 'files': {str(path.relative_to(self.data)): sha256(path) for path in folder.rglob('*') if path.is_file()}})
         (self.data / 'import-manifest.json').write_text(json.dumps(manifest))
@@ -42,10 +41,10 @@ class BrowsingTests(unittest.TestCase):
         self.league = self.leagues[0]
         self.url = f"/api/leagues/{self.league['id']}/transactions"
 
-    def test_list_has_counts_stashes_reports_and_separate_revision_per_league(self):
+    def test_list_has_counts_stashes_and_separate_revision_per_league(self):
         self.assertEqual([(row['name'], row['transactions']) for row in self.leagues], [('Alpha', 60), ('Beta', 1)])
         self.assertEqual(self.league['stashes'], ['Main', 'Tab %_'])
-        self.assertEqual(len(self.league['reports']), 1)
+        self.assertNotIn('reports', self.league)
         self.assertNotEqual(self.leagues[0]['revision'], self.leagues[1]['revision'])
         self.assertNotIn(str(self.data), json.dumps(self.leagues))
 
@@ -129,37 +128,6 @@ class BrowsingTests(unittest.TestCase):
         self.assertFalse(missing.exists())
         self.assertNotIn(str(self.data), response.get_data(as_text=True))
 
-    def test_registered_html_is_isolated_and_other_data_is_not_served(self):
-        archive_id = self.league['reports'][0]['id']
-        response = self.client.get(f'/archives/{archive_id}')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Alpha', response.data)
-        policy = response.headers['Content-Security-Policy']
-        self.assertIn('sandbox allow-scripts;', policy)
-        self.assertNotIn('allow-same-origin', policy)
-        self.assertIn("connect-src 'none'", policy)
-        self.assertIn('no-store', response.headers['Cache-Control'])
-        with connect(self.database, readonly=True) as connection:
-            history = connection.execute("SELECT id FROM archive_files WHERE kind='history' LIMIT 1").fetchone()[0]
-        self.assertEqual(self.client.get(f'/archives/{history}').status_code, 404)
-        self.assertEqual(self.client.get('/archives/999999').status_code, 404)
-        self.assertEqual(self.client.get('/data/poe2guild.sqlite').status_code, 404)
-
-    def test_archive_missing_tampered_or_escaping_data_directory_is_rejected(self):
-        archive_id = self.league['reports'][0]['id']
-        path = self.data / 'leagues/Alpha/reports/currentday.html'
-        original = path.read_bytes()
-        path.write_text('tampered')
-        self.assertEqual(self.client.get(f'/archives/{archive_id}').status_code, 409)
-        path.unlink()
-        self.assertEqual(self.client.get(f'/archives/{archive_id}').status_code, 404)
-        outside = self.data.parent / ('outside-' + self.data.name + '.html')
-        outside.write_bytes(original)
-        self.addCleanup(outside.unlink)
-        with connect(self.database) as connection:
-            connection.execute('UPDATE archive_files SET relative_path=? WHERE id=?', ('../' + outside.name, archive_id))
-        self.assertEqual(self.client.get(f'/archives/{archive_id}').status_code, 404)
-
     def test_multiple_stashes_use_union_without_duplicate_rows(self):
         result = self.client.get(self.url, query_string=[('stash', 'Main'), ('stash', 'Tab %_'), ('page_size', '100')])
         self.assertEqual(result.status_code, 200)
@@ -218,3 +186,8 @@ class BrowsingTests(unittest.TestCase):
         self.assertEqual(self.client.get(self.url,query_string={'item':'Orb','item_regex':'1','item_word':'1'}).json['total'],60)
         result=self.client.get(self.url,query_string={'account_word':'maybe'})
         self.assertEqual((result.status_code,result.json['error']),(400,'invalid_search_mode'))
+
+    def test_only_data_archives_are_registered_and_retired_routes_are_absent(self):
+        self.assertNotIn('reports',self.league)
+        self.assertEqual(self.client.get('/archives/1').status_code,404)
+        self.assertEqual(self.client.get('/data/poe2guild.sqlite').status_code,404)

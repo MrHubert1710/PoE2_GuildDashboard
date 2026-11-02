@@ -193,7 +193,7 @@ Job kind=quantities jest lokalnym zadaniem kolejki z fazy 3 i działa także dla
 archiwów. Nie zużywa limitu automatycznych odczytów GGG. Obliczenia powstają poza
 transakcją zapisu; publikacja całej projekcji sprawdza lease, rewizję i ustawienia.
 Zmiana danych lub konfiguracji w trakcie pracy wycofuje publikację i wymaga retry.
-Nie generujemy statycznego HTML, wykresów ani wyceny z przyszłych faz.
+Wykresy i wycena są opisane w dalszych fazach.
 
 GET /api/leagues/<id>/quantities przyjmuje view=summary/players/stashes/state,
 account/stash/item/from/to, page i page_size=25/50/100, opcjonalnie revision
