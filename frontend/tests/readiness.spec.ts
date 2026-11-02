@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+
+test.use({ locale: 'pl-PL' })
 import databaseFixture from '../../tests/fixtures/browser-database.json' with { type: 'json' }
 
 test.beforeEach(async ({ page }) => {
@@ -64,7 +66,7 @@ test('mobile layout has no horizontal overflow and reports integration limits', 
 test('shows database counts, integrity and duplicate import result', async ({ page }) => {
   await page.goto('/poe2guild/?view=diagnostics')
   const database = page.getByTestId('database-summary')
-  await expect(database).toContainText(/104\s*534 transakcji w SQLite/)
+  await expect(database).toContainText(/104\s*534 transakcje w SQLite/)
   await expect(database.getByText('Integralność OK')).toBeVisible()
   await expect(page.getByText('Zgodna z audytem')).toHaveCount(2)
   await database.getByText('Ostatni import', { exact: false }).click()

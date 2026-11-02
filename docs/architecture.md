@@ -75,7 +75,8 @@ statycznych wykresów; nie jest źródłem danych interaktywnej aplikacji.
 
 ## Język i lokalizacja
 
-Planowana osobna faza 2a wprowadzi PL/EN i rozszerzalne katalogi tłumaczeń.
+Faza 2a wprowadza PL/EN i rozszerzalne katalogi tłumaczeń; implementacja
+oczekuje odbioru. Szczegóły: [phase-2a.md](phase-2a.md).
 Angielski (en) jest językiem domyślnym, bazą słowników oraz fallbackiem
 brakujących tłumaczeń. en.json musi być obecny i poprawny; walidacja innych
 języków porównuje ich klucze i parametry z angielskim słownikiem.

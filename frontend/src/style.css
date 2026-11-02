@@ -120,3 +120,13 @@ button.primary:hover { background: #cbe7d0; }
   header { flex-wrap: wrap; }
   .header-league-picker { order: 4; flex-basis: 100%; display: flex; justify-content: flex-end; }
 }
+
+.language-picker { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
+.language-picker select { width: auto; max-width: 180px; min-height: 36px; padding: 6px; font-size: 12px; }
+.filter-actions { flex-wrap: wrap; }
+header { flex-wrap: wrap; }
+@media (max-width: 480px) {
+  .language-picker { margin-left: auto; }
+  .app-nav { gap: 12px; }
+  .pagination { flex-wrap: wrap; }
+}

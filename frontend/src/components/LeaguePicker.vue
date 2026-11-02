@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../i18n'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import type { League } from '../browsing'
 
@@ -10,10 +11,10 @@ const active = ref(0)
 const selected = computed(() => props.leagues.find(league => league.id === props.selectedId))
 
 function status(league: League) {
-  if (league.lifecycle === 'active') return { label: 'Aktywna', kind: 'active', title: 'Liga aktywna według metadanych' }
-  if (league.archived) return { label: 'Archiwalna', kind: 'archived', title: 'Lokalne archiwum; status w grze może być nieustalony' }
-  if (league.lifecycle === 'ended') return { label: 'Zakończona', kind: 'ended', title: 'Liga zakończona według metadanych' }
-  return { label: 'Nieustalona', kind: 'unknown', title: 'Brak potwierdzonego statusu ligi' }
+  if (league.lifecycle === 'active') return { label: 'active', kind: 'active', title: 'activeTitle' }
+  if (league.archived) return { label: 'archived', kind: 'archived', title: 'archivedTitle' }
+  if (league.lifecycle === 'ended') return { label: 'ended', kind: 'ended', title: 'endedTitle' }
+  return { label: 'unknown', kind: 'unknown', title: 'unknownTitle' }
 }
 function show() {
   if (props.disabled) return
@@ -52,18 +53,18 @@ onUnmounted(() => document.removeEventListener('pointerdown', outside))
 
 <template>
   <div ref="root" class="league-picker" @focusout="event => { if (!root?.contains(event.relatedTarget as Node)) open = false }">
-    <button type="button" role="combobox" aria-label="Liga" aria-haspopup="listbox" aria-controls="league-options"
+    <button type="button" role="combobox" :aria-label="t('league')" aria-haspopup="listbox" aria-controls="league-options"
       :aria-expanded="open" :aria-activedescendant="open ? `league-option-${active}` : undefined" :disabled="disabled"
       @click="open ? open = false : show()" @keydown="keydown">
-      <span class="picker-caption">Liga</span><span class="picker-name">{{ selected?.name ?? 'Wybierz ligę' }}</span>
-      <span v-if="selected" class="league-status" :class="status(selected).kind" :title="status(selected).title">{{ status(selected).label }}</span>
+      <span class="picker-caption">{{ t('league') }}</span><span class="picker-name">{{ selected?.name ?? t('chooseLeague') }}</span>
+      <span v-if="selected" class="league-status" :class="status(selected).kind" :title="t(status(selected).title)">{{ t(status(selected).label) }}</span>
       <span aria-hidden="true" class="picker-arrow">⌄</span>
     </button>
-    <ul v-if="open" id="league-options" role="listbox" aria-label="Dostępne ligi" class="league-options">
+    <ul v-if="open" id="league-options" role="listbox" :aria-label="t('availableLeagues')" class="league-options">
       <li v-for="(league, index) in leagues" :id="`league-option-${index}`" :key="league.id" role="option"
         :aria-selected="league.id === selectedId" :data-active="index === active" @pointermove="active = index"
         @mousedown.prevent @click="choose(index)">
-        <span>{{ league.name }}</span><span class="league-status" :class="status(league).kind" :title="status(league).title">{{ status(league).label }}</span>
+        <span>{{ league.name }}</span><span class="league-status" :class="status(league).kind" :title="t(status(league).title)">{{ t(status(league).label) }}</span>
       </li>
     </ul>
   </div>

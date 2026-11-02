@@ -78,6 +78,8 @@ export function readQuery(): HistoryQuery {
 
 export function writeQuery(query: HistoryQuery, replace = false) {
   const params = new URLSearchParams()
+  const language = new URLSearchParams(location.search).get('lang')
+  if (language) params.set('lang', language)
   for (const [key, value] of Object.entries(query)) {
     if (String(value) && String(value) !== String(defaults[key as keyof HistoryQuery])) params.set(key, String(value))
   }

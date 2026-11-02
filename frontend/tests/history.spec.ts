@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test'
 
+test.use({ locale: 'pl-PL' })
+
 const path = '/poe2guild/'
 const results = (page: import('@playwright/test').Page) => page.getByTestId('transaction-results')
 

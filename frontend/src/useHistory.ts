@@ -2,13 +2,8 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { defaults, readQuery, writeQuery } from './browsing'
 import type { HistoryQuery, League, TransactionPage } from './browsing'
 
-const messages: Record<string, string> = {
-  revision_changed: 'Dane ligi zmieniły się. Odśwież widok, aby odczytać ich aktualną wersję.',
-  league_not_found: 'Wybrana liga nie jest dostępna.',
-  invalid_date: 'Sprawdź daty w filtrach. Użyj poprawnej daty dziennej.',
-  invalid_date_range: 'Początek zakresu nie może być późniejszy niż koniec.',
-  database_unavailable: 'Baza danych jest chwilowo niedostępna.',
-}
+const errorCodes = new Set(['revision_changed', 'league_not_found', 'invalid_date', 'invalid_date_range', 'database_unavailable'])
+class HistoryError extends Error {}
 
 export function useHistory() {
   const leagues = ref<League[]>([])
@@ -50,10 +45,10 @@ export function useHistory() {
       })
       const payload = await response.json()
       if (sequence !== rowSequence) return
-      if (!response.ok) throw new Error(messages[payload.error] ?? 'Nie udało się odczytać transakcji. Spróbuj ponownie.')
+      if (!response.ok) throw new HistoryError(errorCodes.has(payload.error) ? payload.error : 'transactions_failed')
       const page: TransactionPage = payload
       if (page.league_id !== league.id || page.revision !== league.revision || !Array.isArray(page.rows)) {
-        throw new Error('Otrzymano niezgodną wersję danych. Odśwież widok.')
+        throw new HistoryError('incompatible_revision')
       }
       result.value = page
       if (page.page !== query.value.page) {
@@ -62,8 +57,7 @@ export function useHistory() {
       }
     } catch (error) {
       if (sequence === rowSequence) {
-        rowError.value = error instanceof Error && error.name !== 'AbortError'
-          ? error.message : 'Odczyt trwał zbyt długo. Spróbuj ponownie.'
+        rowError.value = error instanceof HistoryError ? error.message : controller.signal.aborted ? 'transactions_timeout' : 'transactions_failed'
       }
     } finally {
       clearTimeout(timer)
@@ -85,10 +79,10 @@ export function useHistory() {
     const timer = setTimeout(() => controller.abort(), 10_000)
     try {
       const response = await fetch(api + 'leagues', { signal: controller.signal, cache: 'no-store' })
-      if (!response.ok) throw new Error('Nie udało się odczytać listy lig. Spróbuj ponownie.')
+      if (!response.ok) throw new HistoryError('leagues_failed')
       const payload = await response.json()
       if (sequence !== leagueSequence) return
-      if (!Array.isArray(payload.leagues)) throw new Error('Otrzymano nieprawidłową listę lig.')
+      if (!Array.isArray(payload.leagues)) throw new HistoryError('invalid_leagues')
       leagues.value = payload.leagues
       if (!query.value.league && leagues.value[0]) query.value.league = leagues.value[0].id
       Object.assign(draft, query.value)
@@ -96,8 +90,7 @@ export function useHistory() {
       loadingLeagues.value = false
       await loadRows()
     } catch (error) {
-      if (sequence === leagueSequence) leagueError.value = error instanceof Error && error.name !== 'AbortError'
-        ? error.message : 'Odczyt listy lig trwał zbyt długo. Spróbuj ponownie.'
+      if (sequence === leagueSequence) leagueError.value = error instanceof HistoryError ? error.message : controller.signal.aborted ? 'leagues_timeout' : 'leagues_failed'
     } finally {
       clearTimeout(timer)
       if (sequence === leagueSequence) loadingLeagues.value = false
@@ -115,7 +108,7 @@ export function useHistory() {
   function selectLeague(id: string) { change({ ...defaults, league: id }) }
   function applyFilters() {
     if (draft.from && draft.to && draft.from > draft.to) {
-      formError.value = messages.invalid_date_range!
+      formError.value = 'invalid_date_range'
       return
     }
     change({ ...query.value, account: draft.account.trim(), stash: draft.stash, item: draft.item.trim(),
@@ -128,7 +121,9 @@ export function useHistory() {
     change({ ...query.value, sort, direction: query.value.sort === sort && query.value.direction === 'asc' ? 'desc' : 'asc', page: 1 })
   }
   function popState() {
-    query.value = readQuery()
+    const next = readQuery()
+    if (JSON.stringify(next) === JSON.stringify(query.value)) return
+    query.value = next
     Object.assign(draft, query.value)
     formError.value = ''
     void loadRows()

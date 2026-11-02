@@ -1,7 +1,8 @@
 # Faza 2 — wybór ligi i historia transakcji
 
-Status: implementacja zakończona, odbiór manualny oczekujący.
+Status: odebrana poleceniem przejścia do fazy 2a.
 Faza 1 została odebrana na podstawie testów i walidacji. Faza 3 nie jest rozpoczęta.
+Języki interfejsu i parametr lang opisuje [phase-2a.md](phase-2a.md).
 
 ## Zakres
 

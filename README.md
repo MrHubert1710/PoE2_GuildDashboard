@@ -16,6 +16,10 @@ Faza 1: [SQLite, import i instrukcja odbioru](docs/phase-1.md).
 Faza 2: [historia transakcji, filtry i archiwa HTML](docs/phase-2.md).
 Domyślny widok to Historia; wcześniejsze wyniki audytu są w Diagnostyce.
 
+Faza 2a: [języki PL/EN, katalogi tłumaczeń i instrukcja odbioru](docs/phase-2a.md).
+English jest językiem domyślnym i fallbackiem. Wybór w nagłówku zachowuje
+kontekst ligi i filtrów; języki wynikają z frontend/src/locales/*.json.
+
 ## Instalacja i uruchamianie
 
 Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny
@@ -117,7 +121,9 @@ npm run dev
 
 .venv/bin/python -m unittest discover -s tests -v
 bash tests/test_service.sh
+npm --prefix frontend run test:locales
 npm --prefix frontend run build
+npm --prefix frontend run test:browser
 ```
 
 Vite w development proxy'uje `/api` do portu 9002. W produkcji Nginx usuwa
