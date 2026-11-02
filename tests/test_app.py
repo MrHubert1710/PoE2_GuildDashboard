@@ -19,7 +19,7 @@ class AppTests(unittest.TestCase):
     def test_health_identifies_new_service_without_a_frontend_build(self):
         self.assertEqual(self.client.get('/health').data, b'ok\n')
         self.assertEqual(self.client.get('/api/health').json,
-                         {'message': 'Hello World', 'service': 'poe2guild', 'status': 'ok'})
+                         {'message': 'Ready', 'service': 'poe2guild', 'status': 'ok'})
         self.assertEqual(self.client.get('/').status_code, 503)
 
     def test_html_and_hashed_assets_have_separate_cache_policies(self):

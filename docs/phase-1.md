@@ -1,7 +1,7 @@
 # Faza 1 — SQLite i powtarzalny import
 
-Status: implementacja zakończona, odbiór manualny oczekujący.
-Faza 0 została zaakceptowana przez użytkownika. Faza 2 nie jest rozpoczęta.
+Status: faza 1 odebrana przez użytkownika na podstawie testów i walidacji.
+Dalszy zakres: [phase-2.md](phase-2.md).
 
 ## Wynik
 

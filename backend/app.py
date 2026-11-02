@@ -8,6 +8,7 @@ from flask import Flask, jsonify, send_from_directory
 from .reference import public_reference
 from .repositories import database_status
 from .database import DatabaseError
+from .browsing import browser
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,9 +18,10 @@ def create_app(config=None):
     app = Flask(__name__, static_folder=None)
     app.config.from_mapping(FRONTEND_DIST=ROOT / 'frontend' / 'dist',
                             REFERENCE_FILE=ROOT / 'data/reference/phase0.json',
-                            DATABASE_FILE=ROOT / 'data/poe2guild.sqlite')
+                            DATABASE_FILE=ROOT / 'data/poe2guild.sqlite', DATA_DIRECTORY=ROOT / 'data')
     if config:
         app.config.update(config)
+    app.register_blueprint(browser)
 
     @app.get('/health')
     def health():
@@ -27,7 +29,7 @@ def create_app(config=None):
 
     @app.get('/api/health')
     def api_health():
-        return jsonify(service='poe2guild', status='ok', message='Hello World')
+        return jsonify(service='poe2guild', status='ok', message='Ready')
 
     @app.get('/api/rework-readiness')
     def rework_readiness():

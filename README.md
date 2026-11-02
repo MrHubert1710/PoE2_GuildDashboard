@@ -13,6 +13,9 @@ Faza 0: [wyniki audytu i instrukcja odbioru](docs/phase-0.md),
 
 Faza 1: [SQLite, import i instrukcja odbioru](docs/phase-1.md).
 
+Faza 2: [historia transakcji, filtry i archiwa HTML](docs/phase-2.md).
+Domyślny widok to Historia; wcześniejsze wyniki audytu są w Diagnostyce.
+
 ## Instalacja i uruchamianie
 
 Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny
@@ -77,7 +80,8 @@ tests/                   testy API, importu i launchera
 
 Stary generator raportów, fetcher, globalny stan oraz stary frontend zostały
 usunięte z tego katalogu. Historyczne HTML są wyłącznie danymi archiwalnymi,
-nie implementacją nowego interfejsu. Nie są obecnie udostępniane przez HTTP.
+nie implementacją nowego interfejsu. Faza 2 udostępnia zarejestrowane raporty
+w osobnych, izolowanych dokumentach; katalog danych nie jest publicznym statycznym katalogiem.
 Szkielet nie pobiera danych gry, nie używa sesji PoE i nie przelicza archiwów.
 
 Odtworzenie danych ze starego katalogu:
@@ -99,8 +103,9 @@ katalogu. Komendy fazy 1:
 ```
 
 Pełne odtworzenie, polityka konfliktów i przechowywanie surowych danych są
-opisane w [docs/phase-1.md](docs/phase-1.md). API udostępnia na razie wyłącznie
-podgląd stanu bazy, bez przeglądania transakcji z fazy 2.
+opisane w [docs/phase-1.md](docs/phase-1.md). API udostępnia podgląd stanu bazy, listę lig i stronicowane transakcje.
+Filtry i wybór ligi są zapisywane w query string; opis endpointów jest
+w [docs/phase-2.md](docs/phase-2.md).
 
 ## Development i testy
 

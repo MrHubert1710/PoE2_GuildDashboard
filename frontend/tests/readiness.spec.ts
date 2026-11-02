@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 test('renders both archives, expands evidence and refreshes without navigation', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/poe2guild/')
+  await page.goto('/poe2guild/?view=diagnostics')
   await expect(page.getByRole('heading', { name: 'Archiwa lig' })).toBeVisible()
   const aldur = page.locator('[data-league="Runes of Aldur"]')
   const rites = page.locator('[data-league="Forbidden Rites"]')
@@ -32,7 +32,7 @@ test('shows API failure and supports retry', async ({ page }) => {
   await page.route('**/api/rework-readiness', route => fail
     ? route.fulfill({ status: 503, json: { error: 'Reference unavailable' } })
     : route.continue())
-  await page.goto('/poe2guild/')
+  await page.goto('/poe2guild/?view=diagnostics')
   await expect(page.getByRole('alert')).toContainText('spróbuj ponownie')
   fail = false
   await page.getByRole('button', { name: 'Odśwież podgląd' }).click()
@@ -41,7 +41,7 @@ test('shows API failure and supports retry', async ({ page }) => {
 })
 
 test('retains last snapshot on a later API failure', async ({ page }) => {
-  await page.goto('/poe2guild/')
+  await page.goto('/poe2guild/?view=diagnostics')
   await expect(page.getByRole('heading', { name: 'Archiwa lig' })).toBeVisible()
   await page.route('**/api/rework-readiness', route => route.fulfill({ status: 503, json: {} }))
   await page.getByRole('button', { name: 'Odśwież podgląd' }).click()
@@ -51,7 +51,7 @@ test('retains last snapshot on a later API failure', async ({ page }) => {
 
 test('mobile layout has no horizontal overflow and reports integration limits', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/poe2guild/')
+  await page.goto('/poe2guild/?view=diagnostics')
   await expect(page.getByRole('heading', { name: 'Archiwa lig' })).toBeVisible()
   await page.locator('[data-league]').first().getByText('Sumy kontrolne i zachowane pliki').click()
   await expect(page.getByText('czas cen niepotwierdzony').first()).toBeVisible()
@@ -62,7 +62,7 @@ test('mobile layout has no horizontal overflow and reports integration limits', 
 })
 
 test('shows database counts, integrity and duplicate import result', async ({ page }) => {
-  await page.goto('/poe2guild/')
+  await page.goto('/poe2guild/?view=diagnostics')
   const database = page.getByTestId('database-summary')
   await expect(database).toContainText(/104\s*534 transakcji w SQLite/)
   await expect(database.getByText('Integralność OK')).toBeVisible()
@@ -74,14 +74,14 @@ test('shows database counts, integrity and duplicate import result', async ({ pa
 
 test('database failure leaves independent reference archives available', async ({ page }) => {
   await page.route('**/api/database-status', route => route.fulfill({ status: 503, json: { state: 'unavailable' } }))
-  await page.goto('/poe2guild/')
+  await page.goto('/poe2guild/?view=diagnostics')
   await expect(page.getByTestId('database-error')).toContainText('Baza jest niedostępna')
   await expect(page.locator('[data-league]')).toHaveCount(2)
   await expect(page.getByTestId('database-summary')).toHaveCount(0)
 })
 
 test('later database failure preserves the last visible database result', async ({ page }) => {
-  await page.goto('/poe2guild/')
+  await page.goto('/poe2guild/?view=diagnostics')
   await expect(page.getByTestId('database-summary')).toBeVisible()
   await page.route('**/api/database-status', route => route.fulfill({ status: 503, json: {} }))
   await page.getByRole('button', { name: 'Odśwież podgląd' }).click()
