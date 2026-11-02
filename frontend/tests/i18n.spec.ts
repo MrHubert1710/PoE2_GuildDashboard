@@ -1,3 +1,4 @@
+import { gotoHistory } from './workspace-helpers'
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { readFileSync, readdirSync } from 'node:fs'
@@ -10,7 +11,7 @@ const language = (page: Page) => page.locator('.language-picker select')
 const settle = (page: Page) => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
 
 test('defaults to English and options come from locale file native names', async ({ page }) => {
-  await page.goto(path)
+  await gotoHistory(page, path)
   await ready(page)
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   await expect(page).toHaveTitle('poe2guild — Guild history')
@@ -25,7 +26,7 @@ test('defaults to English and options come from locale file native names', async
 })
 
 test('switch and back/forward keep league, filters, page, drafts and rows without any fetch', async ({ page }) => {
-  await page.goto(path + '?lang=en&account=Synthetic%20Alice&page_size=25&page=2&sort=item&direction=asc&from=2026-01-01&to=2026-01-02')
+  await gotoHistory(page, path + '?lang=en&account=Synthetic%20Alice&page_size=25&page=2&sort=item&direction=asc&from=2026-01-01&to=2026-01-02')
   await ready(page)
   await expect(page.locator('.result-count')).toContainText('page 2')
   const before = new URL(page.url())
@@ -55,17 +56,17 @@ test('switch and back/forward keep league, filters, page, drafts and rows withou
 })
 
 test('language persists between views, links, reload and URL overrides saved preference', async ({ page }) => {
-  await page.goto(path + '?lang=pl')
+  await gotoHistory(page, path + '?lang=pl')
   await ready(page)
   await page.getByRole('link', { name: 'Diagnostyka', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Archiwa lig' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Historia', exact: true })).toHaveAttribute('href', /lang=pl/)
+  await expect(page.getByRole('link', { name: 'Panel gildii', exact: true })).toHaveAttribute('href', /lang=pl/)
   await page.reload()
   await expect(language(page)).toHaveValue('pl')
-  await page.goto(path)
+  await gotoHistory(page, path)
   await ready(page)
   await expect(language(page)).toHaveValue('pl')
-  await page.goto(path + '?lang=en')
+  await gotoHistory(page, path + '?lang=en')
   await ready(page)
   await expect(language(page)).toHaveValue('en')
 })
@@ -78,7 +79,7 @@ test('unsupported or removed locale falls back through saved, browser and Englis
     try {
       await context.addInitScript(value => localStorage.setItem('poe2guild.language', value), saved!)
       const page = await context.newPage()
-      await page.goto('http://127.0.0.1:19003' + path + '?lang=removed-locale')
+      await gotoHistory(page, 'http://127.0.0.1:19003' + path + '?lang=removed-locale')
       await ready(page)
       await expect(language(page)).toHaveValue(expected!)
       expect(new URL(page.url()).searchParams.get('lang')).toBe(expected)
@@ -88,7 +89,7 @@ test('unsupported or removed locale falls back through saved, browser and Englis
 
 test('denied browser storage still allows URL-based switching and reload', async ({ page }) => {
   await page.addInitScript(() => { Object.defineProperty(window, 'localStorage', { get() { throw new Error('Storage denied') } }) })
-  await page.goto(path)
+  await gotoHistory(page, path)
   await ready(page)
   await language(page).selectOption('pl')
   await page.reload()
@@ -98,7 +99,7 @@ test('denied browser storage still allows URL-based switching and reload', async
 
 test('existing errors translate immediately without retrying the API', async ({ page }) => {
   await page.route('**/transactions?*', route => route.fulfill({ status: 409, json: { error: 'revision_changed' } }))
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(page.getByRole('alert')).toContainText('League data has changed')
   const requests: string[] = []
   page.on('request', request => { if (request.url().includes('/api/')) requests.push(request.url()) })
@@ -110,7 +111,7 @@ test('existing errors translate immediately without retrying the API', async ({ 
 
 test('diagnostics keeps expanded evidence, formats numbers and translates provider metadata', async ({ page }) => {
   await page.route('**/api/database-status', route => route.fulfill({ json: databaseFixture }))
-  await page.goto(path + '?view=diagnostics&lang=en')
+  await gotoHistory(page, path + '?view=diagnostics&lang=en')
   await expect(page.getByTestId('database-summary')).toContainText('104,534 transactions in SQLite')
   const evidence = page.locator('[data-league]').first().locator('details')
   await evidence.locator('summary').click()
@@ -126,7 +127,7 @@ test('diagnostics keeps expanded evidence, formats numbers and translates provid
 })
 
 test('dates use the language with UTC independent of browser timezone', async ({ page }) => {
-  await page.goto(path + '?lang=en')
+  await gotoHistory(page, path + '?lang=en')
   await ready(page)
   const expected = await page.evaluate(async () => {
     const params = new URLSearchParams(location.search)
@@ -136,12 +137,12 @@ test('dates use the language with UTC independent of browser timezone', async ({
   await expect(page.locator('.date-cell').first()).toHaveText(expected)
   await language(page).selectOption('pl')
   await expect(page.locator('.date-cell').first()).not.toHaveText(expected)
-  await expect(page.locator('.league-summary')).toContainText('UTC')
+  await expect(page.getByRole('button', { name: 'Data (UTC)', exact: false })).toBeVisible()
 })
 
 test('mobile header, long labels, statuses and filters stay inside viewport in both languages', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
-  await page.goto(path)
+  await gotoHistory(page, path)
   await ready(page)
   for (const code of ['pl', 'en']) {
     await language(page).selectOption(code)

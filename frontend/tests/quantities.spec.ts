@@ -1,3 +1,4 @@
+import { gotoHistory, goSection } from './workspace-helpers'
 import { test, expect } from '@playwright/test'
 import type { APIRequestContext } from '@playwright/test'
 
@@ -17,7 +18,7 @@ async function restore(request: APIRequestContext) {
 }
 
 test('Modified stays in source data and has a signed derived removal with explanation',async({page})=>{
-  await page.goto(path)
+  await gotoHistory(page, path)
   const row=page.locator('.history-transactions [data-event-id="12"]')
   await expect(row).toContainText('Modified')
   await expect(row.locator('.quantity-delta')).toHaveText('-5')
@@ -28,7 +29,7 @@ test('Modified stays in source data and has a signed derived removal with explan
   const panel=page.getByTestId('quantity-panel')
   await expect(panel).toContainText('Generated:')
   for(const view of ['Players','Stashes','Reconstructed state','Summary']) {
-    await panel.getByRole('button',{name:view,exact:true}).click()
+    await goSection(page, view === 'Reconstructed state' ? 'Stash state' : view)
     await expect(panel.locator('.quantity-table')).toBeVisible()
   }
 })
@@ -42,12 +43,12 @@ test('history filters apply after replay and final state uses full history',asyn
   await page.getByRole('button',{name:'Apply filters'}).click()
   const panel=page.getByTestId('quantity-panel')
   await expect(panel.locator('.quantity-table')).toContainText('Rites Token')
-  await panel.getByRole('button',{name:'Reconstructed state',exact:true}).click()
+  await goSection(page, 'Stash state')
   await expect(panel).toContainText('Player and date filters do not restrict this view')
   await expect(panel.locator('.quantity-table tbody tr').filter({hasText:'Rites Token'})).toContainText('63')
   await expect(page).toHaveURL(/analysis=state/)
   await page.reload()
-  await expect(panel.getByRole('button',{name:'Reconstructed state',exact:true})).toHaveAttribute('aria-current','page')
+  await expect(page.getByRole('navigation',{name:'League views'}).getByRole('link',{name:'Stash state',exact:true})).toHaveAttribute('aria-current','page')
 })
 
 test('league settings rebuild projections and change display timezone without altering source',async({page,request})=>{
@@ -55,12 +56,13 @@ test('league settings rebuild projections and change display timezone without al
     await page.goto(path)
     const panel=page.getByTestId('quantity-panel')
     await expect(panel).toContainText('Generated:')
-    await panel.getByText('Analysis settings for this league',{exact:true}).click()
-    await panel.getByLabel('Analyze all stashes',{exact:true}).uncheck()
-    await panel.getByLabel('Special',{exact:true}).check()
-    await panel.getByLabel('Display timezone',{exact:true}).fill('Europe/Warsaw')
-    await panel.getByRole('button',{name:'Save settings and rebuild'}).click()
+    await goSection(page, 'Settings')
+    await page.getByTestId('quantity-settings').getByLabel('Analyze all stashes',{exact:true}).uncheck()
+    await page.getByTestId('quantity-settings').getByLabel('Special',{exact:true}).check()
+    await page.getByTestId('quantity-settings').getByLabel('Display timezone',{exact:true}).fill('Europe/Warsaw')
+    await page.getByTestId('quantity-settings').getByRole('button',{name:'Save settings and rebuild'}).click()
     await expect(page.locator('.history-transactions [data-event-id="12"]')).toContainText('Excluded',{timeout:15000})
+    await goSection(page, 'History')
     await expect(page.getByRole('button',{name:'Date (Europe/Warsaw)',exact:false})).toBeVisible()
     await expect(panel.getByTestId('quantity-stats')).toContainText('excluded stashes: 59')
     await expect(page.locator('.history-transactions [data-event-id="12"]')).toContainText('Modified')
@@ -72,17 +74,17 @@ test('guild aliases inherit into another league, while its item state starts ind
     await page.goto(path)
     const panel=page.getByTestId('quantity-panel')
     await expect(panel).toContainText('Generated:')
-    await panel.getByText('Analysis settings for this league',{exact:true}).click()
-    await panel.getByLabel('Alias for stash Main',{exact:true}).fill('Shared')
-    await panel.getByLabel('Save settings for',{exact:true}).selectOption('guild')
-    await panel.getByRole('button',{name:'Save settings and rebuild'}).click()
+    await goSection(page, 'Settings')
+    await page.getByTestId('quantity-settings').getByLabel('Alias for stash Main',{exact:true}).fill('Shared')
+    await page.getByTestId('quantity-settings').getByLabel('Save settings for',{exact:true}).selectOption('guild')
+    await page.getByTestId('quantity-settings').getByRole('button',{name:'Save settings and rebuild'}).click()
     await expect(panel).toContainText('Generated:',{timeout:15000})
     await page.getByRole('combobox',{name:'League',exact:true}).click()
     await page.getByRole('option',{name:'Runes of Aldur',exact:false}).click()
     await expect(panel).toContainText('Generated:',{timeout:15000})
-    await panel.getByText('Analysis settings for this league',{exact:true}).click()
-    await expect(panel.getByLabel('Alias for stash Main',{exact:true})).toHaveValue('Shared')
-    await panel.getByRole('button',{name:'Reconstructed state',exact:true}).click()
+    await goSection(page, 'Settings')
+    await expect(page.getByTestId('quantity-settings').getByLabel('Alias for stash Main',{exact:true})).toHaveValue('Shared')
+    await goSection(page, 'Stash state')
     await expect(panel.locator('.quantity-table')).toContainText('Shared')
     await expect(panel.locator('.quantity-table')).toContainText('Unknown')
     await expect(panel.locator('.quantity-table')).not.toContainText('63')

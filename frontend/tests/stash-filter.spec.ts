@@ -1,9 +1,10 @@
+import { gotoHistory } from './workspace-helpers'
 import { test, expect } from '@playwright/test'
 
 test.use({ locale: 'en-US' })
 
 test('checkbox multiselect filters both tables and survives URL, reload and back/forward', async ({ page }) => {
-  await page.goto('/poe2guild/?lang=en&page=2')
+  await gotoHistory(page, '/poe2guild/?lang=en&page=2')
   await expect(page.getByTestId('transaction-results')).toBeVisible()
   const picker = page.getByRole('group', { name: 'Stashes', exact: true })
   const main = picker.getByRole('checkbox', { name: 'Main', exact: true })
@@ -42,7 +43,7 @@ test('checkbox multiselect filters both tables and survives URL, reload and back
 
 test('single stash links remain compatible and keyboard selection fits mobile in PL/EN', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
-  await page.goto('/poe2guild/?lang=pl&stash=Special')
+  await gotoHistory(page, '/poe2guild/?lang=pl&stash=Special')
   const picker = page.getByRole('group', { name: 'Skrytki', exact: true })
   await picker.getByRole('button', { name: 'Skrytki', exact: true }).click()
   await expect(picker.getByRole('checkbox', { name: 'Special', exact: true })).toBeChecked()
@@ -63,7 +64,7 @@ test('single stash links remain compatible and keyboard selection fits mobile in
 })
 
 test('stash dropdown opens on click or keyboard, keeps selection open and closes on Escape or outside', async ({ page }) => {
-  await page.goto('/poe2guild/?lang=en')
+  await gotoHistory(page, '/poe2guild/?lang=en')
   const trigger = page.getByRole('group', { name: 'Stashes', exact: true }).getByRole('button', { name: 'Stashes', exact: true })
   const picker = page.getByRole('group', { name: 'Stashes', exact: true })
   await expect(trigger).toHaveAttribute('aria-expanded', 'false')

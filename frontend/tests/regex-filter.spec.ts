@@ -1,10 +1,11 @@
+import { gotoHistory, goSection } from './workspace-helpers'
 import { test, expect } from '@playwright/test'
 
 test.use({ locale: 'en-US' })
 const url='/poe2guild/?lang=en'
 
 test('regex toggles are independent, opt-in and kept in URL through reload/back/forward',async({page})=>{
-  await page.goto(url)
+  await gotoHistory(page, url)
   await expect(page.getByTestId('transaction-results')).toBeVisible()
   const player=page.getByRole('button',{name:'Regex mode: Player',exact:true})
   const item=page.getByRole('button',{name:'Regex mode: Item',exact:true})
@@ -42,24 +43,26 @@ test('regex toggles are independent, opt-in and kept in URL through reload/back/
 })
 
 test('invalid patterns show field-specific translated errors and disabling regex restores literal search',async({page})=>{
-  await page.goto(url)
+  await gotoHistory(page, url)
   await expect(page.getByTestId('transaction-results')).toBeVisible()
   await page.getByLabel('Item',{exact:true}).fill('[')
   await page.getByRole('button',{name:'Regex mode: Item',exact:true}).click()
   await page.getByRole('button',{name:'Apply filters',exact:true}).click()
-  await expect(page.locator('.history-browser > .alert')).toContainText('Invalid regular expression in the Item field')
+  await expect(page.locator('.history-view > .alert')).toContainText('Invalid regular expression in the Item field')
+  await goSection(page, 'Summary')
   await expect(page.getByTestId('quantity-panel').getByRole('alert')).toContainText('Invalid regular expression in the Item field')
+  await goSection(page, 'History')
   await page.getByRole('combobox',{name:'Language',exact:true}).selectOption('pl')
-  await expect(page.locator('.history-browser > .alert')).toContainText('Nieprawidłowe wyrażenie regularne w polu Przedmiot')
+  await expect(page.locator('.history-view > .alert')).toContainText('Nieprawidłowe wyrażenie regularne w polu Przedmiot')
   await page.getByRole('button',{name:'Tryb regex: Przedmiot',exact:true}).click()
   await page.getByRole('button',{name:'Zastosuj filtry',exact:true}).click()
   await expect(page.locator('.result-count')).toContainText('Wyniki: 0')
-  await expect(page.locator('.history-browser > .alert')).toHaveCount(0)
+  await expect(page.locator('.history-view > .alert')).toHaveCount(0)
 })
 
 test('mobile regex buttons work by keyboard and do not overflow the form',async({page})=>{
   await page.setViewportSize({width:360,height:800})
-  await page.goto(url)
+  await gotoHistory(page, url)
   const toggle=page.getByRole('button',{name:'Regex mode: Player',exact:true})
   await toggle.focus()
   await toggle.press('Space')
@@ -71,7 +74,7 @@ test('mobile regex buttons work by keyboard and do not overflow the form',async(
 })
 
 test('VS Code controls are inside the field and case/whole-word modes affect results and persist',async({page})=>{
-  await page.goto(url)
+  await gotoHistory(page, url)
   await expect(page.getByTestId('transaction-results')).toBeVisible()
   const matchCase=page.getByRole('button',{name:'Match case: Player',exact:true})
   const wholeWord=page.getByRole('button',{name:'Whole words: Player',exact:true})

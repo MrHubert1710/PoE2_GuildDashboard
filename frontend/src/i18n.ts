@@ -1,4 +1,5 @@
 import { ref, watchEffect } from 'vue'
+import { updateUrl } from './navigation'
 import { formatMessage } from './message-format.mjs'
 import type { Catalog } from '../scripts/locale-catalog.mjs'
 
@@ -20,7 +21,7 @@ export const locale = ref(resolveLanguage())
 function synchronize(replace: boolean) {
   const url = new URL(location.href)
   url.searchParams.set('lang', locale.value)
-  if (url.href !== location.href) history[replace ? 'replaceState' : 'pushState'](null, '', url)
+  updateUrl(url, replace)
   try { localStorage.setItem(storageKey, locale.value) } catch { /* Private browsers can deny storage. URL still works. */ }
 }
 export function setLanguage(code: string) {

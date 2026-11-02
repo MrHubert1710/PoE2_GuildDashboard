@@ -4,8 +4,8 @@ import { t, date } from '../i18n'
 interface Job { state: string; attempts: number; error_code: string | null; available_at: string }
 interface ScopeStatus { available: boolean; reason: string | null; last_success_at: string | null; cooldown_until: string | null; automatic_retry_at: string | null; job: Job | null; last_result: { transactions: number; revision: string } | null }
 interface Status { quantity_settings_hash?: string; league_id: string; revision: string; worker: string; history: ScopeStatus; local_verify: ScopeStatus; last_generated_at: string | null }
-const props = defineProps<{ leagueId: string; revision: string }>()
-const emit = defineEmits<{ revisionChanged: [] }>()
+const props = defineProps<{ leagueId: string; revision: string; diagnostics: boolean }>()
+const emit = defineEmits<{ revisionChanged: []; inspect: [] }>()
 const status = ref<Status | null>(null)
 const busy = ref(false)
 const error = ref(false)
@@ -75,7 +75,16 @@ onUnmounted(() => { stopped = true; clearTimeout(timer); controllers.forEach(con
 </script>
 
 <template>
-  <section class="refresh-panel" :aria-label="t('refresh.title')" data-testid="refresh-panel">
+  <div class="sync-strip" data-testid="sync-strip">
+    <span class="sync-status">{{ t(!status ? 'refresh.loading' : pending ? 'workspace.updating' : status.history.reason === 'archived' ? 'workspace.localData' : status.history.reason === 'source_unavailable' ? 'workspace.sourceUnavailable' : 'workspace.ready') }}</span>
+    <div class="sync-actions"><button type="button" :disabled="busy || !status?.history.available || active(status?.history)" :title="status?.history.reason ? t(`refresh.${status.history.reason}`) : undefined" @click="submit('history')">{{ t('refresh.fetch') }}</button>
+      <button type="button" @click="emit('inspect')">{{ t('workspace.syncDetails') }}</button></div>
+    <p v-if="error" role="alert">{{ t('refresh.statusError') }}</p>
+    <p v-if="requestError" role="alert">{{ t('refresh.requestError') }}</p>
+  </div>
+  <Teleport to="#league-sync-diagnostics">
+
+  <section v-show="diagnostics" class="refresh-panel" :aria-label="t('refresh.title')" data-testid="refresh-panel">
     <div class="section-heading"><h2>{{ t('refresh.title') }}</h2><span>{{ t(!status ? 'refresh.loading' : status.worker === 'online' ? 'refresh.workerOnline' : 'refresh.workerOffline') }}</span></div>
     <p v-if="error" role="alert">{{ t('refresh.statusError') }}</p>
     <p v-if="requestError" role="alert">{{ t('refresh.requestError') }}</p>
@@ -101,4 +110,5 @@ onUnmounted(() => { stopped = true; clearTimeout(timer); controllers.forEach(con
       <p class="footnote">{{ t('refresh.localNote') }}</p>
     </template>
   </section>
+  </Teleport>
 </template>

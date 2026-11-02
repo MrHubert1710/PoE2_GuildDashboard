@@ -1,48 +1,33 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { t, languages, locale, setLanguage } from './i18n'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { section, sectionUrl, diagnosticsUrl, diagnosticsVisible, navigateSection, navigateDiagnostics } from './navigation'
 import HistoryBrowser from './components/HistoryBrowser.vue'
 import Diagnostics from './components/Diagnostics.vue'
-
-const readView = () => new URLSearchParams(location.search).get('view') === 'diagnostics' ? 'diagnostics' : 'history'
-const view = ref(readView())
-function viewUrl(target: 'history' | 'diagnostics') {
-  const url = new URL(location.href)
-  if (target === 'diagnostics') url.searchParams.set('view', 'diagnostics')
-  else url.searchParams.delete('view')
-  url.searchParams.set('lang', locale.value)
-  return url.pathname + url.search
-}
-function navigate(target: 'history' | 'diagnostics') {
-  const url = new URL(location.href)
-  if (target === 'diagnostics') url.searchParams.set('view', 'diagnostics')
-  else url.searchParams.delete('view')
-  if (url.href !== location.href) history.pushState(null, '', url)
-  view.value = target
-}
-function popState() { view.value = readView() }
-onMounted(() => window.addEventListener('popstate', popState))
-onUnmounted(() => window.removeEventListener('popstate', popState))
+const visitedDiagnostics = ref(diagnosticsVisible.value)
+watch(diagnosticsVisible, value => { if (value) visitedDiagnostics.value = true })
 </script>
 
 <template>
   <main class="shell app-shell">
-    <header>
-      <a class="brand" :href="viewUrl('history')" @click.prevent="navigate('history')"><span class="brand-mark" aria-hidden="true">P2</span> poe2guild</a>
+    <header class="app-header">
+      <a class="brand" :href="sectionUrl('summary').toString()" @click.prevent="navigateSection('summary')"><span class="brand-mark" aria-hidden="true">P2</span> poe2guild</a>
       <nav class="app-nav" :aria-label="t('navigation')">
-        <a :href="viewUrl('history')" :aria-current="view === 'history' ? 'page' : undefined" @click.prevent="navigate('history')">{{ t('history') }}</a>
-        <a :href="viewUrl('diagnostics')" :aria-current="view === 'diagnostics' ? 'page' : undefined" @click.prevent="navigate('diagnostics')">{{ t('diagnostics') }}</a>
+        <a :href="sectionUrl(section).toString()" :aria-current="!diagnosticsVisible ? 'page' : undefined" @click.prevent="navigateDiagnostics(false)">{{ t('workspace.home') }}</a>
+        <a :href="diagnosticsUrl().toString()" :aria-current="diagnosticsVisible ? 'page' : undefined" @click.prevent="navigateDiagnostics(true)">{{ t('diagnostics') }}</a>
       </nav>
-      <div v-show="view === 'history'" id="header-league-picker" class="header-league-picker"></div>
+      <div id="header-league-picker" class="header-league-picker"></div>
       <label class="language-picker">{{ t('language') }}
         <select :aria-label="t('language')" :value="locale" @change="setLanguage(($event.target as HTMLSelectElement).value)">
           <option v-for="language in languages" :key="language.code" :value="language.code">{{ language.nativeName }}</option>
         </select>
       </label>
-      <span class="phase-tag">{{ t('phase') }}</span>
     </header>
-    <HistoryBrowser v-if="view === 'history'" />
-    <Diagnostics v-else />
-    <footer v-if="view === 'history'"><span>{{ t('footer') }}</span><span>{{ t('review') }}</span></footer>
+    <div v-show="diagnosticsVisible" class="diagnostics-page">
+      <div id="league-sync-diagnostics"></div>
+      <Diagnostics v-if="visitedDiagnostics" />
+    </div>
+    <HistoryBrowser v-show="!diagnosticsVisible" :diagnostics="diagnosticsVisible" />
+    <footer><span>{{ t('workspace.footer') }}</span><span>poe2guild</span></footer>
   </main>
 </template>

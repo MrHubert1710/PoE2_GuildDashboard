@@ -16,7 +16,7 @@ test('renders both archives, expands evidence and refreshes without navigation',
   const rites = page.locator('[data-league="Forbidden Rites"]')
   await expect(aldur).toContainText(/89\s*190/)
   await expect(rites).toContainText(/15\s*344/)
-  await expect(page.locator('[role="status"]').first()).toContainText(/104\s*534/)
+  await expect(page.locator('.diagnostics [role="status"]').first()).toContainText(/104\s*534/)
   await aldur.getByText('Sumy kontrolne i zachowane pliki').click()
   await expect(aldur.getByText('currentday.html', { exact: false })).toBeVisible()
   await expect(aldur.getByText('lastday.html', { exact: false })).toBeVisible()

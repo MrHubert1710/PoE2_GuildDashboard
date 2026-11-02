@@ -27,6 +27,10 @@ Faza 4: [wyliczone ruchy, podsumowania i ustawienia gildii/ligi](docs/phase-4.md
 Historia pokazuje źródłową akcję oraz własną deltę i akcję zastępczą; archiwalne
 dane pozostają niezmienione. Każda liga ma niezależną historię i stan.
 
+Faza 4b: [nowa organizacja panelu i nawigacji](docs/phase-4b.md).
+Startowym widokiem jest Podsumowanie; Historia, Ustawienia i Raporty archiwalne
+są osobnymi sekcjami. Szczegóły synchronizacji znajdują się w Diagnostyce.
+
 ## Instalacja i uruchamianie
 
 Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny

@@ -1,8 +1,8 @@
 # Wymagania reworku i decyzje architektoniczne
 
-Stan ustaleń: 2026-11-02. Funkcje poniżej są planem, nie opisem działania
-obecnego Hello World. Weryfikować możliwości dostawców przed implementacją
-integracji, ponieważ ich dokumentacja i zakres dostępu mogą się zmieniać.
+Stan ustaleń: 2026-11-02. Fazy 0–4 są odebrane; faza 4b reorganizuje frontend
+i oczekuje odbioru. Dalsze integracje pozostają planem. Weryfikować możliwości
+dostawców przed implementacją, ponieważ dokumentacja i zakres dostępu mogą się zmieniać.
 
 ## Zakres zaakceptowany do uwzględnienia w projekcie
 
@@ -176,3 +176,11 @@ ligami. Dziedziczenie z gildii dotyczy konfiguracji nazw/aliasów, wyboru
 zakładek i strefy czasu, z jawnym nadpisaniem per liga. Zastępcza akcja i delta
 są wersjonowaną projekcją, a surowy wpis pozostaje niezmienny.
 Szczegóły i reguły niepewności: [phase-4.md](phase-4.md).
+
+## Układ frontendu — faza 4b
+
+Jeden trwały kontekst ligi obsługuje osobne sekcje danych, ustawienia i archiwa.
+Diagnostyka otrzymuje szczegóły synchronizacji, a panel danych zachowuje
+kompaktowy pasek odświeżania i wspólne filtry. Reaktywny URL jest wspólny
+dla nawigacji, filtrów, języka i paginacji. Szczegóły podziału komponentów
+i odbioru: [phase-4b.md](phase-4b.md).

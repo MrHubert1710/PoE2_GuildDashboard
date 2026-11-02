@@ -1,3 +1,4 @@
+import { gotoHistory } from './workspace-helpers'
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
@@ -7,16 +8,17 @@ const ready = (page: Page) => expect(page.getByTestId('transaction-results')).to
 const panel = (page: Page) => page.getByTestId('refresh-panel')
 
 test('archive entry checks freshness but cannot fetch, and local verification runs on a real worker', async ({ page }) => {
-  await page.goto(path)
+  await gotoHistory(page, path)
   await ready(page)
   await expect(panel(page)).toContainText('Archived league')
   await expect(panel(page)).toContainText('Worker online')
-  await expect(panel(page).getByRole('button', { name: 'Fetch history', exact: true })).toBeDisabled()
+  await expect(page.getByTestId('sync-strip').getByRole('button', { name: 'Fetch history', exact: true })).toBeDisabled()
   await expect(panel(page)).toContainText('Last synchronization: none')
   await expect(panel(page)).not.toContainText('Last report generation: none')
   const url = new URL(page.url())
   const response = await page.request.post(`/poe2guild/api/leagues/${url.searchParams.get('league')}/refresh`, { data: { trigger: 'manual' } })
   expect((await response.json()).reason).toBe('archived')
+  await page.getByRole('link', { name: 'Diagnostics', exact: true }).click()
   await panel(page).getByRole('button', { name: 'Verify local data' }).click()
   await expect(panel(page)).toContainText('Verified local records: 60', { timeout: 10000 })
   await expect(panel(page)).toContainText('Local verification: Job completed.')
@@ -30,13 +32,12 @@ test('status failure keeps the current data visible and later polling recovers',
   let fail = true
   await page.route('**/refresh', route => route.request().method() === 'GET' && fail
     ? route.fulfill({ status: 503, json: { error: 'database_unavailable' } }) : route.continue())
-  await page.goto(path)
+  await gotoHistory(page, path)
   await ready(page)
-  await expect(panel(page).getByRole('alert')).toContainText('Unable to read refresh status')
+  await expect(page.getByTestId('sync-strip').getByRole('alert')).toContainText('Unable to read refresh status')
   await expect(page.locator('.history-transactions tbody tr')).toHaveCount(50)
   fail = false
-  await expect(panel(page)).toContainText('Archived league', { timeout: 10000 })
-  await expect(panel(page).getByRole('alert')).toHaveCount(0)
+  await expect(page.getByTestId('sync-strip').getByRole('alert')).toHaveCount(0, { timeout: 10000 })
 })
 
 test('polling detects a new revision and refreshes rows while retaining URL and draft filters', async ({ page }) => {
@@ -62,7 +63,7 @@ test('polling detects a new revision and refreshes rows while retaining URL and 
     if (route.request().method() === 'GET' && changed) payload.revision += '-new'
     await route.fulfill({ json: payload })
   })
-  await page.goto(path + '&page=2&page_size=25&sort=item&direction=asc&account=Synthetic%20Alice')
+  await gotoHistory(page, path + '&page=2&page_size=25&sort=item&direction=asc&account=Synthetic%20Alice')
   await ready(page)
   await expect(panel(page)).toContainText('Archived league')
   const url = page.url()
@@ -87,7 +88,7 @@ test('waiting, source limits and offline worker are explicit and translate witho
     }
     await route.fulfill({ json: payload })
   })
-  await page.goto(path)
+  await gotoHistory(page, path)
   await ready(page)
   await expect(panel(page)).toContainText('Worker offline')
   await expect(panel(page)).toContainText('Manual fetch also respects this waiting period')
@@ -109,13 +110,14 @@ test('league switches discard stale status responses', async ({ page }) => {
     }
     await route.fulfill({ response }).catch(() => {})
   })
-  await page.goto(path)
+  await gotoHistory(page, path)
   await ready(page)
   await page.getByRole('combobox', { name: 'League', exact: true }).click()
   await page.getByRole('option', { name: 'Runes of Aldur', exact: false }).click()
   await expect(page.locator('.result-count')).toContainText('Results: 3')
   unblock()
   await expect(panel(page)).toContainText('Archived league')
+  await page.getByRole('link', { name: 'Diagnostics', exact: true }).click()
   await panel(page).getByRole('button', { name: 'Verify local data' }).click()
   await expect(panel(page)).toContainText('Verified local records: 3', { timeout: 10000 })
 })
@@ -124,13 +126,15 @@ test('failed job submission stays visible even when status is available, and ret
   let fail = true
   await page.route('**/refresh', route => route.request().method() === 'POST' && route.request().postDataJSON().kind === 'local_verify' && fail
     ? route.fulfill({ status: 503, json: { error: 'database_unavailable' } }) : route.continue())
-  await page.goto(path)
+  await gotoHistory(page, path)
   await ready(page)
   await expect(panel(page)).toContainText('Archived league')
+  await page.getByRole('link', { name: 'Diagnostics', exact: true }).click()
   await panel(page).getByRole('button', { name: 'Verify local data' }).click()
   await expect(panel(page).getByRole('alert')).toContainText('Unable to submit the job')
   await expect(page.locator('.history-transactions tbody tr')).toHaveCount(50)
   fail = false
+  await page.getByRole('link', { name: 'Diagnostics', exact: true }).click()
   await panel(page).getByRole('button', { name: 'Verify local data' }).click()
   await expect(panel(page).getByRole('alert')).toHaveCount(0)
   await expect(panel(page)).toContainText('Verified local records: 60', { timeout: 10000 })

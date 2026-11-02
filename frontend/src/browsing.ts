@@ -1,3 +1,4 @@
+import { updateUrl } from './navigation'
 export interface HistoricalReport {
   id: number
   name: string
@@ -95,7 +96,7 @@ export function writeQuery(query: HistoryQuery, replace = false) {
   const params = new URLSearchParams()
   const language = new URLSearchParams(location.search).get('lang')
   if (language) params.set('lang', language)
-  for (const key of ['analysis', 'analysis_page']) {
+  for (const key of ['analysis', 'analysis_page', 'section', 'view']) {
     const value = new URLSearchParams(location.search).get(key)
     if (value) params.set(key, value)
   }
@@ -109,7 +110,5 @@ export function writeQuery(query: HistoryQuery, replace = false) {
   }
   const url = new URL(location.href)
   url.search = params.toString()
-  if (url.href !== location.href) {
-    history[replace ? 'replaceState' : 'pushState'](null, '', url)
-  }
+  updateUrl(url, replace)
 }

@@ -1,3 +1,4 @@
+import { gotoHistory, goSection } from './workspace-helpers'
 import { test, expect } from '@playwright/test'
 
 test.use({ locale: 'pl-PL' })
@@ -6,7 +7,7 @@ const path = '/poe2guild/'
 const results = (page: import('@playwright/test').Page) => page.getByTestId('transaction-results')
 
 test('switches leagues and limits each server page', async ({ page }) => {
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(results(page)).toContainText('Wyniki: 60')
   await expect(page.locator('.history-transactions tbody tr')).toHaveCount(50)
   await page.getByRole('button', { name: 'Następna' }).click()
@@ -21,7 +22,7 @@ test('switches leagues and limits each server page', async ({ page }) => {
 })
 
 test('filters, sorts and restores state through reload and browser history', async ({ page }) => {
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(results(page)).toBeVisible()
   await page.getByLabel('Gracz', { exact: true }).fill('ŻÓŁW')
   await page.getByRole('button', { name: 'Zastosuj filtry' }).click()
@@ -44,7 +45,7 @@ test('filters, sorts and restores state through reload and browser history', asy
 })
 
 test('combines stash and inclusive day filters and shows no matches', async ({ page }) => {
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(results(page)).toBeVisible()
   await page.getByRole('group', { name: 'Skrytki', exact: true }).getByRole('button', { name: 'Skrytki', exact: true }).click()
   await page.getByRole('group', { name: 'Skrytki', exact: true }).getByRole('checkbox', { name: 'Special', exact: true }).check()
@@ -60,7 +61,7 @@ test('combines stash and inclusive day filters and shows no matches', async ({ p
 })
 
 test('a delayed old league response cannot overwrite the current league', async ({ page }) => {
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(results(page)).toBeVisible()
   const oldId = new URL(page.url()).searchParams.get('league')!
   let release!: () => void
@@ -84,7 +85,7 @@ test('a delayed old league response cannot overwrite the current league', async 
 })
 
 test('API failure, revision conflict and retry preserve selected filters', async ({ page }) => {
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(results(page)).toBeVisible()
   await page.route('**/transactions?**', route => route.fulfill({ status: 409, json: { error: 'revision_changed' } }))
   await page.getByLabel('Gracz', { exact: true }).fill('Alice')
@@ -98,7 +99,7 @@ test('API failure, revision conflict and retry preserve selected filters', async
 
 test('list failure can be retried and an empty list is distinct from failure', async ({ page }) => {
   await page.route('**/api/leagues', route => route.fulfill({ status: 503, json: {} }))
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(page.getByRole('alert')).toContainText('listy lig')
   await page.unroute('**/api/leagues')
   await page.getByRole('button', { name: 'Odśwież widok' }).click()
@@ -109,23 +110,24 @@ test('list failure can be retried and an empty list is distinct from failure', a
 })
 
 test('unknown URL league is explicit and out-of-range pages are canonicalized', async ({ page }) => {
-  await page.goto(path + '?league=missing')
+  await gotoHistory(page, path + '?league=missing')
   await expect(page.getByRole('alert')).toContainText('Liga wskazana w adresie')
   await page.getByRole('button', { name: 'Wybierz pierwszą ligę' }).click()
   await expect(results(page)).toBeVisible()
   const id = new URL(page.url()).searchParams.get('league')!
-  await page.goto(path + `?league=${id}&page=999`)
+  await gotoHistory(page, path + `?league=${id}&page=999`)
   await expect(results(page)).toContainText('strona 2 z 2')
   await expect(page).toHaveURL(/page=2/)
 })
 
 test('HTML text is escaped and archive opens as an isolated interactive document', async ({ page, context }) => {
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(results(page)).toBeVisible()
   await page.getByLabel('Przedmiot', { exact: true }).fill('<img')
   await page.getByRole('button', { name: 'Zastosuj filtry' }).click()
   await expect(page.locator('.history-transactions tbody')).toContainText('<img src=x')
   await expect(page.locator('.history-transactions tbody img')).toHaveCount(0)
+  await goSection(page, 'Raporty archiwalne')
   const opening = context.waitForEvent('page')
   await page.getByRole('link', { name: 'currentday.html', exact: false }).click()
   const report = await opening
@@ -141,7 +143,7 @@ test('HTML text is escaped and archive opens as an isolated interactive document
 
 test('mobile page stays within viewport and diagnostics remain accessible', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(results(page)).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: 'test-results/phase-2-mobile.png', fullPage: true })
@@ -159,7 +161,7 @@ test('compact league picker shows per-option status, supports keyboard and hides
     payload.leagues[1].archived = false
     await route.fulfill({ json: payload })
   })
-  await page.goto(path)
+  await gotoHistory(page, path)
   await expect(results(page)).toBeVisible()
   await expect(page.locator('.history-transactions').getByRole('columnheader', { name: 'ID zdarzenia' })).toHaveCount(0)
   await expect(page.locator('.history-transactions thead th')).toHaveCount(8)

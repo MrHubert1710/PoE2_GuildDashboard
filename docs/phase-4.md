@@ -1,7 +1,8 @@
 # Faza 4 — wyliczone ruchy i analiza ilościowa
 
-Status: implementacja zakończona, oczekuje odbioru manualnego.
+Status: odebrana przez użytkownika poleceniem przejścia do fazy 4b.
 Faza 3 została odebrana poleceniem przejścia dalej. Faza 5 nie jest rozpoczęta.
+Układ i nawigację zmienia [faza 4b](phase-4b.md); poniżej opis reguł i wyników fazy 4.
 
 ## Rezultat w przeglądarce
 

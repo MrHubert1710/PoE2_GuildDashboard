@@ -1,9 +1,9 @@
 # Plan implementacji poe2guild
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: fazy 0–3 odebrane przez użytkownika; faza 4 zaimplementowana,
+Status: fazy 0–4 odebrane przez użytkownika; faza 4b zaimplementowana,
 oczekuje weryfikacji manualnej. Faza 5 i dalsze nie są rozpoczęte.
-Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md).
+Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -184,8 +184,7 @@ procesami wyłącznie tego checkoutu.
 
 ## Etap 4 — obliczenia ilościowe
 
-Status: implementacja zakończona, oczekuje weryfikacji manualnej.
-Wyniki i instrukcja odbioru: [phase-4.md](phase-4.md).
+Status: odebrana przez użytkownika; wyniki: [phase-4.md](phase-4.md).
 
 Zależność: etapy 1–3.
 
@@ -204,9 +203,27 @@ Odbiór: porównania wybranych przypadków i sum ze starą aplikacją przechodz�
 przy identycznych ustawieniach. Stan końcowy nie jest przedstawiany jako
 pełny obraz skrytki, jeśli historia nie daje takiej pewności.
 
+## Etap 4b — reorganizacja frontendu
+
+Status: implementacja zakończona, oczekuje odbioru manualnego.
+Faza dodana po wyborze użytkownika, przed wykresami.
+Wyniki i instrukcja odbioru: [phase-4b.md](phase-4b.md).
+
+Zakres:
+- Domyślne Podsumowanie i osobne widoki graczy, skrytek, stanu, historii,
+  ustawień oraz raportów archiwalnych.
+- Jeden kontekst ligi i filtrów; zachowanie draftów, URL, paginacji i języka.
+- Kompaktowe odświeżanie oraz szczegóły workera i źródeł w Diagnostyce.
+- Oddzielenie prezentacji, formularzy i odczytu danych w komponentach/composables.
+- Nawigacja desktop/mobile, testy przeglądarkowe i zgodność starszych linków.
+
+Odbiór: sekcje pokazują jedną treść naraz, zmiana widoku nie usuwa kontekstu
+ani nie uruchamia od nowa sprawdzenia źródła. Weryfikacja manualna wymagana
+przed rozpoczęciem fazy 5.
+
 ## Etap 5 — interaktywne wykresy
 
-Zależność: etap 4; wykresy wartości uzupełnia etap 6.
+Zależność: etapy 4 i 4b; wykresy wartości uzupełnia etap 6.
 
 Zakres:
 - Wdrożyć ECharts jako komponent Vue, z API szeregów czasowych niezależnym
@@ -300,14 +317,14 @@ usunięcie katalogu wymaga osobnego polecenia użytkownika.
 
 ## Zależności i następny zakres pracy
 
-Główna ścieżka: 0 → 1 → 2 → 2a → 3 → 4 → 5 → 6 → 8.
+Główna ścieżka: 0 → 1 → 2 → 2a → 3 → 4 → 4b → 5 → 6 → 8.
 Etap 3 dostarcza mechanizm aktualizacji używany następnie przez 4, 6 i 7.
 Rozpoznanie dostępu z etapu 0 trwa niezależnie od portowania archiwów.
 Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
-Faza 4 (obliczenia ilościowe) oczekuje odbioru. Po jej akceptacji i osobnym
+Faza 4b (reorganizacja frontendu) oczekuje odbioru. Po jej akceptacji i osobnym
 poleceniu następuje faza 5: interaktywne wykresy.
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.
