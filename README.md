@@ -1,4 +1,6 @@
-# poe2guild — rework
+# Path of Accounting
+
+> Every exile counts. Every contribution, counted.
 
 Niezależny szkielet Vue + TypeScript + Vite oraz Flask/Gunicorn.
 Rework kontynuuje historię repozytorium na branchu `rework/vue-flask`.

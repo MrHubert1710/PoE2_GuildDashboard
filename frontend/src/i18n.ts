@@ -1,3 +1,4 @@
+import { appName } from './branding'
 import { ref, watchEffect } from 'vue'
 import { formatZonedDate } from './timezones'
 import { updateUrl } from './navigation'
@@ -49,5 +50,5 @@ export function date(value: string | null, timeZone = displayTimezone.value) {
 }
 watchEffect(() => {
   document.documentElement.lang = locale.value
-  document.title = `poe2guild — ${t('documentTitle')}`
+  document.title = `${appName} — ${t('documentTitle')}`
 })

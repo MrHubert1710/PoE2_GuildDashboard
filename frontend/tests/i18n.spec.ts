@@ -14,7 +14,7 @@ test('defaults to English and options come from locale file native names', async
   await gotoHistory(page, path)
   await ready(page)
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-  await expect(page).toHaveTitle('poe2guild — Guild history')
+  await expect(page).toHaveTitle('Path of Accounting — Guild history')
   await expect(page.getByRole('navigation',{name:'League views'}).getByRole('link',{name:'History',exact:true})).toBeVisible()
   const directory = new URL('../src/locales/', import.meta.url)
   const expected = readdirSync(directory).filter(name => name.endsWith('.json')).map(name => ({

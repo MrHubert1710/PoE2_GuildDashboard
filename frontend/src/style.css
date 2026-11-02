@@ -9,7 +9,9 @@ a { color: #bddfc4; text-underline-offset: 4px; }
 .shell { width: min(100% - 48px, 1160px); margin: auto; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 28px 0; border-bottom: 1px solid #30373c; }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 650; letter-spacing: -.5px; color: inherit; text-decoration: none; }
-.brand-mark { color: #14191f; background: #b6d7bd; padding: 7px; border-radius: 7px; font-size: 13px; letter-spacing: -1px; }
+.brand-mark { width: 36px; height: 36px; flex-shrink: 0; }
+.brand-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.brand-motto { font-size: 11px; font-weight: 400; letter-spacing: 0; color: #a9b9b1; line-height: 1.35; max-width: 290px; }
 .section-heading > span { color: #9da8ae; font-size: 12px; }
 .page-intro { padding: 56px 0 36px; }
 .eyebrow { color: #b6d7bd; font-size: 11px; letter-spacing: 3px; font-weight: 650; }
