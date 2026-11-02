@@ -163,3 +163,17 @@ header { flex-wrap: wrap; }
 .stash-filter-options label { flex-direction: row; align-items: center; gap: 8px; padding: 7px; border-radius: 4px; cursor: pointer; overflow-wrap: anywhere; }
 .stash-filter-options label.selected { background: #293e32; color: #d8ebdc; }
 .stash-filter-options input { flex: 0 0 16px; width: 16px; height: 16px; min-height: 16px; padding: 0; margin: 0; accent-color: #b6d7bd; }
+
+.text-filter { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.text-filter-control { position: relative; min-width: 0; border: 1px solid #414c54; border-radius: 4px; background: #181b20; }
+.text-filter-control:focus-within { border-color: #80bdce; box-shadow: 0 0 0 1px #80bdce33; }
+.text-filter-control input { min-height: 40px; border: 0; border-radius: inherit; background: transparent; padding-right: 84px; }
+.text-filter-control input:focus-visible { outline: none; }
+.text-filter-control input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.text-filter-actions { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: flex; gap: 1px; }
+.text-filter-option { width: 24px; height: 24px; min-height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; gap: 0; border: 1px solid transparent; border-radius: 3px; color: #bbc0c5; background: transparent; font-size: 13px; }
+.text-filter-option:hover { background: #343b43; border-color: transparent; }
+.text-filter-option.active { color: #f1f7f8; background: #315761; border-color: #80bdce; }
+.whole-word-toggle span { text-decoration: underline; text-underline-offset: 3px; }
+.regex-toggle { font-family: ui-monospace, monospace; font-size: 16px; }
+@media (max-width: 650px) { .filters > .text-filter, .filters > .stash-filter { grid-column: 1 / -1; } }

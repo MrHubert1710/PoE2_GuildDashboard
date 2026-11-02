@@ -26,6 +26,12 @@ export interface League {
 export interface HistoryQuery {
   league: string
   account: string
+  account_regex: boolean
+  item_regex: boolean
+  account_case: boolean
+  account_word: boolean
+  item_case: boolean
+  item_word: boolean
   stash: string[]
   item: string
   from: string
@@ -64,7 +70,7 @@ export interface TransactionPage {
 }
 
 export const defaults: HistoryQuery = {
-  league: '', account: '', stash: [], item: '', from: '', to: '',
+  league: '', account: '', account_regex: false, item_regex: false, account_case: false, account_word: false, item_case: false, item_word: false, stash: [], item: '', from: '', to: '',
   page: 1, page_size: 50, sort: 'date', direction: 'desc',
 }
 
@@ -75,6 +81,8 @@ export function readQuery(): HistoryQuery {
   const size = Number(value('page_size'))
   return {
     league: value('league'), account: value('account'), stash: [...new Set(params.getAll('stash').filter(Boolean).map(value => value.slice(0, 200)))].slice(0, 100).sort(), item: value('item'),
+    account_case: value('account_case') === '1', account_word: value('account_word') === '1', item_case: value('item_case') === '1', item_word: value('item_word') === '1',
+    account_regex: value('account_regex') === '1', item_regex: value('item_regex') === '1',
     from: value('from'), to: value('to'),
     page: Number.isSafeInteger(page) && page >= 1 && page <= 1_000_000 ? page : 1,
     page_size: [25, 50, 100].includes(size) ? size : 50,
@@ -96,6 +104,7 @@ export function writeQuery(query: HistoryQuery, replace = false) {
       for (const stash of [...new Set(query.stash)].sort()) params.append('stash', stash)
       continue
     }
+    if (typeof value === 'boolean') { if (value) params.set(key, '1'); continue }
     if (String(value) && String(value) !== String(defaults[key as keyof HistoryQuery])) params.set(key, String(value))
   }
   const url = new URL(location.href)

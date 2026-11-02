@@ -2,7 +2,7 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { defaults, readQuery, writeQuery } from './browsing'
 import type { HistoryQuery, League, TransactionPage } from './browsing'
 
-const errorCodes = new Set(['revision_changed', 'league_not_found', 'invalid_date', 'invalid_date_range', 'database_unavailable'])
+const errorCodes = new Set(['revision_changed', 'league_not_found', 'invalid_date', 'invalid_date_range', 'database_unavailable', 'invalid_account_regex', 'invalid_item_regex', 'regex_timeout', 'invalid_regex_mode', 'invalid_search_mode'])
 class HistoryError extends Error {}
 
 export function useHistory() {
@@ -41,6 +41,7 @@ export function useHistory() {
           for (const stash of requested.stash) params.append('stash', stash)
           continue
         }
+        if (typeof value === 'boolean') { if (value) params.set(key, '1'); continue }
         if (key !== 'league' && String(value)) params.set(key, String(value))
       }
       params.set('revision', league.revision)
@@ -115,7 +116,8 @@ export function useHistory() {
       formError.value = 'invalid_date_range'
       return
     }
-    change({ ...query.value, account: draft.account.trim(), stash: [...draft.stash].sort(), item: draft.item.trim(),
+    change({ ...query.value, account: draft.account_regex ? draft.account : draft.account.trim(), stash: [...draft.stash].sort(), item: draft.item_regex ? draft.item : draft.item.trim(),
+      account_regex: draft.account_regex, item_regex: draft.item_regex, account_case: draft.account_case, account_word: draft.account_word, item_case: draft.item_case, item_word: draft.item_word,
       from: draft.from, to: draft.to, page: 1 })
   }
   function clearFilters() { change({ ...defaults, league: query.value.league, page_size: query.value.page_size }) }

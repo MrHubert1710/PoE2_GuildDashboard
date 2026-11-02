@@ -294,6 +294,25 @@
     "quantity.restoreInheritance": "Przywróć dziedziczenie z gildii",
     "quantity.error.ambiguous_guild": "Nie można jednoznacznie ustalić gildii dla tej ligi. Zapisz ustawienia tylko dla ligi.",
     "stashFilterTitle": "Skrytki",
-    "stashFilterCount": "Wybrane: {count}"
+    "stashFilterCount": "Wybrane: {count}",
+    "regexToggle": "Tryb regex: {field}",
+    "regexEnabled": "Regex włączony. Wpisz wyrażenie bez separatorów /…/.",
+    "regexDisabled": "Regex wyłączony — wyszukiwanie dosłownego fragmentu tekstu.",
+    "invalid_account_regex": "Nieprawidłowe wyrażenie regularne w polu Gracz.",
+    "invalid_item_regex": "Nieprawidłowe wyrażenie regularne w polu Przedmiot.",
+    "regex_timeout": "Wyrażenie regularne jest zbyt kosztowne. Uprość wzorzec i spróbuj ponownie.",
+    "invalid_regex_mode": "Nieprawidłowy tryb wyszukiwania.",
+    "quantity.error.invalid_account_regex": "Nieprawidłowe wyrażenie regularne w polu Gracz.",
+    "quantity.error.invalid_item_regex": "Nieprawidłowe wyrażenie regularne w polu Przedmiot.",
+    "quantity.error.regex_timeout": "Wyrażenie regularne jest zbyt kosztowne. Uprość wzorzec i spróbuj ponownie.",
+    "quantity.error.invalid_regex_mode": "Nieprawidłowy tryb wyszukiwania.",
+    "caseToggle": "Uwzględniaj wielkość liter: {field}",
+    "wordToggle": "Całe słowa: {field}",
+    "caseEnabled": "Wielkość liter ma znaczenie.",
+    "caseDisabled": "Wielkość liter jest ignorowana.",
+    "wordEnabled": "Dopasuj całe słowa lub frazy na granicach słów.",
+    "wordDisabled": "Dopasuj również fragmenty słów.",
+    "invalid_search_mode": "Nieprawidłowy tryb wyszukiwania.",
+    "quantity.error.invalid_search_mode": "Nieprawidłowy tryb wyszukiwania."
   }
 }

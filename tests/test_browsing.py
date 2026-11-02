@@ -176,3 +176,45 @@ class BrowsingTests(unittest.TestCase):
         self.assertEqual((response.status_code, response.json['error']), (400, 'too_many_stashes'))
         response = self.client.get(self.url, query_string=[('stash', 'Main'), ('stash', 'x' * 201)])
         self.assertEqual((response.status_code, response.json['error']), (400, 'parameter_too_long'))
+
+    def test_regex_modes_are_opt_in_independent_and_unicode_case_insensitive(self):
+        self.assertEqual(self.client.get(self.url,query_string={'account':'^(Alice|Bob)$'}).json['total'],0)
+        self.assertEqual(self.client.get(self.url,query_string={'account':'^(Alice|Bob)$','account_regex':'1'}).json['total'],59)
+        self.assertEqual(self.client.get(self.url,query_string={'account':'^żÓŁw$','account_regex':'1'}).json['total'],1)
+        combined=self.client.get(self.url,query_string={'account':'^Bob$','account_regex':'1','item':'%_'})
+        self.assertEqual(combined.json['total'],1)
+        self.assertEqual(self.client.get(self.url,query_string={'item':'.*','item_regex':'1'}).json['total'],60)
+        self.assertEqual(self.client.get(self.url,query_string={'item':'.*'}).json['total'],0)
+        self.assertEqual(self.client.get(self.url,query_string={'account':'^Alice$','account_regex':'1','item':'Chaos (Orb|Shard)$','item_regex':'1'}).json['total'],30)
+
+    def test_regex_errors_are_explicit_even_if_no_rows_match(self):
+        for field in ('account','item'):
+            response=self.client.get(self.url,query_string={field:'[',field+'_regex':'1','stash':'missing'})
+            self.assertEqual((response.status_code,response.json['error']),(400,'invalid_'+field+'_regex'))
+            self.assertEqual(self.client.get(self.url,query_string={field:'[',field+'_regex':'0'}).status_code,200)
+            response=self.client.get(self.url,query_string={field+'_regex':'maybe'})
+            self.assertEqual((response.status_code,response.json['error']),(400,'invalid_regex_mode'))
+        self.assertEqual(self.client.get(self.url+'?account_regex=1&account_regex=0').status_code,400)
+
+    def test_regex_timeout_does_not_become_database_unavailable_or_partial_results(self):
+        from unittest.mock import patch
+        from flask import g
+        def timeout(_self,_value):
+            g.regex_error='regex_timeout'
+            raise TimeoutError()
+        with patch('backend.text_search.RegexMatcher.matches',timeout):
+            response=self.client.get(self.url,query_string={'account':'.*','account_regex':'1'})
+        self.assertEqual((response.status_code,response.json['error']),(400,'regex_timeout'))
+        self.assertNotIn('rows',response.json)
+        self.assertEqual(self.client.get(self.url).json['total'],60)
+
+    def test_case_and_whole_word_options_work_for_literal_and_regex_search(self):
+        self.assertEqual(self.client.get(self.url,query_string={'account':'alice','account_case':'1'}).json['total'],0)
+        self.assertEqual(self.client.get(self.url,query_string={'account':'Alice','account_case':'1'}).json['total'],30)
+        self.assertEqual(self.client.get(self.url,query_string={'account':'ice'}).json['total'],30)
+        self.assertEqual(self.client.get(self.url,query_string={'account':'ice','account_word':'1'}).json['total'],0)
+        self.assertEqual(self.client.get(self.url,query_string={'account':'alice','account_word':'1'}).json['total'],30)
+        self.assertEqual(self.client.get(self.url,query_string={'account':'^alice$','account_regex':'1','account_case':'1'}).json['total'],0)
+        self.assertEqual(self.client.get(self.url,query_string={'item':'Orb','item_regex':'1','item_word':'1'}).json['total'],60)
+        result=self.client.get(self.url,query_string={'account_word':'maybe'})
+        self.assertEqual((result.status_code,result.json['error']),(400,'invalid_search_mode'))

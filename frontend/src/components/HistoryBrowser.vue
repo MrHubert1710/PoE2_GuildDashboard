@@ -5,6 +5,7 @@ import LeaguePicker from './LeaguePicker.vue'
 import RefreshPanel from './RefreshPanel.vue'
 import QuantityPanel from './QuantityPanel.vue'
 import StashFilter from './StashFilter.vue'
+import TextFilter from './TextFilter.vue'
 
 const { leagues, query, draft, result, loadingLeagues, loadingRows, leagueError, rowError, formError,
   selected, loadLeagues, refreshRevision, selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy } = useHistory()
@@ -46,9 +47,9 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
         </div>
 
         <form class="filters" @submit.prevent="applyFilters">
-          <label>{{ t('player') }}<input v-model="draft.account" name="account" type="search" maxlength="200" :placeholder="t('accountPlaceholder')" /></label>
+          <TextFilter v-model="draft.account" v-model:regex="draft.account_regex" v-model:match-case="draft.account_case" v-model:whole-word="draft.account_word" name="account" :label="t('player')" :placeholder="t('accountPlaceholder')" />
           <StashFilter v-model="draft.stash" :options="selected.stashes" />
-          <label>{{ t('item') }}<input v-model="draft.item" name="item" type="search" maxlength="200" :placeholder="t('itemPlaceholder')" /></label>
+          <TextFilter v-model="draft.item" v-model:regex="draft.item_regex" v-model:match-case="draft.item_case" v-model:whole-word="draft.item_word" name="item" :label="t('item')" :placeholder="t('itemPlaceholder')" />
           <label>{{ t('fromDay') }}<input v-model="draft.from" name="from" type="date" /></label>
           <label>{{ t('toDay') }}<input v-model="draft.to" name="to" type="date" /></label>
           <div class="filter-actions"><button class="primary" type="submit">{{ t('applyFilters') }}</button><button type="button" @click="clearFilters">{{ t('clearFilters') }}</button></div>

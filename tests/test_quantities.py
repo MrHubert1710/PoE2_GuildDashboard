@@ -262,3 +262,43 @@ class QuantityApiTests(unittest.TestCase):
         both=self.client.get('/api/leagues/A/quantities?stash=Main&stash=Shared').json
         self.assertEqual(one['rows'],both['rows'])
         self.assertEqual(one['stats'],both['stats'])
+
+    def test_regex_filters_apply_to_groups_stats_and_final_state(self):
+        self.build()
+        url='/api/leagues/A/quantities'
+        literal=self.client.get(url,query_string={'account':'^buyer$'})
+        self.assertEqual(literal.json['stats']['events'],0)
+        filtered=self.client.get(url,query_string={'account':'^buyer$','account_regex':'1','item':'^(Token|Other)$','item_regex':'1'})
+        self.assertEqual(filtered.status_code,200)
+        self.assertEqual(filtered.json['stats']['events'],1)
+        self.assertEqual(filtered.json['rows'][0]['net'],-5)
+        for view in ('summary','players','stashes','state'):
+            result=self.client.get(url,query_string={'view':view,'item':'^Other$','item_regex':'1'})
+            self.assertEqual(result.status_code,200)
+            self.assertTrue(all(row['item_name']=='Other' for row in result.json['rows']))
+        invalid=self.client.get(url,query_string={'item':'[','item_regex':'1'})
+        self.assertEqual((invalid.status_code,invalid.json['error']),(400,'invalid_item_regex'))
+
+    def test_regex_timeout_in_quantity_api_returns_actionable_error(self):
+        from unittest.mock import patch
+        from flask import g
+        self.build()
+        def timeout(_self,_value):
+            g.regex_error='regex_timeout'
+            raise TimeoutError()
+        with patch('backend.text_search.RegexMatcher.matches',timeout):
+            result=self.client.get('/api/leagues/A/quantities?item=.*&item_regex=1')
+        self.assertEqual((result.status_code,result.json['error']),(400,'regex_timeout'))
+
+    def test_case_and_word_modes_apply_to_quantity_names_and_accounts(self):
+        self.build()
+        url='/api/leagues/A/quantities'
+        result=self.client.get(url,query_string={'account':'buyer','account_case':'1'})
+        self.assertEqual(result.json['stats']['events'],0)
+        result=self.client.get(url,query_string={'account':'Buyer','account_word':'1','item':'Token','item_case':'1'})
+        self.assertEqual(result.json['stats']['events'],1)
+        for view in ('summary','players','stashes','state'):
+            result=self.client.get(url,query_string={'view':view,'item':'Oth','item_word':'1'})
+            self.assertEqual(result.json['rows'],[])
+            result=self.client.get(url,query_string={'view':view,'item':'other','item_word':'1'})
+            self.assertEqual(result.json['rows'][0]['item_name'],'Other')

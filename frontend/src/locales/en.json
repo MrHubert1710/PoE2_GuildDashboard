@@ -284,6 +284,25 @@
     "quantity.restoreInheritance": "Restore guild inheritance",
     "quantity.error.ambiguous_guild": "This league cannot be associated with a single guild source. Save league settings instead.",
     "stashFilterTitle": "Stashes",
-    "stashFilterCount": "Selected: {count}"
+    "stashFilterCount": "Selected: {count}",
+    "regexToggle": "Regex mode: {field}",
+    "regexEnabled": "Regex enabled. Enter a pattern without /…/ delimiters.",
+    "regexDisabled": "Regex disabled — literal substring search.",
+    "invalid_account_regex": "Invalid regular expression in the Player field.",
+    "invalid_item_regex": "Invalid regular expression in the Item field.",
+    "regex_timeout": "The regular expression is too expensive. Simplify the pattern and try again.",
+    "invalid_regex_mode": "Invalid search mode.",
+    "quantity.error.invalid_account_regex": "Invalid regular expression in the Player field.",
+    "quantity.error.invalid_item_regex": "Invalid regular expression in the Item field.",
+    "quantity.error.regex_timeout": "The regular expression is too expensive. Simplify the pattern and try again.",
+    "quantity.error.invalid_regex_mode": "Invalid search mode.",
+    "caseToggle": "Match case: {field}",
+    "wordToggle": "Whole words: {field}",
+    "caseEnabled": "Case-sensitive matching.",
+    "caseDisabled": "Case-insensitive matching.",
+    "wordEnabled": "Match complete words or phrases at word boundaries.",
+    "wordDisabled": "Match substrings within words.",
+    "invalid_search_mode": "Invalid search mode.",
+    "quantity.error.invalid_search_mode": "Invalid search mode."
   }
 }

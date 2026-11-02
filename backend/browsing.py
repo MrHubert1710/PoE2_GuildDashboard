@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import sqlite3
 
-from flask import Blueprint, Response, current_app, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, request, g
 
 from .database import connect, require_schema, DatabaseError
 
@@ -28,6 +28,8 @@ def read_error(error):
 @browser.errorhandler(sqlite3.Error)
 @browser.errorhandler(DatabaseError)
 def database_error(_error):
+    if getattr(g, 'regex_error', None):
+        return jsonify(error=g.regex_error), 400
     return jsonify(error='database_unavailable'), 503
 
 
@@ -132,7 +134,7 @@ def date_argument(name, *, end=False):
 
 @browser.get('/api/leagues/<league_id>/transactions')
 def transactions(league_id):
-    allowed = {'page', 'page_size', 'sort', 'direction', 'account', 'stash', 'item', 'from', 'to', 'revision'}
+    allowed = {'page', 'page_size', 'sort', 'direction', 'account', 'stash', 'item', 'from', 'to', 'revision', 'account_regex', 'item_regex', 'account_case', 'account_word', 'item_case', 'item_word'}
     if set(request.args) - allowed:
         raise ReadError('unknown_parameter')
     page = number_argument('page', 1, 1, 1000000)
@@ -145,16 +147,18 @@ def transactions(league_id):
     start, end = date_argument('from'), date_argument('to', end=True)
     if start and end and start >= end:
         raise ReadError('invalid_date_range')
+    from .text_search import TextFilters
+    filters = TextFilters()
     conditions, values = ['t.league_id=?'], [league_id]
     stashes = stash_arguments()
     if stashes:
         conditions.append('t.stash IN (' + ','.join('?' for _ in stashes) + ')')
         values.extend(stashes)
     for field in ('account', 'item'):
-        value = one_argument(field).strip()
-        if value:
-            conditions.append(f'instr(casefold(t.{field}),casefold(?))>0')
-            values.append(value)
+        if filters.values[field]:
+            predicate, arguments = filters.predicate(field, 't.' + field)
+            conditions.append(predicate)
+            values.extend(arguments)
     if start:
         conditions.append('t.occurred_at>=?')
         values.append(start)
@@ -166,6 +170,7 @@ def transactions(league_id):
         require_schema(connection)
         connection.execute('BEGIN')
         connection.create_function('casefold', 1, lambda value: value.casefold(), deterministic=True)
+        filters.bind(connection)
         league_or_error(connection, league_id)
         current_revision = revision(connection, league_id)
         if expected_revision and current_revision != expected_revision:

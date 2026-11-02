@@ -12,7 +12,9 @@ audytu, integralności/importu i możliwości źródeł pozostają w Diagnostyce
 
 - Lista lig z nazwą, zakresem danych, liczbą zdarzeń i stanem kompletności.
 - Filtry konta, skrytki, przedmiotu i dat UTC; przycisk Zastosuj filtry.
-- Gracz i przedmiot: wyszukiwanie fragmentu, Unicode casefold, literalne %/_.
+- Gracz i przedmiot: domyślnie fragment tekstu, Unicode casefold i literalne %/_.
+  Przyciski Aa / ab / .* włączają wielkość liter, całe słowa oraz regex
+  niezależnie dla każdego pola; szczegóły: [phase-4.md](phase-4.md).
   Skrytki: wielokrotny wybór checkboxami z zakładek obecnych w historii ligi;
   powtarzany parametr stash łączy dokładne nazwy przez OR, pusty wybór to wszystkie.
 - Zakres dat obejmuje całe dni UTC, łącznie z dniem końcowym.

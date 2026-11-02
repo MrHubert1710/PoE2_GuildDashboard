@@ -80,6 +80,48 @@ nazwy z tym samym aliasem współdzielą odtwarzane współrzędne tej ligi. Ła
 i cykle aliasów są odrzucane. Nazwy surowe nadal są w źródłowej tabeli.
 Zapis ustawień jest chroniony hashami przed nadpisaniem zmian innej karty.
 
+## Pola tekstowe w stylu VS Code
+
+Gracz i Przedmiot mają przyciski wewnątrz pola:
+
+- Aa — uwzględnianie wielkości liter.
+- Podkreślone ab — dopasowanie całych słów lub fraz, z granicami Unicode \w.
+- .* — interpretacja wpisu jako wyrażenia regularnego.
+
+Każdy tryb jest niezależny dla każdego pola i ma widoczny stan oraz etykietę
+aria-pressed. Domyślnie wszystkie są wyłączone: wyszukiwanie dosłownego
+fragmentu, ignorujące wielkość liter. Zmiany zatwierdza Zastosuj filtry.
+Całe słowa i Aa działają również bez regexów; znaki regex pozostają wtedy
+literalne. Ustawienia są zachowane w URL/reload/Back/Forward i czyszczone
+przez Wyczyść filtry. Na telefonie pola tekstowe zajmują pełną szerokość.
+
+Flagi URL/API: account_regex, account_case, account_word oraz odpowiedniki
+item_regex, item_case, item_word. Przyjmują 0/1; wyłączone są pomijane w URL.
+Regex wpisuje się bez separatorów /…/ i flag JavaScript po separatorze.
+Backend stosuje regex.VERSION0, domyślnie z pełnym Unicode case-foldingiem;
+Aa wyłącza domyślne ignorowanie wielkości liter. Literalne wyszukiwanie bez
+całych słów nadal korzysta z dotychczasowego instr/casefold w SQLite.
+
+Historia filtruje źródłowy opis przedmiotu (może zawierać prefiks ilości),
+a analiza — znormalizowane nazwy przedmiotów/ruchów, tak jak w zwykłym trybie.
+Przy ^/$ należy uwzględnić tę różnicę. Filtry analizy są stosowane po odtworzeniu
+całej historii; widok stanu końcowego nadal nie przyjmuje filtra gracza ani dat.
+
+Błędny wzorzec daje 400 invalid_account_regex / invalid_item_regex. Limit
+czasu dopasowania daje 400 regex_timeout i czytelny komunikat, bez zwracania
+częściowych wyników ani mylenia problemu z awarią SQLite. Wzorce mają limit
+200 znaków, pojedyncze dopasowanie 25 ms, a wspólny budżet pracy dopasowań
+obu pól wynosi 0,5 s na żądanie. Wyniki dla powtarzających się tekstów są
+cache'owane wyłącznie w obrębie żądania, do 4096 wpisów na pole.
+
+Zależność regex==2026.9.29 jest zapisana w required.txt. Obsługa limitu czasu
+i Unicode pochodzi z [dokumentacji autora biblioteki](https://pypi.org/project/regex/).
+Testy obejmują wzorce, błędy, kosztowne dopasowania, Unicode, niezależność
+trybów, filtrowanie analiz i stanu, klawiaturę, URL i mobilny układ pól.
+Publiczny smoke test przez nginx potwierdził połączenie Aa + całe słowa +
+regex na rzeczywistych danych, zgodne liczniki historii/analizy, reload,
+komunikat błędnego wzorca oraz układ desktop/mobile bez błędów JavaScript.
+
 ## Reguły algorytmu quantities-v1
 
 - Parser obsługuje liczbę i x / × oraz zastany zapis Ă—; bez prefiksu ilość
@@ -172,8 +214,8 @@ npm --prefix frontend run build
 npm --prefix frontend run test:browser
 ```
 
-Wyniki: 100 testów backendu (27 nowych testów fazy 4), 40 testów Chromium
-(8 nowych scenariuszy), 16 testów tłumaczeń oraz testy launchera/nginx —
+Wyniki: 110 testów backendu (37 nowych testów fazy 4), 44 testy Chromium
+(12 nowych scenariuszy), 16 testów tłumaczeń oraz testy launchera/nginx —
 wszystkie zakończone powodzeniem. TypeScript i produkcyjny build przechodzą.
 
 Testy obejmują parser, granice historii, znane stany, zamianę przedmiotu,

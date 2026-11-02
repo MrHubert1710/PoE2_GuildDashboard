@@ -60,9 +60,11 @@ async function load() {
   clearTimeout(timer)
   try {
     const params = new URLSearchParams({ view: view.value, page: String(page.value), page_size: '25', revision: props.revision })
-    for (const key of (view.value === 'state' ? ['stash', 'item'] : ['account', 'stash', 'item', 'from', 'to']) as Array<keyof HistoryQuery>) {
+    for (const key of (view.value === 'state' ? ['stash', 'item', 'item_regex', 'item_case', 'item_word'] : ['account', 'account_regex', 'account_case', 'account_word', 'stash', 'item', 'item_regex', 'item_case', 'item_word', 'from', 'to']) as Array<keyof HistoryQuery>) {
       if (key === 'stash') {
         for (const stash of props.query.stash) params.append('stash', stash)
+      } else if (typeof props.query[key] === 'boolean') {
+        if (props.query[key]) params.set(key, '1')
       } else if (props.query[key]) params.set(key, String(props.query[key]))
     }
     const payload: Report = await request('/quantities?' + params)
@@ -115,7 +117,7 @@ function pop() {
   const nextView = readView(), nextPage = readPage()
   if (nextView !== view.value || nextPage !== page.value) { view.value = nextView; page.value = nextPage; void load() }
 }
-watch(() => JSON.stringify([props.query.account, props.query.stash, props.query.item, props.query.from, props.query.to]), () => { page.value = 1; writeUrl(true); void load() })
+watch(() => JSON.stringify([props.query.account, props.query.account_regex, props.query.account_case, props.query.account_word, props.query.stash, props.query.item, props.query.item_regex, props.query.item_case, props.query.item_word, props.query.from, props.query.to]), () => { page.value = 1; writeUrl(true); void load() })
 watch(() => [props.revision, props.settingsHash], () => { void load() })
 onMounted(() => { window.addEventListener('popstate', pop); void loadSettings().catch(() => { settingsError.value = 'report_unavailable' }); void load() })
 onUnmounted(() => { stopped = true; ++sequence; clearTimeout(timer); controllers.forEach(c => c.abort()); window.removeEventListener('popstate', pop) })

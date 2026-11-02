@@ -6,6 +6,7 @@ from .browsing import ReadError, read_error, database_error, one_argument, numbe
 from .database import connect, require_schema, DatabaseError, utc_now
 from .quantities import current_run, effective_settings, settings_hash, validate_settings, ALGORITHM, guild_defaults, projection_hash
 from .refresh_api import queue
+from .text_search import TextFilters
 
 quantities = Blueprint('quantities', __name__)
 quantities.register_error_handler(ReadError, read_error)
@@ -90,7 +91,7 @@ def settings(league_id):
 
 @quantities.get('/api/leagues/<league_id>/quantities')
 def report(league_id):
-    allowed = {'view', 'account', 'stash', 'item', 'from', 'to', 'page', 'page_size', 'revision', 'projection_id'}
+    allowed = {'view', 'account', 'stash', 'item', 'from', 'to', 'page', 'page_size', 'revision', 'projection_id', 'account_regex', 'item_regex', 'account_case', 'account_word', 'item_case', 'item_word'}
     if set(request.args) - allowed:
         raise ReadError('unknown_parameter')
     view = one_argument('view', 'summary')
@@ -102,7 +103,8 @@ def report(league_id):
     start, end = date_argument('from'), date_argument('to', end=True)
     if start and end and start >= end:
         raise ReadError('invalid_date_range')
-    account, item = (one_argument(key).strip() for key in ('account', 'item'))
+    filters = TextFilters()
+    account, item = filters.values['account'], filters.values['item']
     stashes = stash_arguments()
     if view == 'state' and (start or end or account):
         raise ReadError('state_filter_not_supported')
@@ -110,6 +112,7 @@ def report(league_id):
         require_schema(c)
         c.execute('BEGIN')
         c.create_function('casefold', 1, lambda value: value.casefold(), deterministic=True)
+        filters.bind(c)
         league = league_row(c, league_id)
         meta, run = metadata(c, league)
         expected, pinned = one_argument('revision'), one_argument('projection_id')
@@ -122,7 +125,8 @@ def report(league_id):
             return jsonify(league_id=league_id, projection=meta, settings=settings, rows=[], total=0, pages=1, page=1, stats=None)
         conditions, values = ['q.run_id=?'], [run['id']]
         if account:
-            conditions.append('instr(casefold(t.account),casefold(?))>0'); values.append(account)
+            predicate, arguments = filters.predicate('account', 't.account')
+            conditions.append(predicate); values.extend(arguments)
         canonical_stashes = sorted({settings['stash_aliases'].get(stash, stash) for stash in stashes})
         if canonical_stashes:
             conditions.append('q.stash IN (' + ','.join('?' for _ in canonical_stashes) + ')'); values.extend(canonical_stashes)
@@ -134,8 +138,10 @@ def report(league_id):
         event_item = ''
         event_values = list(values)
         if item:
-            event_item = ' AND (instr(casefold(q.item_name),casefold(?))>0 OR EXISTS(SELECT 1 FROM quantity_movements mm WHERE mm.run_id=q.run_id AND mm.transaction_id=q.transaction_id AND instr(casefold(mm.item_name),casefold(?))>0))'
-            event_values += [item, item]
+            event_predicate, event_arguments = filters.predicate('item', 'q.item_name')
+            movement_predicate, movement_arguments = filters.predicate('item', 'mm.item_name')
+            event_item = f' AND ({event_predicate} OR EXISTS(SELECT 1 FROM quantity_movements mm WHERE mm.run_id=q.run_id AND mm.transaction_id=q.transaction_id AND {movement_predicate}))'
+            event_values += event_arguments + movement_arguments
         stats = dict(c.execute('SELECT COUNT(*) AS events,COALESCE(SUM(q.effective_action=\'unknown\'),0) AS unknown,'
                                'COALESCE(SUM(q.confidence=\'inferred\'),0) AS inferred,COALESCE(SUM(q.effective_action=\'excluded\'),0) AS excluded,'
                                "COALESCE(SUM(q.resolution_reason IN ('state_conflict','invalid_quantity','ambiguous_order')),0) AS warnings "
@@ -145,7 +151,8 @@ def report(league_id):
             if canonical_stashes:
                 where.append('s.stash IN (' + ','.join('?' for _ in canonical_stashes) + ')'); args.extend(canonical_stashes)
             if item:
-                where.append('instr(casefold(s.item_name),casefold(?))>0'); args.append(item)
+                predicate, arguments = filters.predicate('item', 's.item_name')
+                where.append(predicate); args.extend(arguments)
             sql = ('SELECT s.source_id,s.stash,s.x,s.y,s.item_name,s.quantity,t.occurred_at,t.account '
                    'FROM quantity_state s JOIN transactions t ON t.id=s.transaction_id WHERE ' + ' AND '.join(where))
             order = 'stash,source_id,y,x'
@@ -154,7 +161,8 @@ def report(league_id):
             selected = 'm.item_name' + (',t.account' if view == 'players' else ',q.stash' if view == 'stashes' else '')
             where, args = common, list(values)
             if item:
-                where += ' AND instr(casefold(m.item_name),casefold(?))>0'; args.append(item)
+                predicate, arguments = filters.predicate('item', 'm.item_name')
+                where += ' AND ' + predicate; args.extend(arguments)
             sql = (f'SELECT {selected},SUM(CASE WHEN m.quantity_delta>0 THEN m.quantity_delta ELSE 0 END) AS added,'
                    'SUM(CASE WHEN m.quantity_delta<0 THEN -m.quantity_delta ELSE 0 END) AS removed,SUM(m.quantity_delta) AS net,'
                    "SUM(CASE WHEN m.confidence='inferred' THEN ABS(m.quantity_delta) ELSE 0 END) AS inferred_quantity,"
