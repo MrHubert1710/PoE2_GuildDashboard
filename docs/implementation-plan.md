@@ -109,6 +109,14 @@ Zakres:
 - Przygotować warstwę i18n i katalogi tłumaczeń; początkowy zakres PL/EN,
   z możliwością dodania kolejnego języka bez zmiany logiki komponentów.
   Konkretne narzędzie dobrać podczas implementacji do obecnego Vue/TypeScript.
+- Dostępne języki odkrywać automatycznie na podstawie plików
+  `frontend/src/locales/*.json`, bez osobnej listy kodów w komponencie lub API.
+  Jeden plik reprezentuje język: kod pochodzi z nazwy pliku (np. pl.json),
+  a pole metadanych nativeName zawiera nazwę własną (np. Polski). Pozostała
+  część pliku zawiera messages. Sprawdzać zgodność kodu locale i schematu pliku.
+  Pliki są jedynym źródłem listy: dodanie/usunięcie poprawnego pliku po rebuildzie
+  i wdrożeniu dodaje/usuwa opcję przełącznika. Nie wymaga edycji komponentu.
+  Nie zakładać odczytu nowych plików z dysku przez już zbudowany frontend.
 - Przenieść istniejące teksty Historii, Diagnostyki, filtrów, statusów lig,
   błędów, pustych stanów, tooltipów i etykiet dostępności do słowników.
 - Kompaktowy wybór języka, opisany nazwami własnymi języków, bez flag państw.
@@ -139,6 +147,11 @@ Odbiór:
   etykiety aria, URL/back/forward i dłuższe teksty w widoku mobilnym.
 - Dokumentacja opisuje dodawanie języka i tłumaczenie nowych funkcji.
   Nowe teksty z faz 3–8 powstają od razu w katalogach tłumaczeń.
+- Testy potwierdzają, że opcje odpowiadają plikom, używają nativeName,
+  a dodanie/usunięcie języka nie wymaga zmiany kodu. Niepoprawny JSON,
+  metadane lub kod locale dają błąd walidacji builda. Po usunięciu języka
+  zapisana preferencja lub lang w URL bez odpowiadającego pliku korzysta
+  z reguł fallbacku. Język domyślny musi pozostać dostępny.
 
 ## Etap 3 — worker i kontrakt odświeżania
 

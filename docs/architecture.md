@@ -76,6 +76,12 @@ statycznych wykresów; nie jest źródłem danych interaktywnej aplikacji.
 ## Język i lokalizacja
 
 Planowana osobna faza 2a wprowadzi PL/EN i rozszerzalne katalogi tłumaczeń.
+Lista języków wynika z plików `frontend/src/locales/*.json`, bez dodatkowego
+rejestru w kodzie. Nazwa pliku określa kod locale, metadane nativeName — nazwę
+opcji, a messages — tłumaczenia. Build odkrywa i waliduje pliki. Nowy język
+staje się dostępny po przebudowaniu i wdrożeniu; usunięcie pliku usuwa opcję
+i wymaga fallbacku dla wcześniejszych preferencji/URL. Nie ma runtime skanowania
+katalogu serwera przez statyczny frontend.
 Język interfejsu jest preferencją użytkownika/przeglądarki i elementem URL,
 nie właściwością ligi ani zdarzenia. Nie duplikować transakcji ani wyceny
 w bazie dla poszczególnych języków.
