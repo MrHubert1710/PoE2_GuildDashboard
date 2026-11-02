@@ -204,6 +204,13 @@ test('vertical value navigator zooms and pans independently of time and survives
   await expect(graph).toBeVisible();await expect(values).toBeVisible()
   expect(Math.abs((await values.boundingBox())!.height-(await graph.boundingBox())!.height)).toBeLessThan(2)
   expect((await page.getByTestId('series-navigator').boundingBox())!.y-(await graph.boundingBox())!.y).toBeLessThan(500)
+  await expect(values.getByTestId('value-range-beam')).toBeVisible()
+  await expect(values.locator('path')).toHaveCount(2)
+  const paths=await page.getByTestId('series-navigator').getByTestId('navigator-series').evaluateAll(elements=>elements.map(element=>element.getAttribute('d')!))
+  for(const path of paths)for(const match of path.matchAll(/(?:M[-\d.]+,|V)([-\d.]+)/g)){
+    expect(Number(match[1])).toBeGreaterThanOrEqual(8)
+    expect(Number(match[1])).toBeLessThanOrEqual(26)
+  }
   const timeStart=await graph.getAttribute('data-window-start'),timeEnd=await graph.getAttribute('data-window-end')
   const before=requests,initialMin=Number(await graph.getAttribute('data-value-min')),initialMax=Number(await graph.getAttribute('data-value-max'))
   await chart(page).getByRole('button',{name:'Zoom values',exact:true}).click()
@@ -215,6 +222,11 @@ test('vertical value navigator zooms and pans independently of time and survives
   expect(await graph.getAttribute('data-window-start')).toBe(timeStart)
   expect(await graph.getAttribute('data-window-end')).toBe(timeEnd)
   expect(requests).toBe(before)
+  const handle=(await page.getByRole('slider',{name:'Minimum chart value',exact:true}).boundingBox())!
+  await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);await page.mouse.down()
+  await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2+12,{steps:4});await page.mouse.up()
+  expect(Number(await graph.getAttribute('data-value-min'))).toBeLessThan(Number(yMin))
+  expect(await graph.getAttribute('data-value-max')).toBe(yMax)
   await page.getByRole('slider',{name:'Chart value range',exact:true}).press('Home')
   expect(Number(await graph.getAttribute('data-value-min'))).toBeGreaterThan(Number(yMin))
   const moved=await graph.getAttribute('data-value-min')

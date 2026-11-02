@@ -40,7 +40,7 @@ function path(series:BalanceSeries){
   const points=series.overview??series.points
   return points.map((point,index)=>{
     const x=(point.timestamp-domain.value.start)/span.value*width
-    const y=height-3-(point.balance-scale.value.min)/(scale.value.max-scale.value.min)*(height-6)
+    const y=height-8-(point.balance-scale.value.min)/(scale.value.max-scale.value.min)*(height-16)
     return `${index===0?'M':'H'}${x}${index===0?',':'V'}${y}`
   }).join(' ')
 }

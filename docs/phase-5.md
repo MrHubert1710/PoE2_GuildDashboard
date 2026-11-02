@@ -275,3 +275,22 @@ oraz wyłączeń skrytek, dokładne okno poza początkową datą i sumę ruchów
 Publiczny nginx: potwierdzono identyczny kontekst API z datami i bez, zachowanie
 obu zakresów po ręcznej zmianie dat i reloadzie oraz wyjście Home poza pierwotny
 filtr z automatyczną synchronizacją dni. Bez błędów JavaScript. Brak migracji.
+
+### Czytelność nawigatorów
+
+Linie miniatury czasu mają po 8 px marginesu pionowego w obszarze wysokości
+34 px. Ekstrema nie dotykają krawędzi ani poziomych obramowań zaznaczenia.
+Margines jest wyłącznie wizualny; domena i zaznaczenie 30% pozostają bez zmian.
+
+Nawigator wartości zastępuje przebiegi serii belką I-beam. Przygaszona belka
+pokazuje pełny zakres wartości, a jaśniejsza jego wybraną część. Obie mają
+wewnętrzny odstęp od krawędzi. Przezroczyste pola interakcji pozwalają przesuwać
+wybór i przeciągać obie poprzeczki; zachowana jest obsługa klawiatury, URL,
+resetu i niezależność od czasu. Wyliczanie zakresów nadal używa pełnego kontekstu
+pasującego do filtrów innych niż daty; dane nie są ponownie przeliczane.
+
+Walidacja: build TypeScript/Vite i 71 testów przeglądarkowych przeszły. Test
+nawigatora sprawdza marginesy przebiegów czasu, brak wykresów serii w kontrolce
+wartości oraz przeciąganie dolnej poprzeczki bez zmiany górnej granicy. Pozostałe
+próby obejmują zoom, reset, klawiaturę, reload i mobile. Publiczny nginx: belka
+I-beam widoczna, domeny miniatur nadal niezależne od dat, bez błędów JavaScript.
