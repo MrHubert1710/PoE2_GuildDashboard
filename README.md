@@ -8,6 +8,9 @@ Plan etapów i kryteria odbioru: [docs/implementation-plan.md](docs/implementati
 Wymagania nowych funkcji i ograniczenia integracji dostawców:
 [docs/architecture.md](docs/architecture.md).
 
+Faza 0: [wyniki audytu i instrukcja odbioru](docs/phase-0.md),
+[kontrakty modułów](docs/contracts.md).
+
 ## Instalacja i uruchamianie
 
 Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny

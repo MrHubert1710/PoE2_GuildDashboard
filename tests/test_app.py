@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import tempfile
 import unittest
 
@@ -10,7 +11,9 @@ class AppTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.dist = Path(self.temp.name)
-        self.app = create_app({'TESTING': True, 'FRONTEND_DIST': self.dist})
+        self.reference = self.dist / 'phase0.json'
+        self.app = create_app({'TESTING': True, 'FRONTEND_DIST': self.dist,
+                               'REFERENCE_FILE': self.reference})
         self.client = self.app.test_client()
 
     def test_health_identifies_new_service_without_a_frontend_build(self):
@@ -38,3 +41,26 @@ class AppTests(unittest.TestCase):
             response = self.client.get(route)
             self.assertEqual(response.status_code, 404, route)
             self.assertEqual(response.json, {'error': 'Not found'})
+
+    def test_missing_or_broken_reference_has_actionable_error_without_paths(self):
+        for contents in (None, 'broken JSON', '{"schema_version":99}'):
+            if contents:
+                self.reference.write_text(contents)
+            response = self.client.get('/api/rework-readiness')
+            self.assertEqual(response.status_code, 503)
+            self.assertIn('no-store', response.headers['Cache-Control'])
+            self.assertNotIn(str(self.reference), response.get_data(as_text=True))
+
+    def test_readiness_uses_saved_snapshot_without_opening_archive_files(self):
+        self.reference.write_text(json.dumps({
+            'schema_version': 1, 'generated_at': '2026-11-02T00:00:00Z',
+            'legacy_settings': {'SESSION_ID': 'SECRET'},
+            'leagues': [{'name': 'Alpha', 'transactions': 1, 'oldest_at': None,
+                         'newest_at': None, 'history_sha256': 'hash', 'issues': {},
+                         'reports': [], 'prices': [], 'source_matches': True,
+                         'samples': {'Account': 'PRIVATE'}}]}))
+        response = self.client.get('/api/rework-readiness')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['leagues'][0]['name'], 'Alpha')
+        self.assertNotIn(b'SECRET', response.data)
+        self.assertNotIn(b'PRIVATE', response.data)

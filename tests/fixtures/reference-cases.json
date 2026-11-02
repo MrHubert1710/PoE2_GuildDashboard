@@ -1,0 +1,22 @@
+{
+  "league": "Synthetic League",
+  "rows": [
+    ["2026-01-01T23:30:00Z", "1", "Synthetic League", "Player A", "added", "Abbys/Expediton", "8× Chaos Orb", "0", "0"],
+    ["2026-01-01T23:30:00Z", "1", "Synthetic League", "Player A", "added", "Abbys/Expediton", "8× Chaos Orb", "0", "0"],
+    ["2026-01-01T23:30:00Z", "1", "Synthetic League", "Player A", "added", "Abbys/Expediton", "9× Chaos Orb", "0", "0"],
+    ["2026-01-02T01:30:00+02:00", "2", "Synthetic League", "Player B", "modified", "Test", "Unknown Item", "1", "2"],
+    ["not-a-date", "3", "Synthetic League", "Player A", "removed", "Test", "Chaos Orb", "0", "0"],
+    ["2026-01-01T10:00:00", "4", "Synthetic League", "Player A", "removed", "Test", "Chaos Orb", "0", "0"],
+    ["2026-01-01T10:00:00Z", "5", "Other League", "Player A", "unknown-action", "Test", "Chaos Orb", "0", "0"],
+    ["2026-01-01T10:00:00Z", "6", "Synthetic League", "", "added", "Test", "Chaos Orb", "0", "0"]
+  ],
+  "expected_issues": {
+    "duplicate_id": 1,
+    "conflicting_id": 1,
+    "invalid_or_naive_date": 2,
+    "wrong_league": 1,
+    "unknown_action": 1,
+    "missing_or_extra_fields": 1
+  },
+  "notes": "Synthetic accounts and records; no player identities from production archives. Alias, quantities and unknown-price semantics are specified for later phases, not processed by this audit."
+}

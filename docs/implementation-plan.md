@@ -1,7 +1,8 @@
 # Plan implementacji poe2guild
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: plan do wykonania; działający szkielet Hello World pozostaje bez zmian.
+Status: faza 0 zaimplementowana, oczekuje weryfikacji manualnej.
+Dalsze fazy nie są rozpoczęte. Wyniki i odbiór: [phase-0.md](phase-0.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -234,6 +235,8 @@ Etap 3 dostarcza mechanizm aktualizacji używany następnie przez 4, 6 i 7.
 Rozpoznanie dostępu z etapu 0 trwa niezależnie od portowania archiwów.
 Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 
-Najbliższy zakres implementacji: etapy 0–2. Rezultatem ma być baza obu lig,
-wybór ligi, tabela transakcji i dostęp do archiwalnego raportu. Następnie etap 3
-domyka fundamenty aktualizacji przed rozbudową raportów i integracji.
+Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
+odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
+Po akceptacji fazy 0 następna będzie wyłącznie faza 1: SQLite i import.
+Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
+i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.

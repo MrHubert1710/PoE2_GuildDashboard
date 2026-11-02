@@ -1,0 +1,40 @@
+{
+  "checked_at": "2026-11-02",
+  "items": [
+    {
+      "id": "ggg-history",
+      "name": "Historia skrytki gildii PoE2",
+      "status": "not_documented",
+      "detail": "Publiczna referencja nie opisuje tego zasobu; sekcja Guild Stashes dotyczy PoE1. Dostęp wymaga potwierdzenia przed implementacją fetchera.",
+      "source": "https://www.pathofexile.com/developer/docs/reference"
+    },
+    {
+      "id": "ggg-oauth",
+      "name": "Autoryzacja GGG",
+      "status": "conditional",
+      "detail": "OAuth jest udokumentowany. Rejestracja nowych aplikacji jest obecnie wstrzymana; wymagany jest klient z dostępem do potrzebnego zasobu.",
+      "source": "https://www.pathofexile.com/developer/docs"
+    },
+    {
+      "id": "ggg-leagues",
+      "name": "Katalog lig GGG",
+      "status": "conditional",
+      "detail": "Lista lig obsługuje realm=poe2 i wymaga service:leagues. Potwierdzono dokumentację, nie dostęp tego wdrożenia.",
+      "source": "https://www.pathofexile.com/developer/docs/reference#leagues"
+    },
+    {
+      "id": "ninja-prices",
+      "name": "Ligi ekonomiczne i ceny poe.ninja",
+      "status": "documented",
+      "detail": "Udokumentowano publiczne endpointy ekonomii. Adapter będzie respektował cache i rozróżniał formaty exchange oraz stash item.",
+      "source": "https://poe.ninja/docs/api"
+    },
+    {
+      "id": "ninja-categories",
+      "name": "Wykrywanie kategorii wyceny",
+      "status": "not_documented",
+      "detail": "Dokumentacja publikuje nazwy kategorii, ale nie opisuje endpointu ich katalogu. Plan: izolowany odczyt publikowanej listy, walidacja i ostatnia poprawna kopia.",
+      "source": "https://poe.ninja/docs/api"
+    }
+  ]
+}

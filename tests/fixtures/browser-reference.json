@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "phase": 0,
+  "generated_at": "2026-11-02T00:08:13.912895+00:00",
+  "leagues": [
+    {
+      "name": "Forbidden Rites",
+      "transactions": 15344,
+      "oldest_at": "2026-09-17T14:01:47+00:00",
+      "newest_at": "2026-10-22T19:55:05+00:00",
+      "history_sha256": "e3c405ba065f8348f92ca993a6548bc66fd2d947f4f6e7707b16b31f93a09766",
+      "issues": {},
+      "reports": [
+        {
+          "name": "currentday.html",
+          "sha256": "d387ea175d406514afd5067dd64916e99f6e6cb82593af1fcabf6c986a555a8b",
+          "bytes": 3113912
+        }
+      ],
+      "prices": [
+        {
+          "category_file": "abyss.json",
+          "sha256": "18825137b7c07c2e0dab6b16d138cb06dfe8538eee4739235757b3f08f987742",
+          "lines": 15,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "breach.json",
+          "sha256": "c56eff9bdd97efa43991e563ce335b65c4cd08444ae7e749f518fc039e793204",
+          "lines": 28,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "currency.json",
+          "sha256": "893ae73d3e69db65ee7c4d1b266d42086ebb9e904cc40a93eade811afe68ac1e",
+          "lines": 51,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "delirium.json",
+          "sha256": "39cd0c413052ed41a119cdc287c24fa2adb495c72317fcd2b0da2b7b3b3f10da",
+          "lines": 25,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "essences.json",
+          "sha256": "0b6f323875690eab7101db8eaa3a0a1406758b884c4e0f5fbccf2e4e5b026321",
+          "lines": 58,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "expedition.json",
+          "sha256": "adfcec7f5fc0fbad5b43f621f22a189eddd9fda7151e671ce95ffaa35bf3186a",
+          "lines": 18,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "fragments.json",
+          "sha256": "9f85806aa54c4155625a6b0e388862795a5e7d6209a2152db394ff5ca15c3ebb",
+          "lines": 26,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "idols.json",
+          "sha256": "64e7f3f2b62ef64877dff90b304cbb0ca189cade48f8a509bac10d74157a447a",
+          "lines": 35,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "lineagesupportgems.json",
+          "sha256": "98f41557e6401dfff9dab094084a833988f1cf1379fe60f3cc1bc97192dc8e94",
+          "lines": 77,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "ritual.json",
+          "sha256": "0218734d4220376e5cfc8bb70514ba5a04cd973dc3284e0d98951b119111a2b0",
+          "lines": 39,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "runes.json",
+          "sha256": "792195f49b8d400ba5ee630fd3f00ea31730f737d0c16ffa07e78a1b2f5e1ca9",
+          "lines": 135,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "soulcores.json",
+          "sha256": "ac4664c6056015b862069b42b9091432507a39497516e41a654874dd56b2949a",
+          "lines": 51,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "uncutgems.json",
+          "sha256": "3b71e4772e735f6e53ec41f2bf7388260da371aa1dccbf68c5e4866ee64b28ab",
+          "lines": 42,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "verisium.json",
+          "sha256": "7715ca0995bdf8409d2abfbdc44ef95efc20cec265af62153a721412aa10332c",
+          "lines": 23,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        }
+      ],
+      "source_matches": true
+    },
+    {
+      "name": "Runes of Aldur",
+      "transactions": 89190,
+      "oldest_at": "2026-05-29T21:40:59+00:00",
+      "newest_at": "2026-07-23T23:34:07+00:00",
+      "history_sha256": "e31a282ca4f4f50fe4ff21a6e218b94ff596dcce118b41529d9a871f3b255b20",
+      "issues": {},
+      "reports": [
+        {
+          "name": "currentday.html",
+          "sha256": "4e4b45ee1bc6cb366bca4b0e4abe710f5ad8a5a9863b67f6e825aa1a1854240e",
+          "bytes": 23589322
+        },
+        {
+          "name": "lastday.html",
+          "sha256": "596683efe5d7285dd38ce431effb626be98cf5fc592dfc13ace219b347b5c244",
+          "bytes": 24022278
+        }
+      ],
+      "prices": [
+        {
+          "category_file": "abyss.json",
+          "sha256": "248c45a1ea5bc7ef47966d6a5412c2261bd81851c6f226d652f1efe5b198e375",
+          "lines": 14,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "breach.json",
+          "sha256": "8ea8d8eef06ac141c4f33d8618dbdda15dd42b8787bfc154646e97a60e4251c7",
+          "lines": 27,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "currency.json",
+          "sha256": "a37e76beb5c9dc94d96dd3ae72f0edcc9349c449e552a165998c579d4250d756",
+          "lines": 44,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "delirium.json",
+          "sha256": "ab796c6c3fedf891126f02f361611c378b708572ffd4652b785b8cba3a555a71",
+          "lines": 20,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "essences.json",
+          "sha256": "b5f0b7b9a77e626607b9ad55183b3eeef7a5b2a0908306f99d4af0d80174ea43",
+          "lines": 25,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "expedition.json",
+          "sha256": "b189a5e6cbfda8fffd3b7b4c6d90a27338121e552d7ec6a9ce13c6c5b7b7c65f",
+          "lines": 16,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "fragments.json",
+          "sha256": "8c884312c1f24e2e0a68d4f62384a2f7e94387b6a01fdc154430372bf85ee10d",
+          "lines": 19,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "idols.json",
+          "sha256": "787e3670883fdb602c9ece870eb315a443f53f398f6d7ea68de272ffbae7e124",
+          "lines": 24,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "lineagesupportgems.json",
+          "sha256": "511ea1045ee22fdb6a7bc570212c9f8f8ed82f6995ce7559885714f94347db15",
+          "lines": 56,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "ritual.json",
+          "sha256": "53c5d32d3884ab6e28274eff46e56e8260f8d796e0e258e4ef7034376ba05e75",
+          "lines": 33,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "runes.json",
+          "sha256": "4d5446ea38565f8ab561ecd204f567aaeda87551c4a33b8e0bc52e7f9bd9a8d3",
+          "lines": 59,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "soulcores.json",
+          "sha256": "e89ee4d78177b2f899439d63a95656087d1ed78310dce81a5d55d8bf08576118",
+          "lines": 31,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "uncutgems.json",
+          "sha256": "15e40c7e71dbef7077c20fe7a04ba3470d52b5d8294140cdd9a80fa852c122d3",
+          "lines": 28,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        },
+        {
+          "category_file": "verisium.json",
+          "sha256": "85fc09d5630dc397b062f8e6e8da63f2af6e14cd10810a657ede4a07059b23aa",
+          "lines": 20,
+          "timestamp_provenance": "unknown",
+          "league_provenance": "legacy_directory"
+        }
+      ],
+      "source_matches": true
+    }
+  ],
+  "fixture_note": "Sanitized phase 0 browser fixture: no accounts, settings or event samples."
+}
