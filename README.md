@@ -11,6 +11,8 @@ Wymagania nowych funkcji i ograniczenia integracji dostawców:
 Faza 0: [wyniki audytu i instrukcja odbioru](docs/phase-0.md),
 [kontrakty modułów](docs/contracts.md).
 
+Faza 1: [SQLite, import i instrukcja odbioru](docs/phase-1.md).
+
 ## Instalacja i uruchamianie
 
 Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny
@@ -66,6 +68,8 @@ frontend/src/            Vue + TypeScript
 frontend/dist/           wynik builda (poza Git)
 data/leagues/<liga>/     niezależne kopie CSV, raportów, wykresów i cen
 data/import-manifest.json  liczby transakcji i SHA-256 skopiowanych plików
+data/poe2guild.sqlite     baza SQLite (poza Git)
+backend/migrations/      wersjonowany schemat bazy
 scripts/                 importer archiwów i edytor konfiguracji Nginx
 deploy/nginx/            przykład konfiguracji reverse proxy
 tests/                   testy API, importu i launchera
@@ -84,8 +88,19 @@ Odtworzenie danych ze starego katalogu:
 
 Importer kopiuje pliki i weryfikuje SHA-256. Powtórzenie z tymi samymi danymi
 jest bezpieczne; przy różnej zawartości istniejącego archiwum przerywa pracę.
-Docelowa baza danych będzie tworzona z tych danych lub bezpośrednio ze starego
-katalogu. Na etapie Hello World nie wprowadzamy jeszcze jej schematu.
+Baza SQLite jest tworzona z tych danych lub z niezależnej kopii starego
+katalogu. Komendy fazy 1:
+
+```sh
+.venv/bin/python scripts/database.py init
+.venv/bin/python scripts/database.py import
+.venv/bin/python scripts/database.py status
+.venv/bin/python scripts/database.py verify
+```
+
+Pełne odtworzenie, polityka konfliktów i przechowywanie surowych danych są
+opisane w [docs/phase-1.md](docs/phase-1.md). API udostępnia na razie wyłącznie
+podgląd stanu bazy, bez przeglądania transakcji z fazy 2.
 
 ## Development i testy
 

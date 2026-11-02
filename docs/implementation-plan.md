@@ -1,8 +1,9 @@
 # Plan implementacji poe2guild
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: faza 0 zaimplementowana, oczekuje weryfikacji manualnej.
-Dalsze fazy nie są rozpoczęte. Wyniki i odbiór: [phase-0.md](phase-0.md).
+Status: faza 0 zaakceptowana przez użytkownika; faza 1 zaimplementowana,
+oczekuje weryfikacji manualnej. Faza 2 i dalsze nie są rozpoczęte.
+Wyniki i odbiór: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -237,6 +238,6 @@ Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
-Po akceptacji fazy 0 następna będzie wyłącznie faza 1: SQLite i import.
+Po akceptacji fazy 1 następna będzie wyłącznie faza 2: wybór ligi i historia.
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.

@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test'
+import databaseFixture from '../../tests/fixtures/browser-database.json' with { type: 'json' }
+
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/database-status', route => route.fulfill({ json: databaseFixture }))
+})
 
 test('renders both archives, expands evidence and refreshes without navigation', async ({ page }) => {
   const errors: string[] = []
@@ -9,7 +14,7 @@ test('renders both archives, expands evidence and refreshes without navigation',
   const rites = page.locator('[data-league="Forbidden Rites"]')
   await expect(aldur).toContainText(/89\s*190/)
   await expect(rites).toContainText(/15\s*344/)
-  await expect(page.locator('[role="status"]')).toContainText(/104\s*534/)
+  await expect(page.locator('[role="status"]').first()).toContainText(/104\s*534/)
   await aldur.getByText('Sumy kontrolne i zachowane pliki').click()
   await expect(aldur.getByText('currentday.html', { exact: false })).toBeVisible()
   await expect(aldur.getByText('lastday.html', { exact: false })).toBeVisible()
@@ -53,5 +58,33 @@ test('mobile layout has no horizontal overflow and reports integration limits', 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await expect(page.getByRole('heading', { name: 'Historia skrytki gildii PoE2' })).toBeVisible()
   await expect(page.getByText('Brak publicznego kontraktu')).toHaveCount(2)
-  await page.screenshot({ path: 'test-results/phase-0-mobile.png', fullPage: true })
+  await page.screenshot({ path: 'test-results/phase-1-mobile.png', fullPage: true })
+})
+
+test('shows database counts, integrity and duplicate import result', async ({ page }) => {
+  await page.goto('/poe2guild/')
+  const database = page.getByTestId('database-summary')
+  await expect(database).toContainText(/104\s*534 transakcji w SQLite/)
+  await expect(database.getByText('Integralność OK')).toBeVisible()
+  await expect(page.getByText('Zgodna z audytem')).toHaveCount(2)
+  await database.getByText('Ostatni import', { exact: false }).click()
+  await expect(database).toContainText('Pominięte duplikaty')
+  await expect(database).toContainText(/104\s*534/)
+})
+
+test('database failure leaves independent reference archives available', async ({ page }) => {
+  await page.route('**/api/database-status', route => route.fulfill({ status: 503, json: { state: 'unavailable' } }))
+  await page.goto('/poe2guild/')
+  await expect(page.getByTestId('database-error')).toContainText('Baza jest niedostępna')
+  await expect(page.locator('[data-league]')).toHaveCount(2)
+  await expect(page.getByTestId('database-summary')).toHaveCount(0)
+})
+
+test('later database failure preserves the last visible database result', async ({ page }) => {
+  await page.goto('/poe2guild/')
+  await expect(page.getByTestId('database-summary')).toBeVisible()
+  await page.route('**/api/database-status', route => route.fulfill({ status: 503, json: {} }))
+  await page.getByRole('button', { name: 'Odśwież podgląd' }).click()
+  await expect(page.getByTestId('database-error')).toContainText('ostatni odczytany wynik')
+  await expect(page.getByTestId('database-summary')).toBeVisible()
 })

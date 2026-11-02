@@ -1,0 +1,62 @@
+{
+  "instance_id": "75152fd4-d9f2-4535-ac95-7a696a389cc7",
+  "integrity": {
+    "checked_at": "2026-11-02T00:24:54.109076Z",
+    "current": true,
+    "result": "ok",
+    "transaction_count": 104534
+  },
+  "journal_mode": "wal",
+  "last_import": {
+    "conflict_count": 0,
+    "duplicate_count": 104534,
+    "finished_at": "2026-11-02T00:24:53.858885Z",
+    "id": "bdc86eb8-7c2b-40bf-913f-5b6527ab9bc8",
+    "inserted_count": 0,
+    "invalid_count": 0,
+    "started_at": "2026-11-02T00:24:52.734488Z",
+    "status": "completed"
+  },
+  "leagues": [
+    {
+      "archived": true,
+      "baseline_match": true,
+      "files": {
+        "chart": 8,
+        "history": 1,
+        "price_cache": 14,
+        "report": 1
+      },
+      "history_complete": null,
+      "history_sha256": "e3c405ba065f8348f92ca993a6548bc66fd2d947f4f6e7707b16b31f93a09766",
+      "id": "396bf2ba-bb4c-5ba1-8dbf-1ff4d949ca57",
+      "lifecycle": "unknown",
+      "name": "Forbidden Rites",
+      "newest_at": "2026-10-22T19:55:05.000000Z",
+      "oldest_at": "2026-09-17T14:01:47.000000Z",
+      "transactions": 15344
+    },
+    {
+      "archived": true,
+      "baseline_match": true,
+      "files": {
+        "chart": 15,
+        "history": 1,
+        "price_cache": 14,
+        "report": 2
+      },
+      "history_complete": null,
+      "history_sha256": "e31a282ca4f4f50fe4ff21a6e218b94ff596dcce118b41529d9a871f3b255b20",
+      "id": "090af6db-32c2-5ca5-8598-69a5b27aca2a",
+      "lifecycle": "unknown",
+      "name": "Runes of Aldur",
+      "newest_at": "2026-07-23T23:34:07.000000Z",
+      "oldest_at": "2026-05-29T21:40:59.000000Z",
+      "transactions": 89190
+    }
+  ],
+  "schema_version": 1,
+  "state": "ready",
+  "transactions": 104534,
+  "fixture_note": "Sanitized browser fixture; API is independently tested against temporary SQLite databases."
+}

@@ -12,6 +12,7 @@ from backend.app import create_app
 
 
 if __name__ == '__main__':
-    app = create_app({'REFERENCE_FILE': ROOT / 'tests/fixtures/browser-reference.json'})
+    app = create_app({'REFERENCE_FILE': ROOT / 'tests/fixtures/browser-reference.json',
+                      'DATABASE_FILE': ROOT / 'tests/fixtures/absent-test-database.sqlite'})
     mounted = DispatcherMiddleware(Response('Not found', status=404), {'/poe2guild': app})
     run_simple('127.0.0.1', 19003, mounted, use_reloader=False)

@@ -45,6 +45,10 @@ code { display: block; overflow-wrap: anywhere; font-size: 11px; color: #aab9c1;
 .file-list { padding-left: 16px; line-height: 1.8; }
 .footnote { color: #9da8ae; font-size: 12px; line-height: 1.7; max-width: 900px; }
 .integrations { margin: 48px 0; }
+.database-section { margin-bottom: 48px; }
+.database-overview { margin-bottom: 20px; }
+.database-overview .small { color: #a9b0b6; }
+.database-overview details { margin-top: 20px; max-width: 650px; }
 .provider-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; padding: 22px 0; border-bottom: 1px solid #30373c; }
 .provider-row p { color: #a9b0b6; font-size: 13px; line-height: 1.7; margin: 10px 0; max-width: 740px; }
 .provider-row a { font-size: 12px; }

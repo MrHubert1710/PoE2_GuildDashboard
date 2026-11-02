@@ -1,6 +1,6 @@
 # Faza 0 — kontrakty i punkty odniesienia
 
-Status: implementacja fazy 0 zakończona; oczekuje odbioru manualnego.
+Status: faza 0 zakończona i zaakceptowana przez użytkownika.
 Zweryfikowano 16 testów Pythona, 4 testy Chromium i publiczny adres przez Nginx.
 
 Zakres: zamknięcie fundamentów i podgląd audytu w przeglądarce.
