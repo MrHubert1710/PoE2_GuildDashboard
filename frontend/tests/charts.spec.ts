@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test'
+import type {Locator} from '@playwright/test'
 import {goSection} from './workspace-helpers'
 test.use({locale:'en-US'})
 const path='/poe2guild/?lang=en'
@@ -123,11 +124,10 @@ test('a late coarse viewport response cannot replace newer zoom details',async({
   }finally{release()}
 })
 
-test('navigator keeps a fixed overview and synchronizes selected days at both ends of the domain',async({page})=>{
+test('navigator centers the local overview and synchronizes selected days at both ends of the domain',async({page})=>{
   await page.goto(path)
   const graph=page.getByTestId('time-series-chart'),navigator=page.getByTestId('series-navigator')
   await expect(graph).toBeVisible()
-  const overview=await navigator.getByTestId('navigator-series').first().getAttribute('d')
   for(let index=0;index<3;index++)await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
   const fullEnd=Number(await navigator.getAttribute('data-domain-end'))
   const width=Number(await navigator.getAttribute('data-window-end'))-Number(await navigator.getAttribute('data-window-start'))
@@ -140,11 +140,11 @@ test('navigator keeps a fixed overview and synchronizes selected days at both en
   await expect(page.getByLabel('To day (UTC)',{exact:true})).toHaveValue('2026-01-02')
   expect(await graph.getAttribute('data-window-start')).toBe(await navigator.getAttribute('data-window-start'))
   expect(await graph.getAttribute('data-window-end')).toBe(await navigator.getAttribute('data-window-end'))
-  expect(await navigator.getByTestId('navigator-series').first().getAttribute('d')).toBe(overview)
+  await expectCentered(navigator)
   await page.getByRole('slider',{name:'Chart overview range',exact:true}).press('Home')
   await expect(page.getByLabel('From day (UTC)',{exact:true})).toHaveValue('2026-01-01')
   await expect(page.getByLabel('To day (UTC)',{exact:true})).toHaveValue('2026-01-01')
-  await expect.poll(async()=>navigator.getByTestId('navigator-series').first().getAttribute('d')).toBe(overview)
+  await expectCentered(navigator)
   await chart(page).getByRole('button',{name:'Reset view',exact:true}).click()
   await expect(page.getByLabel('From day (UTC)',{exact:true})).toHaveValue('')
   await expect(page.getByLabel('To day (UTC)',{exact:true})).toHaveValue('')
@@ -154,7 +154,6 @@ test('repeated main-chart pans load detail beyond the original central window an
   await page.goto(path)
   const graph=page.getByTestId('time-series-chart'),navigator=page.getByTestId('series-navigator')
   await expect(graph).toBeVisible()
-  const overview=await navigator.getByTestId('navigator-series').first().getAttribute('d')
   for(let index=0;index<3;index++)await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
   const fullEnd=Number(await navigator.getAttribute('data-domain-end'))
   const width=Number(await navigator.getAttribute('data-window-end'))-Number(await navigator.getAttribute('data-window-start'))
@@ -169,7 +168,7 @@ test('repeated main-chart pans load detail beyond the original central window an
   expect(data.series[0].closing_balance).toBe(63)
   expect(data.sampled).toBe(false)
   expect(await graph.getAttribute('data-window-start')).toBe(await navigator.getAttribute('data-window-start'))
-  expect(await navigator.getByTestId('navigator-series').first().getAttribute('d')).toBe(overview)
+  await expectCentered(navigator)
   await expect(page.getByLabel('From day (UTC)',{exact:true})).toHaveValue('2026-01-02')
 })
 
@@ -226,4 +225,54 @@ test('vertical value navigator zooms and pans independently of time and survives
   expect((await page.getByTestId('series-navigator').boundingBox())!.y-(await graph.boundingBox())!.y).toBeLessThan(500)
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   await page.screenshot({path:'test-results/phase-5-value-navigator.png',fullPage:false})
+})
+
+async function expectCentered(navigator: Locator) {
+  const selection=navigator.getByTestId('navigator-window')
+  await expect.poll(async()=>Math.abs(Number(await selection.getAttribute('x'))-350)).toBeLessThan(.001)
+  await expect.poll(async()=>Math.abs(Number(await selection.getAttribute('width'))-300)).toBeLessThan(.001)
+}
+
+test('time navigator freezes context while dragging and animates back to the central 30 percent',async({page})=>{
+  await page.goto(path)
+  const navigator=page.getByTestId('series-navigator'),graph=page.getByTestId('time-series-chart')
+  await expect(graph).toBeVisible()
+  for(let i=0;i<3;i++)await chart(page).getByRole('button',{name:'Zoom in',exact:true}).click()
+  await expectCentered(navigator)
+  const selection=navigator.getByTestId('navigator-window'),box=(await navigator.locator('svg').boundingBox())!
+  const domain=await navigator.getAttribute('data-display-start')
+  const before=Number(await navigator.getAttribute('data-window-start'))
+  await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5)
+  await page.mouse.down();await page.mouse.move(box.x+box.width*.65,box.y+box.height*.5,{steps:5})
+  expect(await navigator.getAttribute('data-display-start')).toBe(domain)
+  expect(Number(await selection.getAttribute('x'))).toBeGreaterThan(490)
+  expect(Number(await navigator.getAttribute('data-window-start'))).toBeGreaterThan(before)
+  await selection.evaluate(element=>{
+    const samples:number[]=[]
+    const observer=new MutationObserver(()=>{
+      const x=Number(element.getAttribute('x'));samples.push(x)
+      element.setAttribute('data-motion-samples',JSON.stringify(samples))
+      if(Math.abs(x-350)<.001)observer.disconnect()
+    })
+    observer.observe(element,{attributes:true,attributeFilter:['x']})
+  })
+  await page.mouse.up();await expectCentered(navigator)
+  const samples=JSON.parse((await selection.getAttribute('data-motion-samples'))!) as number[]
+  expect(samples.some(value=>value>351&&value<490)).toBe(true)
+  expect(await navigator.getAttribute('data-display-start')).not.toBe(domain)
+  expect(await graph.getAttribute('data-window-start')).toBe(await navigator.getAttribute('data-window-start'))
+  const endHandle=page.getByRole('slider',{name:'End of chart range',exact:true})
+  const handle=(await endHandle.boundingBox())!
+  const previousWidth=Number(await navigator.getAttribute('data-window-end'))-Number(await navigator.getAttribute('data-window-start'))
+  await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);await page.mouse.down()
+  await page.mouse.move(handle.x+handle.width/2+box.width*.05,handle.y+handle.height/2,{steps:4});await page.mouse.up()
+  await expectCentered(navigator)
+  expect(Number(await navigator.getAttribute('data-window-end'))-Number(await navigator.getAttribute('data-window-start'))).toBeGreaterThan(previousWidth)
+  await page.reload();await expect(graph).toBeVisible();await expectCentered(navigator)
+  await page.emulateMedia({reducedMotion:'reduce'})
+  await page.getByRole('slider',{name:'Chart overview range',exact:true}).press('Home')
+  await expectCentered(navigator)
+  expect(await navigator.getAttribute('data-window-start')).toBe(await navigator.getAttribute('data-domain-start'))
+  await page.setViewportSize({width:390,height:844});await expectCentered(navigator)
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
 })

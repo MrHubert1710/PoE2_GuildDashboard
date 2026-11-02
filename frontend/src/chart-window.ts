@@ -22,3 +22,9 @@ export function clampValueRange(start:number,end:number,bounds:ChartWindow):Char
   const first=Math.max(bounds.start,Math.min(bounds.end-width,start))
   return {start:first,end:first+width}
 }
+
+// A linear context view: the selected time span occupies the central 30%.
+export function navigatorDomain(window:ChartWindow):ChartWindow {
+  const margin=(window.end-window.start)*(.7/.3)/2
+  return {start:window.start-margin,end:window.end+margin}
+}

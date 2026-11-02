@@ -336,7 +336,7 @@ footer { padding: 12px 0; }
 .balance-chart .time-series-chart { height: clamp(270px,38vh,445px); touch-action: pan-y; cursor: grab; }
 .balance-chart .time-series-chart:active { cursor: grabbing; }
 .series-navigator { margin: 0 20px 6px 65px; height: 34px; }
-.series-navigator svg { width: 100%; height: 34px; overflow: visible; touch-action: none; }
+.series-navigator svg { width: 100%; height: 34px; overflow: hidden; touch-action: none; }
 .navigator-background { fill: #1b2730; stroke: #46545e; }
 .navigator-mask { fill: #10161d; opacity: .45; pointer-events: none; }
 .navigator-window { fill: #91a9dc33; stroke: #aab9e1; stroke-width: 1; cursor: grab; }

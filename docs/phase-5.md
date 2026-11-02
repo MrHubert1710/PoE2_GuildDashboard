@@ -216,3 +216,33 @@ Obie miniatury mieszczą się przy głównym wykresie; mobile nie ma poziomego
 przepełnienia dokumentu. Brak błędów JavaScript. Hash wszystkich kolumn 104534
 źródłowych transakcji oraz konfiguracje lig/gildii są identyczne przed i po.
 Faza 6 nie została rozpoczęta; etap kończy się weryfikacją manualną użytkownika.
+
+### Wyśrodkowany nawigator czasu (30%)
+
+Nawigator czasu pokazuje teraz lokalne otoczenie wybranego okna. Po zakończeniu
+interakcji zaznaczenie zajmuje środkowe 30% szerokości (35–65%). Wyświetlana
+liniowa domena miniatury wynosi długość wyboru / 0,3, z równym marginesem czasu
+po obu stronach. Domena źródłowych danych oraz ograniczenia wyboru nadal
+wynikają z pierwotnych filtrów. Przy krańcach historii miniatura może pokazywać
+pusty obszar poza dostępnymi danymi, aby zachować wyśrodkowanie.
+
+Podczas przeciągania zaznaczenia lub uchwytu domena miniatury jest zamrożona.
+Po puszczeniu płynna animacja 280 ms przesuwa i skaluje podgląd, przywracając
+wybór do środka. Animowana jest wyłącznie prezentacja: wybrany czas oraz filtry
+nie zmieniają się podczas powrotu. Kolejny gest przerywa animację i korzysta
+z aktualnej geometrii. Preferencja systemowa ograniczenia ruchu wyłącza animację.
+Zoom głównego wykresu, klawiatura, reset i reload również zachowują proporcję
+30%. Home/End nadal prowadzą do granic pełnej historii; strzałki przesuwają
+wybór względem lokalnego zakresu miniatury. Oś Y pozostaje niezależna.
+
+Zmiana zastępuje poprzednią stałą domenę wyświetlania miniatury, zachowując
+niezmienny zestaw danych overview, synchronizację czasu i pobieranie szczegółów.
+Nie zmienia API, bazy, ustawień ani sposobu liczenia transakcji.
+
+Walidacja: build TypeScript/Vite, 70 testów przeglądarkowych i 16 tłumaczeń
+przeszły. Nowy test sprawdza zamrożenie domeny w trakcie gestu, pośrednie klatki
+animacji, powrót do 35–65%, zmianę szerokości uchwytem, reload, ograniczenie ruchu
+i mobile. Dotychczasowe testy nadal sprawdzają szczegóły po przesuwaniu daleko
+od początkowego okna oraz synchronizację dat. Publiczny nginx potwierdził
+przeciąganie, wyśrodkowanie, reset domeny po reloadzie, End i brak przepełnienia
+na mobile. Brak błędów JavaScript; surowe transakcje mają niezmieniony hash.
