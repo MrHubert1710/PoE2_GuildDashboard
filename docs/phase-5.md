@@ -387,3 +387,15 @@ Zweryfikowany przykład: Runes of Aldur, stash $$$, All — rzeczywisty zakres
 serii 0–12136, podczas gdy -607 i 12743 były wyłącznie granicami marginesu.
 Build i 2 testy przeglądarkowe przeszły. Publiczny nginx potwierdził ukrycie
 obu etykiet marginesu i pozostawienie zwykłej podziałki 12000.
+
+Rzeczywiste minimum i maksimum widocznych serii w aktualnym oknie czasu mają
+teraz poziome linie odniesienia i dokładne etykiety przy osi Y. Minimum nie
+jest przycinane do zera: ujemne bilanse graczy pozostają widoczne. Graniczne
+linie siatki marginesu są ukryte, a odstęp 5% zachowany. Zwykłe etykiety zbyt
+bliskie oznaczeniom ekstremów są pomijane, aby wartości się nie nakładały.
+Przy identycznym minimum i maksimum rysowana jest jedna linia. Ekstrema poza
+ręcznie przybliżonym zakresem Y nie otrzymują fałszywych oznaczeń na krawędzi.
+
+Build i 4 testy przeglądarkowe przeszły, w tym minimum -25 i maksimum 73 dla
+kontrolnych serii graczy. Publiczny nginx: w widoku $$$/All linie 0 i 12136
+mają pojedyncze etykiety, bez linii marginesu ani znaczników punktowych.

@@ -463,8 +463,35 @@ test('automatic value-axis padding is not labelled as a real minimum or maximum'
   await expect(graph.locator('svg text').filter({hasText:/^-4$/})).toHaveCount(0)
   await expect(graph.locator('svg text').filter({hasText:/^67$/})).toHaveCount(0)
   await expect(graph.locator('svg text').filter({hasText:/^0$/})).toHaveCount(1)
-  await expect(graph.locator('svg text').filter({hasText:/^60$/})).toHaveCount(1)
+  await expect(graph.locator('svg text').filter({hasText:/^40$/})).toHaveCount(1)
   const query=new URL(page.url());query.searchParams.set('chart_ymin','0');query.searchParams.set('chart_ymax','1')
   await page.goto(query.href);await expect(graph).toBeVisible()
   await expect(graph.locator('svg text').filter({hasText:/^1$/})).toHaveCount(1)
+})
+
+test('real extrema have labelled reference lines, negative player minima are kept and padding lines are hidden',async({page})=>{
+  await page.route('**/quantity-series?*',async route=>{
+    const response=await route.fetch(),data=await response.json()
+    if(!new URL(route.request().url()).searchParams.has('at')&&data.window){
+      for(const series of [...data.series,...data.navigator.series,...(data.total_series?[data.total_series]:[]),...(data.navigator.total_series?[data.navigator.total_series]:[])]){
+        series.points=[{timestamp:data.window.start,balance:-25},{timestamp:(data.window.start+data.window.end)/2,balance:73},{timestamp:data.window.end,balance:73}]
+        series.overview=series.points
+      }
+    }
+    await route.fulfill({response,json:data})
+  })
+  await page.goto(path+'&section=players')
+  const graph=page.getByTestId('time-series-chart')
+  await expect(graph).toBeVisible()
+  await expect(graph).toHaveAttribute('data-actual-min','-25')
+  await expect(graph).toHaveAttribute('data-actual-max','73')
+  await expect(graph.locator('svg text').filter({hasText:/^-25$/})).toHaveCount(1)
+  await expect(graph.locator('svg text').filter({hasText:/^73$/})).toHaveCount(1)
+  // Reference lines are independent of the source curves, with no point symbols.
+  await expect(graph.locator('path[stroke="#a9bfb1"]')).toHaveCount(2)
+  await expect(graph.locator('svg circle')).toHaveCount(0)
+  const min=Number(await graph.getAttribute('data-value-min')),max=Number(await graph.getAttribute('data-value-max'))
+  expect(min).toBeLessThan(-25);expect(max).toBeGreaterThan(73)
+  const texts=await graph.locator('svg text').allTextContents()
+  expect(texts).not.toContain(String(min));expect(texts).not.toContain(String(max))
 })

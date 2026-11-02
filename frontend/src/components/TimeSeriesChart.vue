@@ -2,7 +2,7 @@
 import {computed,nextTick,onMounted,onUnmounted,ref,watch} from 'vue'
 import * as echarts from 'echarts/core'
 import {LineChart} from 'echarts/charts'
-import {GridComponent,AriaComponent} from 'echarts/components'
+import {GridComponent,AriaComponent,MarkLineComponent} from 'echarts/components'
 import {SVGRenderer} from 'echarts/renderers'
 import type {EChartsOption} from 'echarts'
 import type {BalanceSeries,CursorState} from '../composables/useQuantitySeries'
@@ -13,7 +13,7 @@ import type {ChartWindow} from '../chart-window'
 import SeriesNavigator from './SeriesNavigator.vue'
 import ValueNavigator from './ValueNavigator.vue'
 import {axisDate,formatZonedDate} from '../timezones'
-echarts.use([LineChart,GridComponent,AriaComponent,SVGRenderer])
+echarts.use([LineChart,GridComponent,AriaComponent,MarkLineComponent,SVGRenderer])
 const props=defineProps<{series:BalanceSeries[];contextSeries:BalanceSeries[];view:string;bounds:{start:number;end:number};timezone:string;enabled:string[];window:{start:number;end:number}|null;loadedWindow:ChartWindow|null;valueWindow:ChartWindow|null;stateAt:(timestamp:number)=>Promise<CursorState>}>()
 const emit=defineEmits<{zoom:[window:{start:number;end:number}];commit:[window:ChartWindow];valueZoom:[window:ChartWindow];resetTime:[];resetValues:[]}>()
 const root=ref<HTMLElement|null>(null)
@@ -32,6 +32,11 @@ function move(event:PointerEvent){
 }
 const currentWindow=computed(()=>props.window??props.bounds)
 const plottedSeries=computed(()=>props.series.filter(series=>props.enabled.includes(series.id)).map(series=>({...series,visible:visiblePoints(series.overview??series.points,series.points,props.loadedWindow,currentWindow.value)})))
+const actualExtrema=computed(()=>{
+  let min=Infinity,max=-Infinity
+  for(const series of plottedSeries.value)for(const point of series.visible){min=Math.min(min,point.balance);max=Math.max(max,point.balance)}
+  return Number.isFinite(min)?{min,max}:null
+})
 function padded(min:number,max:number){const padding=Math.max(1,(max-min)*.05);return {start:Math.floor(min-padding),end:Math.ceil(max+padding)}}
 const fullValueBounds=computed(()=>{let min=0,max=0;for(const series of props.contextSeries)for(const point of series.overview??series.points){min=Math.min(min,point.balance);max=Math.max(max,point.balance)}return padded(min,max)})
 const autoValueWindow=computed(()=>{let min=0,max=0;for(const series of plottedSeries.value)for(const point of series.visible){min=Math.min(min,point.balance);max=Math.max(max,point.balance)}const range=padded(min,max);return {start:Math.max(fullValueBounds.value.start,range.start),end:Math.min(fullValueBounds.value.end,range.end)}})
@@ -41,14 +46,17 @@ function draw(){
   if(!root.value?.clientWidth||!root.value.clientHeight)return
   if(!chart)chart=echarts.init(root.value,undefined,{renderer:'svg'})
   const start=props.window?.start??props.bounds.start,end=props.window?.end??props.bounds.end,span=end-start
+  const markerValues=actualExtrema.value?[...new Set([actualExtrema.value.min,actualExtrema.value.max])].filter(value=>value>=currentValueWindow.value.start&&value<=currentValueWindow.value.end):[]
+  const labelSpacing=(currentValueWindow.value.end-currentValueWindow.value.start)*16/Math.max(1,root.value.clientHeight-53)
+  const crowded=markerValues.length===2&&Math.abs(markerValues[1]!-markerValues[0]!)<labelSpacing
   const options:EChartsOption={
     animation:false,backgroundColor:'transparent',color:balanceColors,
     textStyle:{color:'#b7c4ca',fontFamily:'system-ui'},aria:{enabled:true,description:t('chart.graph')},
     grid:{left:65,right:20,top:18,bottom:35},
 
     xAxis:{type:'time',min:start,max:end,splitNumber:Math.max(2,Math.min(8,Math.floor(root.value.clientWidth/140))),axisLabel:{color:'#b7c4ca',hideOverlap:true,formatter:value=>axisDate(value,props.timezone,locale.value,span,displayHourFormat.value)},axisLine:{lineStyle:{color:'#46545e'}}},
-    yAxis:{type:'value',min:currentValueWindow.value.start,max:currentValueWindow.value.end,minInterval:1,axisLabel:{color:'#b7c4ca',showMinLabel:Boolean(props.valueWindow),showMaxLabel:Boolean(props.valueWindow),formatter:value=>number(value)},splitLine:{lineStyle:{color:'#29363e'}}},
-    series:plottedSeries.value.map(series=>({id:series.id,name:label(series),type:'line',step:'end',clip:true,showSymbol:false,symbol:'none',lineStyle:{width:series.aggregate?2.5:2,type:series.aggregate?'dashed':'solid',color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},itemStyle:{color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},data:series.visible.map(point=>[point.timestamp,point.balance])})),
+    yAxis:{type:'value',min:currentValueWindow.value.start,max:currentValueWindow.value.end,minInterval:1,axisLabel:{color:'#b7c4ca',showMinLabel:Boolean(props.valueWindow),showMaxLabel:Boolean(props.valueWindow),formatter:value=>markerValues.some(marker=>Math.abs(marker-value)<labelSpacing)?'':number(value)},splitLine:{showMinLine:false,showMaxLine:false,lineStyle:{color:'#29363e'}}},
+    series:plottedSeries.value.map((series,index)=>({id:series.id,name:label(series),type:'line',step:'end',clip:true,showSymbol:false,symbol:'none',lineStyle:{width:series.aggregate?2.5:2,type:series.aggregate?'dashed':'solid',color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},itemStyle:{color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},markLine:index===0?{silent:true,animation:false,symbol:['none','none'],lineStyle:{color:'#a9bfb1',width:1,type:'solid'},label:{show:true,position:'start',align:'right',color:'#d8eadd',fontSize:11,padding:[2,4],backgroundColor:'#182128'},data:markerValues.map((value,markerIndex)=>({yAxis:value,label:{formatter:()=>number(value),offset:crowded?[0,markerIndex===0?8:-8]:[0,0]}}))}:undefined,data:series.visible.map(point=>[point.timestamp,point.balance])})),
   }
   chart.setOption(options,{notMerge:true,silent:true});chart.resize();root.value.querySelector('svg')?.setAttribute('aria-hidden','true')
 }
@@ -60,7 +68,7 @@ watch(()=>[props.series,props.contextSeries,props.bounds,props.enabled,props.win
 onMounted(()=>{observer=new ResizeObserver(()=>{if(root.value?.clientWidth)draw()});if(root.value)observer.observe(root.value);draw()})
 onUnmounted(()=>{leave();observer?.disconnect();chart?.dispose()})
 </script>
-<template><div class="balance-chart"><div ref="root" class="time-series-chart" role="img" :aria-label="t('chart.graph')" data-testid="time-series-chart" :data-window-start="currentWindow.start" :data-window-end="currentWindow.end" :data-value-min="currentValueWindow.start" :data-value-max="currentValueWindow.end" @pointermove="move" @pointerleave="leave"></div>
+<template><div class="balance-chart"><div ref="root" class="time-series-chart" role="img" :aria-label="t('chart.graph')" data-testid="time-series-chart" :data-window-start="currentWindow.start" :data-window-end="currentWindow.end" :data-actual-min="actualExtrema?.min" :data-actual-max="actualExtrema?.max" :data-value-min="currentValueWindow.start" :data-value-max="currentValueWindow.end" @pointermove="move" @pointerleave="leave"></div>
 <div v-if="hover" class="chart-hover-cursor" :style="{left:hover.x+'px'}" aria-hidden="true"></div>
 <div v-if="hover" role="tooltip" class="chart-tooltip" :style="{left:hover.left+'px',top:hover.top+'px'}" :data-state-at="hover.timestamp">
   <p>{{ formatZonedDate(new Date(hover.timestamp).toISOString(),locale,timezone,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3},displayHourFormat) }}</p>
