@@ -19,6 +19,18 @@ test('balance chart is compact and group series differ between Players and Stash
   await expect(chart(page).getByTestId('chart-legend')).toBeVisible()
   await expect(chart(page).getByRole('checkbox',{name:'Synthetic Alice',exact:true})).toBeVisible()
   await expect(chart(page).getByRole('checkbox',{name:'Żółw',exact:true})).toBeVisible()
+  const beams=page.getByTestId('value-navigator').getByTestId('value-series-beam')
+  const legend=chart(page).getByTestId('chart-legend')
+  await expect(beams).toHaveCount(await legend.getByRole('checkbox').count())
+  expect(await beams.count()).toBeGreaterThan(1)
+  for(let index=0;index<await beams.count();index++){
+    expect(await beams.nth(index).evaluate(element=>getComputedStyle(element).stroke)).toBe(await legend.locator('.series-swatch').nth(index).evaluate(element=>getComputedStyle(element).backgroundColor))
+    expect(Number(await beams.nth(index).getAttribute('data-min'))).toBeLessThanOrEqual(Number(await beams.nth(index).getAttribute('data-max')))
+  }
+  await legend.getByRole('checkbox',{name:'Synthetic Alice',exact:true}).uncheck()
+  await expect(beams).toHaveCount(await legend.getByRole('checkbox').count()-1)
+  await expect(page.getByTestId('value-navigator').locator('[data-series-name="Synthetic Alice"]')).toHaveCount(0)
+
   await goSection(page,'Stashes')
   const league=new URL(page.url()).searchParams.get('league')
   const data=await(await page.request.get(`/poe2guild/api/leagues/${league}/quantity-series?view=stashes&series_item=Rites%20Token`)).json()
@@ -204,8 +216,10 @@ test('vertical value navigator zooms and pans independently of time and survives
   await expect(graph).toBeVisible();await expect(values).toBeVisible()
   expect(Math.abs((await values.boundingBox())!.height-(await graph.boundingBox())!.height)).toBeLessThan(2)
   expect((await page.getByTestId('series-navigator').boundingBox())!.y-(await graph.boundingBox())!.y).toBeLessThan(500)
-  await expect(values.getByTestId('value-range-beam')).toBeVisible()
-  await expect(values.locator('path')).toHaveCount(2)
+  await expect(values.getByTestId('value-series-beam')).toHaveCount(1)
+  await expect(values.getByTestId('value-series-beam')).toHaveAttribute('data-min','0')
+  await expect(values.getByTestId('value-series-beam')).toHaveAttribute('data-max','63')
+  await expect(values.locator('.navigator-value-window')).toHaveCSS('fill','rgba(145, 169, 220, 0.2)')
   const paths=await page.getByTestId('series-navigator').getByTestId('navigator-series').evaluateAll(elements=>elements.map(element=>element.getAttribute('d')!))
   for(const path of paths)for(const match of path.matchAll(/(?:M[-\d.]+,|V)([-\d.]+)/g)){
     expect(Number(match[1])).toBeGreaterThanOrEqual(8)

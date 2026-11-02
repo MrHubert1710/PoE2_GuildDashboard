@@ -75,6 +75,6 @@ onMounted(()=>{observer=new ResizeObserver(()=>{if(root.value?.clientWidth)draw(
 onUnmounted(()=>{clearTimeout(wheelTimer);observer?.disconnect();chart?.dispose()})
 </script>
 <template><div class="balance-chart"><div ref="root" class="time-series-chart" role="img" :aria-label="t('chart.graph')" data-testid="time-series-chart" :data-window-start="currentWindow.start" :data-window-end="currentWindow.end" :data-value-min="currentValueWindow.start" :data-value-max="currentValueWindow.end" @wheel="wheel" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up"></div>
-<ValueNavigator :bounds="fullValueBounds" :window="currentValueWindow" @zoom="emit('valueZoom',$event)" />
+<ValueNavigator :series="contextSeries" :enabled="enabled" :bounds="fullValueBounds" :window="currentValueWindow" @zoom="emit('valueZoom',$event)" />
 <SeriesNavigator :series="contextSeries" :bounds="bounds" :window="currentWindow" :enabled="enabled" @zoom="emit('zoom',$event)" @commit="emit('commit',$event)" />
 </div></template>
