@@ -360,3 +360,5 @@ footer { padding: 12px 0; }
 .navigator-value-handle { fill: #dce5ff; cursor: ns-resize; }
 .navigator-value-window:focus-visible,.navigator-value-handle:focus-visible { outline: none; stroke: #b6d7bd; stroke-width: 3; }
 @media(max-width:600px){.balance-chart {--chart-height:270px;grid-template-columns:minmax(0,1fr) 26px;column-gap:4px}.value-navigator svg {width:26px}}
+
+.chart-legend .aggregate-swatch { height: 0; border-top: 2px dashed #e1e7ee; width: 14px; border-radius: 0; }

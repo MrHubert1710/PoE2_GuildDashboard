@@ -7,7 +7,7 @@ import {SVGRenderer} from 'echarts/renderers'
 import type {EChartsOption} from 'echarts'
 import type {BalanceSeries} from '../composables/useQuantitySeries'
 import {t,number,locale,displayHourFormat} from '../i18n'
-import {balanceColors} from '../chart-style'
+import {balanceColors,balanceColor} from '../chart-style'
 import {clampWindow,clampValueRange,visiblePoints} from '../chart-window'
 import type {ChartWindow} from '../chart-window'
 import SeriesNavigator from './SeriesNavigator.vue'
@@ -26,7 +26,7 @@ function padded(min:number,max:number){const padding=Math.max(1,(max-min)*.05);r
 const fullValueBounds=computed(()=>{let min=0,max=0;for(const series of props.contextSeries)for(const point of series.overview??series.points){min=Math.min(min,point.balance);max=Math.max(max,point.balance)}return padded(min,max)})
 const autoValueWindow=computed(()=>{let min=0,max=0;for(const series of plottedSeries.value)for(const point of series.visible){min=Math.min(min,point.balance);max=Math.max(max,point.balance)}const range=padded(min,max);return {start:Math.max(fullValueBounds.value.start,range.start),end:Math.min(fullValueBounds.value.end,range.end)}})
 const currentValueWindow=computed(()=>props.valueWindow&&props.valueWindow.start<fullValueBounds.value.end&&props.valueWindow.end>fullValueBounds.value.start?clampValueRange(props.valueWindow.start,props.valueWindow.end,fullValueBounds.value):autoValueWindow.value)
-const label=(name:string)=>props.view==='summary'?t('chart.total'):name
+const label=(series:BalanceSeries)=>props.view==='summary'?t('chart.total'):series.aggregate?t('chart.combined'):series.name
 function draw(){
   if(!root.value?.clientWidth||!root.value.clientHeight)return
   if(!chart)chart=echarts.init(root.value,undefined,{renderer:'svg'})
@@ -38,7 +38,7 @@ function draw(){
     tooltip:{trigger:'axis',renderMode:'richText',confine:true,valueFormatter:value=>number(Number(value)),axisPointer:{type:'cross',label:{formatter:params=>params.axisDimension==='x'?formatZonedDate(new Date(Number(params.value)).toISOString(),locale.value,props.timezone,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3},displayHourFormat.value):number(Number(params.value))}}},
     xAxis:{type:'time',min:start,max:end,splitNumber:Math.max(2,Math.min(8,Math.floor(root.value.clientWidth/140))),axisLabel:{color:'#b7c4ca',hideOverlap:true,formatter:value=>axisDate(value,props.timezone,locale.value,span,displayHourFormat.value)},axisLine:{lineStyle:{color:'#46545e'}}},
     yAxis:{type:'value',min:currentValueWindow.value.start,max:currentValueWindow.value.end,minInterval:1,axisLabel:{color:'#b7c4ca',formatter:value=>number(value)},splitLine:{lineStyle:{color:'#29363e'}}},
-    series:plottedSeries.value.map(series=>({id:series.id,name:label(series.name),type:'line',step:'end',clip:true,showSymbol:series.visible.length<64,symbolSize:4,lineStyle:{width:2,color:balanceColors[props.contextSeries.findIndex(value=>value.id===series.id)%balanceColors.length]},itemStyle:{color:balanceColors[props.contextSeries.findIndex(value=>value.id===series.id)%balanceColors.length]},markPoint:{symbol:'circle',symbolSize:6,label:{show:false},data:[{name:'max',type:'max'},{name:'min',type:'min'}]},data:series.visible.map(point=>[point.timestamp,point.balance])})),
+    series:plottedSeries.value.map(series=>({id:series.id,name:label(series),type:'line',step:'end',clip:true,showSymbol:series.visible.length<64,symbolSize:4,lineStyle:{width:series.aggregate?2.5:2,type:series.aggregate?'dashed':'solid',color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},itemStyle:{color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},markPoint:{symbol:'circle',symbolSize:6,label:{show:false},data:[{name:'max',type:'max'},{name:'min',type:'min'}]},data:series.visible.map(point=>[point.timestamp,point.balance])})),
   }
   chart.setOption(options,{notMerge:true,silent:true});chart.resize();root.value.querySelector('svg')?.setAttribute('aria-hidden','true')
 }

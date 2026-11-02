@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed,onUnmounted,ref,watch} from 'vue'
 import type {BalanceSeries} from '../composables/useQuantitySeries'
-import {balanceColors} from '../chart-style'
+import {balanceColor} from '../chart-style'
 import {clampWindow,navigatorDomain} from '../chart-window'
 import type {ChartWindow} from '../chart-window'
 import {t,date} from '../i18n'
@@ -73,7 +73,7 @@ function key(event:KeyboardEvent,kind:'move'|'start'|'end'){
 <template><div class="series-navigator" data-testid="series-navigator" :data-display-start="domain.start" :data-display-end="domain.end" :data-domain-start="bounds.start" :data-domain-end="bounds.end" :data-window-start="window.start" :data-window-end="window.end">
   <svg role="group" :aria-label="t('chart.navigator')" ref="root" :viewBox="`0 0 ${width} ${height}`" preserveAspectRatio="none" @pointermove="move" @pointerup="up" @pointercancel="up">
     <rect :width="width" :height="height" class="navigator-background" />
-    <path v-for="(series,index) in series" :key="series.id" :d="path(series)" :stroke="balanceColors[index%balanceColors.length]" :opacity="enabled.includes(series.id)?'.65':'0'" fill="none" stroke-width="1" vector-effect="non-scaling-stroke" data-testid="navigator-series" />
+    <path v-for="(series,index) in series" :key="series.id" :d="path(series)" :stroke="balanceColor(series,index)" :stroke-dasharray="series.aggregate?'4 3':undefined" :opacity="enabled.includes(series.id)?'.65':'0'" fill="none" stroke-width="1" vector-effect="non-scaling-stroke" data-testid="navigator-series" />
     <rect x="0" :width="Math.max(0,left)" :height="height" class="navigator-mask" />
     <rect :x="right" :width="Math.max(0,width-right)" :height="height" class="navigator-mask" />
     <rect :x="left" :width="Math.max(1,right-left)" y="1" :height="height-2" class="navigator-window" role="slider" tabindex="0" :aria-label="t('chart.navigator')" :aria-valuemin="bounds.start" :aria-valuemax="bounds.end" :aria-valuenow="window.start" :aria-valuetext="date(new Date(window.start).toISOString())+' — '+date(new Date(window.end).toISOString())" @pointerdown="down($event,'move')" @keydown="key($event,'move')" data-testid="navigator-window" />

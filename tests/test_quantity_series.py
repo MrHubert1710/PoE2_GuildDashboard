@@ -113,6 +113,51 @@ class SeriesTests(unittest.TestCase):
         hidden=self.series(view='stashes',series_item='Token')
         self.assertEqual([series['name'] for series in hidden['navigator']['series']],['Main'])
 
+    def test_combined_balance_matches_summary_and_retains_opening_balance(self):
+        self.insert(event(30,'added',4,stash='Special',x=6,account='Trader'),'A');self.build()
+        summary=self.series(series_item='Token')
+        for view in ('players','stashes'):
+            grouped=self.series(series_item='Token',view=view)
+            total=grouped['total_series']
+            self.assertTrue(total['aggregate'])
+            self.assertEqual(total['points'],summary['series'][0]['points'])
+            self.assertEqual(total['closing_balance'],sum(series['closing_balance'] for series in grouped['series']))
+            self.assertEqual(grouped['navigator']['total_series']['overview'],summary['navigator']['series'][0]['overview'])
+            day=self.series(series_item='Token',view=view,**{'from':'2026-01-02','to':'2026-01-02'})
+            self.assertEqual(day['total_series']['opening_balance'],24)
+            self.assertEqual(day['total_series']['closing_balance'],19)
+            self.assertEqual(day['navigator']['total_series'],grouped['navigator']['total_series'])
+            buyer=self.series(series_item='Token',view=view,account='Buyer')
+            self.assertEqual(buyer['total_series']['closing_balance'],-5)
+        self.assertIsNone(summary['total_series'])
+
+    def test_combined_balance_is_sampled_after_summing_operations_not_series_extrema(self):
+        for index in range(100):
+            alice=index%4<2
+            self.insert(event(100+index,'added' if index%2==0 else 'removed',50 if alice else 70,'Pulse',
+                              account='Alice' if alice else 'Trader',stash='Main' if alice else 'Special',x=9,
+                              occurred_at=f'2026-01-02T02:{index//60:02}:{index%60:02}.000000Z'),'A')
+        self.build()
+        data=self.series(series_item='Pulse',view='players',max_points=24)
+        self.assertTrue(data['sampled'])
+        total=data['total_series'];self.assertLessEqual(len(total['points']),24)
+        self.assertEqual(max(point['balance'] for point in total['points']),70)
+        self.assertEqual(total['closing_balance'],0)
+        self.assertEqual(sum(max(point['balance'] for point in series['points']) for series in data['series']),120)
+        low=data['bounds']['start']+1
+        zoom=self.series(series_item='Pulse',view='players',max_points=24,window_start=low,window_end=low+4000)
+        self.assertEqual(zoom['total_series']['event_count'],4)
+        self.assertEqual([point['balance'] for point in zoom['total_series']['points']],[0,50,0,70,0,0])
+
+    def test_combined_balance_includes_groups_beyond_display_limit(self):
+        for index in range(101):
+            self.insert(event(1000+index,'added',1,'Many',account=f'Player {index:03}',x=index,
+                              occurred_at='2026-01-02T02:00:00.000000Z'),'A')
+        self.build();data=self.series(series_item='Many',view='players')
+        self.assertTrue(data['series_truncated']);self.assertEqual(len(data['series']),100)
+        self.assertEqual(data['total_series']['closing_balance'],101)
+        self.assertEqual(data['navigator']['total_series']['closing_balance'],101)
+
     def test_extrema_sampler_keeps_order_and_limit(self):
         points=[dict(timestamp=i,balance=(50 if i==123 else -30 if i==234 else i%10)) for i in range(1000)]
         result,resolution=sample_extrema(points,24)

@@ -3,12 +3,13 @@ import type { HistoryQuery } from '../browsing'
 import { currentUrl, updateUrl } from '../navigation'
 import { useApiRequest } from './useApiRequest'
 export interface BalancePoint { timestamp:number; balance:number }
-export interface BalanceSeries {id:string;name:string;opening_balance:number;closing_balance:number;event_count:number;point_count:number;points:BalancePoint[];overview:BalancePoint[]}
+export interface BalanceSeries {aggregate?:boolean;id:string;name:string;opening_balance:number;closing_balance:number;event_count:number;point_count:number;points:BalancePoint[];overview:BalancePoint[]}
 export interface SeriesData {
   league_id:string;projection:{id:string|null;state:string};timezone:string;view:string;unit:string
   unresolved_events:number;item:string|null;items:string[];series:BalanceSeries[];resolution_ms:number|null
   sampled:boolean;series_truncated:boolean;bounds:{start:number;end:number}|null;window:{start:number;end:number}|null
-  navigator:{bounds:{start:number;end:number}|null;series:BalanceSeries[]}
+  total_series:BalanceSeries|null
+  navigator:{bounds:{start:number;end:number}|null;series:BalanceSeries[];total_series:BalanceSeries|null}
   totals:{added:number;removed:number;net:number;inferred:number}
 }
 export function useQuantitySeries(props:{leagueId:string;revision:string;settingsHash?:string;projectionId:string|null;query:HistoryQuery;active:boolean;refreshToken:number;view:string}){

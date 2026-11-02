@@ -357,6 +357,7 @@
     "chart.totals": "Full filtered range: added {added} · removed {removed} · balance {net} · inferred units {inferred}.",
     "chart.data": "Show chart data",
     "chart.unresolved": "Unresolved quantity events for this item: {count}. These quantities are not included in the chart.",
+    "chart.combined": "Combined balance",
     "chart.total": "Guild balance",
     "chart.groups": "Series ({count})",
     "chart.group": "Player / stash",

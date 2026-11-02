@@ -68,6 +68,21 @@ def navigator_context(rows, view, limit):
     return dict(bounds=bounds,series=series)
 
 
+def combined_series(rows, window, limit, overview=None):
+    """Sum ordered source movements before sampling, including simultaneous events."""
+    low,high=window['start'],window['end']
+    opening=sum(row['quantity_delta'] for row in rows if row['timestamp']<low)
+    balance=opening;points=[dict(timestamp=low,balance=balance)]
+    for row in rows:
+        if low<=row['timestamp']<high:
+            balance+=row['quantity_delta'];points.append(dict(timestamp=row['timestamp'],balance=balance))
+    points.append(dict(timestamp=high,balance=balance))
+    selected,step=sample_extrema(points,limit)
+    return dict(id='combined',name='Combined balance',aggregate=True,opening_balance=opening,closing_balance=balance,
+                event_count=len(points)-2,point_count=len(points),points=selected,
+                overview=overview if overview is not None else selected),step
+
+
 def event_order(row):
     external=row['external_id'];numeric=external.isascii() and external.isdigit()
     return row['occurred_at'],0 if numeric else 1,int(external) if numeric else external,row['id'],row['sequence']
@@ -97,7 +112,7 @@ def read_series(league_id):
         start,end=date_argument('from',zone=settings['timezone']),date_argument('to',end=True,zone=settings['timezone'])
         if start and end and start>=end: raise ReadError('invalid_date_range')
         base=dict(league_id=league_id,projection=meta,timezone=settings['timezone'],view=view,unit='item_count',
-                  items=[],item=item or None,series=[],bounds=None,window=None,navigator=dict(bounds=None,series=[]),resolution_ms=None,max_points=limit,
+                  items=[],item=item or None,series=[],bounds=None,window=None,total_series=None,navigator=dict(bounds=None,series=[],total_series=None),resolution_ms=None,max_points=limit,
                   sampled=False,unresolved_events=0,series_truncated=False,totals=dict(added=0,removed=0,net=0,inferred=0))
         if not run:return jsonify(base)
         conditions,args=["m.run_id=?","q.effective_action!='excluded'"],[run['id']]
@@ -165,6 +180,12 @@ def read_series(league_id):
             if step:sampled=True;resolution=max(resolution or 0,step)
             output.append(dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,opening_balance=opening,
                                closing_balance=balance,event_count=len(points)-2,point_count=len(points),points=selected,overview=overview))
+        base['navigator']['total_series']=None
+        if view!='summary':
+            total_context,_=combined_series(rows,base['navigator']['bounds'],limit)
+            base['navigator']['total_series']=total_context
+            base['total_series'],step=combined_series(rows,dict(start=low,end=high),limit,total_context['overview'])
+            if step:sampled=True;resolution=max(resolution or 0,step)
         base.update(series=output,bounds=domain,window=dict(start=low,end=high),sampled=sampled,
                     resolution_ms=resolution,max_points=point_limit)
         return jsonify(base)

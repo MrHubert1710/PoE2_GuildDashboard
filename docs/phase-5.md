@@ -305,3 +305,29 @@ I-beam reprezentuje minimum i maksimum jednej serii (kolor zgodny z legendą).
 Build oraz 71 testów przeglądarkowych przeszły. Testy sprawdzają kolor każdej
 belki, ukrywanie jej wraz z serią, zakres 0–63 dla danych kontrolnych i
 półprzezroczyste wypełnienie zaznaczenia. Sprawdzono też publiczny nginx i mobile.
+
+### Przerywana suma bilansów
+
+W widokach Gracze i Skrytki wykres ma dodatkową jasną, przerywaną serię
+„Suma bilansów”. Sumuje wszystkie operacje pasujące do filtrów, w kolejności
+źródłowej, przed próbkowaniem. Dzięki temu skoki i kolejność zdarzeń o tym samym
+czasie są zachowane. Nie sumujemy niezależnie próbkowanych przebiegów ani ich
+minimów/maksimów. Suma obejmuje także grupy poza limitem 100 wyświetlanych serii.
+
+Suma ma osobny przełącznik w legendzie. Ukrywanie poszczególnych serii nie
+zmienia jej wartości; zmiana filtrów zmienia zakres danych sumowanych. W widoku
+Podsumowanie istniejący balans gildii jest już sumą, więc otrzymuje styl
+przerywany bez dodatkowego, identycznego przebiegu. Miniatury również pokazują
+sumę w tym samym kolorze i stylu; jej zakres wartości ma własny I-beam.
+
+API dodaje total_series oraz navigator.total_series dla widoków grupowych.
+Szczegóły dotyczą zaznaczonego okna, a kontekst obejmuje pełną pasującą historię.
+Nie wymaga to migracji ani przebudowy zapisanych projekcji.
+
+Walidacja sumy: 138 testów backendu, 72 przeglądarkowe i 16 tłumaczeń przeszły;
+build TypeScript/Vite poprawny. Testy weryfikują zgodność z podsumowaniem,
+przeniesiony bilans początkowy, filtry, rozłączne szczyty różnych graczy,
+próbkowanie dopiero po sumowaniu i uwzględnienie 101. grupy. W przeglądarce
+potwierdzono linię przerywaną, osobną legendę, niezależne ukrywanie serii,
+reload i brak powielonej sumy w podsumowaniu. Publiczny nginx: potwierdzono
+kolorowe I-beamy pod przywróconym zaznaczeniem, sumę, zoom i mobile bez błędów JS.

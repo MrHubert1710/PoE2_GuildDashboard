@@ -367,6 +367,7 @@
     "chart.totals": "Cały zakres po filtrach: dodano {added} · usunięto {removed} · bilans {net} · jednostki wywnioskowane {inferred}.",
     "chart.data": "Pokaż dane wykresu",
     "chart.unresolved": "Zdarzenia z nieustaloną ilością dla tego przedmiotu: {count}. Ich ilości nie są uwzględnione na wykresie.",
+    "chart.combined": "Suma bilansów",
     "chart.total": "Balans gildii",
     "chart.groups": "Serie ({count})",
     "chart.group": "Gracz / skrytka",

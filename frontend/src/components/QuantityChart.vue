@@ -4,7 +4,7 @@ import type {HistoryQuery} from '../browsing'
 import {currentUrl,updateUrl} from '../navigation'
 import {useQuantitySeries} from '../composables/useQuantitySeries'
 import {t,date,number} from '../i18n'
-import {balanceColors} from '../chart-style'
+import {balanceColor} from '../chart-style'
 import {localDay} from '../timezones'
 import CollapsiblePanel from './CollapsiblePanel.vue'
 const TimeSeriesChart=defineAsyncComponent(()=>import('./TimeSeriesChart.vue'))
@@ -12,13 +12,19 @@ const props=defineProps<{leagueId:string;revision:string;settingsHash?:string;pr
 const emit=defineEmits<{range:[from:string,to:string]}>()
 const {data,error,loading,selectedItem,chooseItem,reload}=useQuantitySeries(props)
 const graph=ref<InstanceType<typeof import('./TimeSeriesChart.vue')['default']>>()
+const chartSeries=computed(()=>props.view==='summary'?(data.value?.series??[]).map(series=>({...series,aggregate:true})):[...(data.value?.series??[]),...(data.value?.total_series?[data.value.total_series]:[])])
+const navigator=computed(()=>{
+  const context=data.value?.navigator??{bounds:null,series:[],total_series:null}
+  return {...context,series:props.view==='summary'?context.series.map(series=>({...series,aggregate:true})):[...context.series,...(context.total_series?[context.total_series]:[])]}
+})
+const seriesLabel=(series:{name:string;aggregate?:boolean})=>props.view==='summary'?t('chart.total'):series.aggregate?t('chart.combined'):series.name
+
 const enabled=computed(()=>{
-  const all=data.value?.navigator.series.map(series=>series.id)??[],value=new URL(currentUrl.value).searchParams.get('chart_series')
+  const all=navigator.value.series.map(series=>series.id),value=new URL(currentUrl.value).searchParams.get('chart_series')
   if(value===null)return all
   const selected=value.split(',').filter(id=>all.includes(id))
   return value&&!selected.length?all:selected
 })
-const navigator=computed(()=>data.value?.navigator??{bounds:null,series:[]})
 const window=computed(()=>{
   const p=new URL(currentUrl.value).searchParams,from=Number(p.get('chart_from')),to=Number(p.get('chart_to'))
   if(p.has('chart_from')&&p.has('chart_to')&&Number.isSafeInteger(from)&&Number.isSafeInteger(to)&&from<to)return {start:from,end:to}
@@ -59,8 +65,8 @@ watch(data,value=>{if(value&&!initial){initial=true;if(new URL(currentUrl.value)
   <p v-if="error" role="alert">{{ t(`quantity.error.${error}`) }}</p>
   <p v-else-if="!projectionId" role="status">{{ t('quantity.pending') }}</p>
   <p v-else-if="!loading&&!data?.series.length" class="empty-state">{{ t('chart.empty') }}</p>
-  <div v-if="data?.series.length" class="chart-legend" :aria-label="t('chart.groups',{count:data.series.length})" data-testid="chart-legend"><label v-for="series in data.series" :key="series.id" class="check-label"><input type="checkbox" :checked="enabled.includes(series.id)" @change="toggle(series.id,($event.target as HTMLInputElement).checked)" /><i class="series-swatch" :style="{background:balanceColors[navigator.series.findIndex(value=>value.id===series.id)%balanceColors.length]}" aria-hidden="true"></i>{{ view==='summary'?t('chart.total'):series.name }}</label></div>
-  <TimeSeriesChart v-if="data&&navigator.bounds&&navigator.series.length" ref="graph" :series="data.series" :view="view" :bounds="navigator.bounds" :context-series="navigator.series" :timezone="data.timezone" :enabled="enabled" :loaded-window="data.window" :value-window="valueWindow" :window="window" @zoom="zoom" @commit="commit" @value-zoom="valueZoom" />
+  <div v-if="data?.series.length" class="chart-legend" :aria-label="t('chart.groups',{count:chartSeries.length})" data-testid="chart-legend"><label v-for="series in chartSeries" :key="series.id" class="check-label"><input type="checkbox" :checked="enabled.includes(series.id)" @change="toggle(series.id,($event.target as HTMLInputElement).checked)" /><i class="series-swatch" :class="{'aggregate-swatch':series.aggregate}" :style="{background:balanceColor(series,navigator.series.findIndex(value=>value.id===series.id))}" aria-hidden="true"></i>{{ seriesLabel(series) }}</label></div>
+  <TimeSeriesChart v-if="data&&navigator.bounds&&navigator.series.length" ref="graph" :series="chartSeries" :view="view" :bounds="navigator.bounds" :context-series="navigator.series" :timezone="data.timezone" :enabled="enabled" :loaded-window="data.window" :value-window="valueWindow" :window="window" @zoom="zoom" @commit="commit" @value-zoom="valueZoom" />
   <CollapsiblePanel :title="t('chart.details')" :storage-key="'chart-info:'+leagueId+':'+view" :initial-open="false" class="chart-info">
     <p class="footnote">{{ t('chart.note') }}</p><p class="footnote">{{ t('chart.interaction',{zone:data?.timezone??'UTC'}) }}</p>
     <p v-if="window&&data" class="footnote" data-testid="chart-window">{{ date(new Date(window.start).toISOString(),data.timezone) }} — {{ date(new Date(window.end).toISOString(),data.timezone) }} {{ data.timezone }}</p>
@@ -68,6 +74,6 @@ watch(data,value=>{if(value&&!initial){initial=true;if(new URL(currentUrl.value)
     <p v-if="data?.series_truncated" role="alert">{{ t('chart.truncated') }}</p>
     <p v-if="data?.unresolved_events" class="footnote" data-testid="chart-unresolved">{{ t('chart.unresolved',{count:data.unresolved_events}) }}</p>
     <p v-if="data" class="footnote" data-testid="chart-totals">{{ t('chart.balanceTotal',{net:number(data.totals.net)}) }}</p>
-    <details v-if="data" class="chart-data"><summary>{{ t('chart.data') }}</summary><div class="transactions-scroll" tabindex="0"><table class="transactions"><thead><tr><th>{{ t('chart.group') }}</th><th>{{ t('quantity.dateZone',{zone:data.timezone}) }}</th><th>{{ t('quantity.balance') }}</th></tr></thead><tbody><template v-for="series in data.series" :key="series.id"><tr v-for="(point,index) in series.points" :key="index"><td>{{ view==='summary'?t('chart.total'):series.name }}</td><td>{{ date(new Date(point.timestamp).toISOString(),data.timezone) }}</td><td>{{ number(point.balance) }}</td></tr></template></tbody></table></div></details>
+    <details v-if="data" class="chart-data"><summary>{{ t('chart.data') }}</summary><div class="transactions-scroll" tabindex="0"><table class="transactions"><thead><tr><th>{{ t('chart.group') }}</th><th>{{ t('quantity.dateZone',{zone:data.timezone}) }}</th><th>{{ t('quantity.balance') }}</th></tr></thead><tbody><template v-for="series in chartSeries" :key="series.id"><tr v-for="(point,index) in series.points" :key="index"><td>{{ seriesLabel(series) }}</td><td>{{ date(new Date(point.timestamp).toISOString(),data.timezone) }}</td><td>{{ number(point.balance) }}</td></tr></template></tbody></table></div></details>
   </CollapsiblePanel>
 </CollapsiblePanel></template>
