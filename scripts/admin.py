@@ -11,7 +11,7 @@ def configure(store, installation=False):
     if installation and not store.default_password_active():
         print('Administrator password is already configured; keeping it unchanged.')
         return
-    username = 'admin' if installation else input('Administrator username [admin]: ').strip() or 'admin'
+    username = 'admin'
     prompt = 'New admin password (Enter to skip — not recommended): ' if installation else 'New password (at least 12 characters): '
     password = getpass.getpass(prompt)
     if installation and not password:

@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
+import { isAdmin } from './auth'
 
-export const workspaceSections = ['summary', 'players', 'stashes', 'state', 'history', 'archives', 'settings'] as const
+export const workspaceSections = ['summary', 'players', 'stashes', 'state', 'history', 'archives', 'settings', 'configuration'] as const
 export type WorkspaceSection = typeof workspaceSections[number]
 export const currentUrl = ref(location.href)
 export function updateUrl(url: URL, replace = false) {
@@ -12,6 +13,7 @@ export const diagnosticsVisible = computed(() => new URL(currentUrl.value).searc
 export const section = computed<WorkspaceSection>(() => {
   const params = new URL(currentUrl.value).searchParams
   const requested = params.get('section')
+  if (requested === 'configuration' && !isAdmin.value) return 'settings'
   if (workspaceSections.includes(requested as WorkspaceSection)) return requested as WorkspaceSection
   const legacy = params.get('analysis')
   return ['players', 'stashes', 'state'].includes(legacy ?? '') ? legacy as WorkspaceSection : 'summary'

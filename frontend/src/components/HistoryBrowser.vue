@@ -39,7 +39,7 @@ async function settingsSaved() {
   refreshToken.value++
 }
 async function refreshView() { await loadLeagues(true); refreshToken.value++ }
-const dataSection = computed(() => !['settings', 'archives'].includes(section.value))
+const dataSection = computed(() => !['settings', 'configuration', 'archives'].includes(section.value))
 </script>
 
 <template>
@@ -73,7 +73,7 @@ const dataSection = computed(() => !['settings', 'archives'].includes(section.va
           </QuantityPanel>
           <HistoryTable v-show="section === 'history'" :query="query" :result="result" :loading-rows="loadingRows" :row-error="rowError" :timezone="displayTimezone" @set-page="setPage" @set-page-size="setPageSize" @sort-by="sortBy" />
           <ClientSettings v-show="section === 'settings'" />
-          <QuantitySettings v-if="isAdmin" v-show="section === 'settings'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" :display-hash="selected.display_settings_hash" @saved="settingsSaved" />
+          <QuantitySettings v-if="isAdmin" v-show="section === 'configuration'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" :display-hash="selected.display_settings_hash" @saved="settingsSaved" />
           <ArchiveReports v-show="section === 'archives'" :selected="selected" />
           </div>
         </div>

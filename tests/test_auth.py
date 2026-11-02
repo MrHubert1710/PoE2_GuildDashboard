@@ -22,7 +22,7 @@ class AuthenticationTests(unittest.TestCase):
 
     def login(self, password='long-test-password', secure=True):
         token = self.status(secure)['csrf_token']
-        return self.client.post('/api/auth/login', json={'username':'admin', 'password':password},
+        return self.client.post('/api/auth/login', json={'password':password},
                                 headers={'X-CSRF-Token':token}, base_url='https://localhost' if secure else 'http://localhost')
 
     def test_public_cannot_read_diagnostics_or_server_settings_and_verification(self):
@@ -45,7 +45,7 @@ class AuthenticationTests(unittest.TestCase):
 
     def test_csrf_and_foreign_origin_are_rejected(self):
         self.status()
-        self.assertEqual(self.client.post('/api/auth/login',json={'username':'admin','password':'long-test-password'},base_url='https://localhost').status_code,403)
+        self.assertEqual(self.client.post('/api/auth/login',json={'password':'long-test-password'},base_url='https://localhost').status_code,403)
         self.login()
         token=self.status()['csrf_token']
         path='/api/leagues/anything/quantity-settings'
@@ -82,7 +82,7 @@ class AuthenticationTests(unittest.TestCase):
         app=create_app({'TESTING':True,'AUTH_DATABASE_FILE':self.path,'AUTH_COOKIE_PATH':'/'})
         client=app.test_client()
         token=client.get('/api/auth/status',base_url='https://localhost').json['csrf_token']
-        self.assertEqual(client.post('/api/auth/login',json={'username':'admin','password':'long-test-password'},headers={'X-CSRF-Token':token},base_url='https://localhost').status_code,429)
+        self.assertEqual(client.post('/api/auth/login',json={'password':'long-test-password'},headers={'X-CSRF-Token':token},base_url='https://localhost').status_code,429)
 
     def test_session_survives_process_restart(self):
         self.login()
@@ -91,3 +91,12 @@ class AuthenticationTests(unittest.TestCase):
         client=app.test_client()
         client.set_cookie(SESSION,cookie.value,secure=True)
         self.assertEqual(client.get('/api/auth/status',base_url='https://localhost').json['role'],'Admin')
+
+    def test_only_fixed_admin_account_can_authenticate(self):
+        self.store.set_password('other','another-account-password')
+        csrf=self.status()['csrf_token']
+        response=self.client.post('/api/auth/login',json={'username':'other','password':'another-account-password'},headers={'X-CSRF-Token':csrf},base_url='https://localhost')
+        self.assertEqual(response.status_code,400)
+        with self.store.connect() as db:
+            db.execute('INSERT INTO sessions VALUES(?,?,?)',(digest('legacy-token'),'other',time.time()+3600))
+        self.assertIsNone(self.store.identity('legacy-token'))

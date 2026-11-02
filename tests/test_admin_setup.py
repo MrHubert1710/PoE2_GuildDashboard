@@ -28,7 +28,7 @@ class AdminSetupTests(unittest.TestCase):
     def login(self, password=DEFAULT_PASSWORD, client=None):
         client=client or self.client
         csrf=self.status(client)['csrf_token']
-        return client.post('/api/auth/login',json={'username':'admin','password':password},headers={'X-CSRF-Token':csrf},base_url='https://localhost')
+        return client.post('/api/auth/login',json={'password':password},headers={'X-CSRF-Token':csrf},base_url='https://localhost')
 
     def test_bootstrap_login_and_restart_do_not_reset_changed_password(self):
         self.assertTrue(self.status()['default_password'])

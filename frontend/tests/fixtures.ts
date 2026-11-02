@@ -2,7 +2,7 @@ import { test as base, expect } from '@playwright/test'
 export const test = base.extend({
   context: async ({ context }, use) => {
     const data = await (await context.request.get('/poe2guild/api/auth/status')).json()
-    await context.request.post('/poe2guild/api/auth/login', { data: { username: 'test-admin', password: 'test-only-password-123' }, headers: { 'X-CSRF-Token': data.csrf_token } })
+    await context.request.post('/poe2guild/api/auth/login', { data: { password: 'test-only-password-123' }, headers: { 'X-CSRF-Token': data.csrf_token } })
     await use(context)
   },
   request: async ({ context }, use) => {

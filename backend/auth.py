@@ -83,11 +83,12 @@ class AuthStore:
         if not token or len(token) > 200:
             return None
         with self.connect() as db:
-            row = db.execute('SELECT username FROM sessions WHERE token_hash=? AND expires>?',
+            row = db.execute("SELECT username FROM sessions WHERE token_hash=? AND expires>? AND username='admin'",
                              (digest(token), time.time())).fetchone()
         return row[0] if row else None
 
-    def login(self, username, password, address):
+    def login(self, password, address):
+        username = 'admin'
         now = time.time()
         # Serialize rate accounting across all gunicorn processes; hash outside lock.
         with self.connect() as db:
@@ -164,10 +165,10 @@ def login():
     if not csrf_valid():
         return jsonify(error='csrf_rejected'), 403
     payload = request.get_json(silent=True)
-    if not isinstance(payload, dict) or set(payload) != {'username', 'password'} or any(
-            not isinstance(payload[key], str) or len(payload[key]) > 1024 for key in ('username', 'password')):
+    if not isinstance(payload, dict) or set(payload) != {'password'} or any(
+            not isinstance(payload[key], str) or len(payload[key]) > 1024 for key in ('password',)):
         return jsonify(error='invalid_credentials'), 400
-    token, error = store().login(payload['username'], payload['password'], request.remote_addr or '')
+    token, error = store().login(payload['password'], request.remote_addr or '')
     if error:
         response = jsonify(error=error)
         response.status_code = 429 if error == 'login_limited' else 401
@@ -176,7 +177,7 @@ def login():
         return response
     store().revoke(request.cookies.get(SESSION))
     csrf = secrets.token_urlsafe(32)
-    response = jsonify(role='Admin', username=payload['username'], csrf_token=csrf, login_available=True,
+    response = jsonify(role='Admin', username='admin', csrf_token=csrf, login_available=True,
                        default_password=store().default_password_active())
     response.set_cookie(SESSION, token, max_age=8 * 3600, **cookie_options())
     response.set_cookie(CSRF, csrf, **cookie_options())

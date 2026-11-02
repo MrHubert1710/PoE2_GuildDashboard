@@ -73,7 +73,7 @@ watch(() => [props.settingsHash, props.displayHash, props.refreshToken], () => {
 onMounted(() => { void loadSettings().catch(() => { settingsError.value = 'report_unavailable' }) })
 </script>
 <template><section class="quantity-settings settings-view" data-testid="quantity-settings">
-  <h2>{{ t('client.serverSettings') }}</h2><p class="footnote">{{ t('client.serverNote') }}</p>
+  <h2>{{ t('workspace.section.configuration') }}</h2><p class="footnote">{{ t('client.serverNote') }}</p>
   <p v-if="!ready && !settingsError" role="status">{{ t('workspace.settingsLoading') }}</p>
   <p v-if="!ready && settingsError" role="alert">{{ t(`quantity.error.${settingsError}`) }}</p>
       <form v-if="ready" @input="dirty = true" @submit.prevent="save()">

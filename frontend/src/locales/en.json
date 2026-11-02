@@ -405,16 +405,15 @@
     "quantity.hourFormat": "Time format",
     "quantity.hourAuto": "Language default",
     "quantity.error.invalid_hour_format": "Choose 12 h, 24 h or the language default.",
-    "auth.access": "Player / Admin access",
+    "auth.access": "Administrator login",
     "auth.administrator": "Administration",
     "auth.login": "Log in",
     "auth.logout": "Log out",
     "auth.close": "Close",
-    "auth.username": "Username",
     "auth.password": "Password",
     "auth.pending": "Please wait…",
     "auth.httpsRequired": "Administrator login requires HTTPS.",
-    "auth.errors.invalid_credentials": "Incorrect username or password.",
+    "auth.errors.invalid_credentials": "Incorrect password.",
     "auth.errors.login_limited": "Too many attempts. Try again in 15 minutes.",
     "auth.errors.https_required": "Administrator login requires HTTPS.",
     "auth.errors.csrf_rejected": "Session verification failed. Reopen this window.",
@@ -429,6 +428,8 @@
     "auth.skipPassword": "Later (not recommended)",
     "auth.passwordChanged": "Password updated. Log in with your new password.",
     "auth.errors.invalid_password": "The new password must contain 12–1024 characters.",
-    "auth.errors.password_mismatch": "The new passwords do not match."
+    "auth.errors.password_mismatch": "The new passwords do not match.",
+    "workspace.section.configuration": "System settings",
+    "auth.loginButton": "Login"
   }
 }

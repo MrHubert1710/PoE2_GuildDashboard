@@ -27,9 +27,9 @@ async function call(path: string, options?: RequestInit) {
 export async function loadAuth() {
   try { await call('status'); authReady.value = true } catch { role.value = 'Player'; loginAvailable.value = false }
 }
-export async function login(name: string, password: string) {
+export async function login(password: string) {
   await loadAuth()
-  await call('login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: name, password }) })
+  await call('login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) })
 }
 export async function logout() {
   await call('logout', { method: 'POST' })

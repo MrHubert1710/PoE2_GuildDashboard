@@ -375,12 +375,14 @@ Działają reload, Wstecz/Dalej, migracja kolorów oraz zablokowany localStorage
 
 ### Etap 5b — administracja i logowanie (oczekuje odbioru)
 
-- Widoczny status Player / Admin; kliknięcie otwiera popup logowania lub
+- Widoczny przycisk Login / Admin; kliknięcie otwiera popup logowania lub
   wylogowania. Konto administracyjne i sesja są weryfikowane na backendzie.
 - Diagnostyka oraz konfiguracja serwera wymagają zalogowania. Bez logowania
   ukryć wybór Workspace / Diagnostics, a endpointy administracyjne chronić
   niezależnie od widoczności interfejsu.
-- Przenieść serwerowe aliasy i ignorowane zakładki do panelu administratora.
+- Przenieść serwerowe aliasy i ignorowane zakładki do osobnej zakładki
+  System settings, widocznej tylko po zalogowaniu. Jedyne konto to admin;
+  formularz logowania zawiera wyłącznie hasło.
   Publiczne widoki nadal respektują te wyłączenia.
 - Rozważyć konfigurację GUILD_ID i SESSION_ID albo oficjalnych odpowiedników
   GGG: sekrety przechowywać po stronie serwera, nie zwracać ich w odczytach

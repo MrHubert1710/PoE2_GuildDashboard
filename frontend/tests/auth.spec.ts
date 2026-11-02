@@ -3,14 +3,18 @@ const root='/poe2guild/'
 
 test('Player has local settings but no diagnostics or server configuration, even via API',async({page,request})=>{
   await page.goto(root+'?lang=en&section=settings&view=diagnostics')
-  await expect(page.getByTestId('admin-status')).toHaveText('Player')
+  await expect(page.getByTestId('admin-status')).toHaveText('Login')
   await expect(page.locator('.app-nav')).toHaveCount(0)
+  await expect(page.getByRole('link',{name:'System settings',exact:true})).toHaveCount(0)
   await expect(page.locator('.diagnostics')).toHaveCount(0)
   await expect(page.getByTestId('client-settings')).toBeVisible()
   await expect(page.getByTestId('quantity-settings')).toHaveCount(0)
   for(const path of ['database-status','rework-readiness','leagues/anything/quantity-settings']) {
     expect((await request.get(root+'api/'+path)).status()).toBe(401)
   }
+  await page.goto(root+'?lang=en&section=configuration')
+  await expect(page.getByTestId('client-settings')).toBeVisible()
+  await expect(page.getByTestId('quantity-settings')).toHaveCount(0)
   expect((await request.post(root+'api/leagues/anything/refresh',{data:{kind:'local_verify'}})).status()).toBe(401)
 })
 
@@ -19,10 +23,12 @@ test('login popup, Admin controls, reload persistence and logout remove protecte
   await page.getByTestId('admin-status').click()
   const dialog=page.getByRole('dialog')
   await expect(dialog).toBeVisible()
-  await dialog.getByLabel('Username',{exact:true}).fill('test-admin')
+  await expect(dialog.getByRole('textbox',{name:'Username',exact:true})).toHaveCount(0)
   await dialog.getByLabel('Password',{exact:true}).fill('test-only-password-123')
   await dialog.getByRole('button',{name:'Log in',exact:true}).click()
   await expect(page.getByTestId('admin-status')).toHaveText('Admin')
+  await expect(page.getByTestId('quantity-settings')).not.toBeVisible()
+  await page.getByRole('link',{name:'System settings',exact:true}).click()
   await expect(page.getByTestId('quantity-settings')).toBeVisible()
   await page.getByRole('link',{name:'Diagnostics',exact:true}).click()
   await expect(page.locator('.diagnostics')).toBeVisible()
@@ -31,10 +37,11 @@ test('login popup, Admin controls, reload persistence and logout remove protecte
   await expect(page.locator('.diagnostics')).toBeVisible()
   await page.getByTestId('admin-status').click()
   await dialog.getByRole('button',{name:'Log out',exact:true}).click()
-  await expect(page.getByTestId('admin-status')).toHaveText('Player')
+  await expect(page.getByTestId('admin-status')).toHaveText('Login')
   await expect(page.locator('.diagnostics')).toHaveCount(0)
   await expect(page.getByTestId('quantity-settings')).toHaveCount(0)
   await expect(page.locator('.app-nav')).toHaveCount(0)
+  await expect(page.getByRole('link',{name:'System settings',exact:true})).toHaveCount(0)
 })
 
 test('default password prompt opens on entry, can be skipped and changes the password through authenticated GUI',async({page})=>{
@@ -71,10 +78,10 @@ test('default password prompt opens on entry, can be skipped and changes the pas
     await dialog.getByLabel('Repeat new password',{exact:true}).fill(updated)
     await dialog.getByRole('button',{name:'Set administrator password',exact:true}).click()
     await expect(dialog).toContainText('Password updated')
-    await expect(page.getByTestId('admin-status')).toHaveText('Player')
+    await expect(page.getByTestId('admin-status')).toHaveText('Login')
     const status=await(await page.request.get(root+'api/auth/status')).json()
     expect(status.default_password).toBe(false)
-    const response=await page.request.post(root+'api/auth/login',{data:{username:'admin',password:updated},headers:{'X-CSRF-Token':status.csrf_token}})
+    const response=await page.request.post(root+'api/auth/login',{data:{password:updated},headers:{'X-CSRF-Token':status.csrf_token}})
     expect(response.ok()).toBe(true)
     await page.reload()
     await expect(page.getByTestId('admin-status')).toHaveText('Admin')
@@ -82,7 +89,7 @@ test('default password prompt opens on entry, can be skipped and changes the pas
   } finally {
     if(changed){
       const status=await(await page.request.get(root+'api/auth/status')).json()
-      const logged=await(await page.request.post(root+'api/auth/login',{data:{username:'admin',password:updated},headers:{'X-CSRF-Token':status.csrf_token}})).json()
+      const logged=await(await page.request.post(root+'api/auth/login',{data:{password:updated},headers:{'X-CSRF-Token':status.csrf_token}})).json()
       const response=await page.request.post(root+'api/auth/password',{data:{current_password:updated,password:original},headers:{'X-CSRF-Token':logged.csrf_token}})
       expect(response.ok()).toBe(true)
     }

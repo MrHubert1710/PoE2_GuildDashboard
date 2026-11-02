@@ -9,10 +9,10 @@ oraz wspólnej konfiguracji skrytek. Login Admin jest niezależny od konta GGG.
 
 ## Dostęp
 
-- Przycisk **Player / Admin** w nagłówku otwiera modal logowania/wylogowania.
-- Player ogląda raporty i konfiguruje lokalne preferencje. Nie widzi nawigacji
+- Przycisk **Login / Admin** w nagłówku otwiera modal logowania/wylogowania.
+- Niezalogowany klient ogląda raporty i konfiguruje lokalne preferencje. Nie widzi nawigacji
   Workspace/Diagnostics ani ustawień serwera. Nie może odczytać ich przez API.
-- Admin widzi diagnostykę, a w Ustawieniach dodatkową sekcję serwera: aliasy
+- Admin widzi diagnostykę, osobną zakładkę **System settings** (PL: **Ustawienia systemowe**): aliasy
   i włączanie/wyłączanie skrytek dla ligi lub gildii. Publiczne widoki nadal
   respektują tę konfigurację. Logowanie nie zmienia filtrów URL ani preferencji.
 - Wylogowanie odmontowuje komponenty administracyjne i unieważnia sesję na
@@ -50,9 +50,9 @@ Jako konto aplikacji, bez sudo:
 /home/nginx-http/poe2guild/poe2guild admin
 ```
 
-Polecenie pyta interaktywnie o nazwę i dwukrotnie o hasło (minimum 12 znaków).
+Polecenie pyta dwukrotnie o hasło jedynego konta `admin` (minimum 12 znaków).
 Hasło nie trafia do argumentów procesu, stdout, konfiguracji ani repozytorium.
-Powtórzenie dla istniejącej nazwy ustawia nowe hasło i unieważnia wszystkie
+Ponowne uruchomienie ustawia nowe hasło i unieważnia wszystkie
 sesje tego administratora. Nie ma publicznej rejestracji.
 
 Osobna baza `data/auth/admin.sqlite` zawiera hashe haseł Werkzeug/scrypt,
@@ -91,11 +91,11 @@ Ta faza nie zmienia danych lig, algorytmu ilościowego ani cen.
 
 ## Odbiór manualny
 
-1. Otworzyć stronę przez HTTPS w prywatnym oknie. Status Player, brak
+1. Otworzyć stronę przez HTTPS w prywatnym oknie. Przycisk Login, brak
    Workspace/Diagnostics, w Ustawieniach tylko lokalne preferencje.
 2. Zmienić domyślne hasło w automatycznym popupie (obecne: `kalandra`),
-   następnie kliknąć Player i zalogować się nowym hasłem. Status Admin, pojawiają się
-   nawigacja diagnostyki i konfiguracja skrytek w Ustawieniach.
+   następnie kliknąć Login i zalogować się nowym hasłem. Status Admin, pojawiają się
+   nawigacja diagnostyki i konfiguracja skrytek w osobnej zakładce System settings.
 3. Odświeżyć stronę: sesja pozostaje. W drugiej niezalogowanej przeglądarce
    dostęp administracyjny nadal jest zablokowany.
 4. Sprawdzić zmianę aliasu/wyłączenie skrytki, tak jak wcześniej, oraz lokalne
@@ -108,11 +108,10 @@ przed którą trzeba uzgodnić wygląd symulacji stasha.
 
 ## Weryfikacja — 2026-11-02
 
-- 158 testów backendu, w tym bootstrap, migracja istniejącego konta, pominięcie
+- 159 testów backendu, w tym bootstrap, migracja istniejącego konta, pominięcie
   zmiany przy instalacji, CSRF, unieważnienie sesji i wyścig logowania ze zmianą hasła.
-- Bazowa faza: 85 testów Chromium pełnej regresji. Rozszerzenie domyślnego
-  konta: 8 testów logowania i lokalnych ustawień; po korekcie szerokości popupu
-  ponownie 3 testy logowania, w tym pomiar jego granic na mobilnym ekranie.
+- 86 testów Chromium pełnej regresji po wydzieleniu System settings,
+  uproszczeniu logowania i wyrównaniu nagłówka.
 - 16 testów katalogów tłumaczeń; build Vue/TypeScript i testy launchera przechodzą.
 - Publiczny HTTPS: poprawny certyfikat, `login_available=true`, cookie Secure /
   HttpOnly / SameSite=Strict; prywatne endpointy bez sesji zwracają 401.
@@ -124,3 +123,23 @@ przed którą trzeba uzgodnić wygląd symulacji stasha.
 Zmianę hasła w GUI sprawdzono na izolowanym serwerze testowym. W produkcji
 potwierdzono logowanie admin / kalandra przez HTTPS i wylogowano sesję
 weryfikacyjną. Pozostawiono użytkownikowi wybór i zapis nowego hasła.
+
+## Poprawki nagłówka, zakładek i logowania
+
+Wspólne elementy nagłówka mają stałe miejsca w siatce CSS niezależnie od
+zalogowania. Nawigacja Workspace/Diagnostics korzysta z wolnego miejsca przy
+tytule albo z osobnego wiersza. Pozycje wspólnych elementów porównano w Chromium
+przy szerokościach 1600, 1280, 850 i 375 px.
+
+Lokalne preferencje pozostają w Settings. Konfiguracja serwera jest osobną
+zakładką `section=configuration`, widoczną wyłącznie administratorowi. Link do
+niej bez sesji pokazuje ustawienia lokalne, nie montuje konfiguracji serwera.
+Po wylogowaniu zakładka znika, a backend nadal blokuje jej endpointy.
+
+Nagłówek bez sesji pokazuje Login. Formularz nie zawiera edytowalnej nazwy
+użytkownika. API `/api/auth/login` przyjmuje wyłącznie `{"password":"..."}`;
+jedyne konto logowania to `admin`. Stare sesje innych nazw nie dają dostępu.
+CLI `./poe2guild admin` również zmienia wyłącznie hasło konta admin.
+Wdrożenie zachowało istniejące, zmienione przez użytkownika hasło. Backend
+odrzuca żądania wyboru innego konta oraz stare sesje innych nazw. Dane
+104 534 transakcji i dotychczasowe ustawienia lig pozostały niezmienione.

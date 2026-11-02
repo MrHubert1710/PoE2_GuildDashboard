@@ -56,11 +56,13 @@ test('league settings rebuild projections and change display timezone without al
     await page.goto(path)
     const panel=page.getByTestId('quantity-panel')
     await expect(panel).toContainText('Generated:')
-    await goSection(page, 'Settings')
+    await goSection(page, 'System settings')
     await page.getByTestId('quantity-settings').getByLabel('Analyze all stashes',{exact:true}).uncheck()
     await page.getByTestId('quantity-settings').getByRole('checkbox',{name:'Include stash Special',exact:true}).check()
+    await goSection(page, 'Settings')
     await page.getByTestId('client-settings').getByLabel('Display timezone',{exact:true}).fill('Europe/Warsaw')
     await page.getByTestId('client-settings').getByRole('button',{name:'Save preferences',exact:true}).click()
+    await goSection(page, 'System settings')
     await page.getByTestId('quantity-settings').getByRole('button',{name:'Save settings and rebuild'}).click()
     await expect(page.locator('.history-transactions [data-event-id="12"]')).toHaveCount(0)
     await goSection(page, 'History')
@@ -75,7 +77,7 @@ test('guild aliases inherit into another league, while its item state starts ind
     await page.goto(path)
     const panel=page.getByTestId('quantity-panel')
     await expect(panel).toContainText('Generated:')
-    await goSection(page, 'Settings')
+    await goSection(page, 'System settings')
     await page.getByTestId('quantity-settings').getByLabel('Alias for stash Main',{exact:true}).fill('Shared')
     await page.getByTestId('quantity-settings').getByLabel('Save settings for',{exact:true}).selectOption('guild')
     await page.getByTestId('quantity-settings').getByRole('button',{name:'Save settings and rebuild'}).click()
@@ -83,7 +85,7 @@ test('guild aliases inherit into another league, while its item state starts ind
     await page.getByRole('combobox',{name:'League',exact:true}).click()
     await page.getByRole('option',{name:'Runes of Aldur',exact:false}).click()
     await expect(panel).toContainText('Generated:',{timeout:15000})
-    await goSection(page, 'Settings')
+    await goSection(page, 'System settings')
     await expect(page.getByTestId('quantity-settings').getByLabel('Alias for stash Main',{exact:true})).toHaveValue('Shared')
     await goSection(page, 'Stash state')
     await expect(panel.locator('.quantity-table')).toContainText('Shared')
@@ -120,7 +122,7 @@ test('first Added starts from zero and the first Modified uses the accumulated s
 
 test('stash inclusion sits beside renaming, survives renaming and preserves source history',async({page,request})=>{
   try {
-    await page.goto(path+'&section=settings')
+    await page.goto(path+'&section=configuration')
     const settings=page.getByTestId('quantity-settings')
     const main=settings.getByRole('checkbox',{name:'Include stash Main',exact:true})
     const special=settings.getByRole('checkbox',{name:'Include stash Special',exact:true})
@@ -135,7 +137,7 @@ test('stash inclusion sits beside renaming, survives renaming and preserves sour
     await goSection(page,'History')
     await expect(page.locator('.history-transactions [data-event-id="12"]')).toHaveCount(0)
     await expect(page.locator('.result-count')).toContainText('Results: 1')
-    await goSection(page,'Settings')
+    await goSection(page,'System settings')
     await main.check()
     await settings.getByLabel('Alias for stash Main',{exact:true}).fill('Renamed stash')
     await expect(main).toBeChecked()
@@ -145,7 +147,7 @@ test('stash inclusion sits beside renaming, survives renaming and preserves sour
     await expect(settings.getByLabel('Alias for stash Main',{exact:true})).toHaveValue('Renamed stash')
     await goSection(page,'Stash state')
     await expect(page.getByTestId('quantity-panel').locator('.quantity-table')).toContainText('Renamed stash',{timeout:15000})
-    await goSection(page,'Settings')
+    await goSection(page,'System settings')
     await page.setViewportSize({width:390,height:844})
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   } finally {await restore(request)}
@@ -186,7 +188,7 @@ test('disabling a selected stash clears its filter, hides it everywhere and repo
   try {
     await page.goto(path+'&section=history&stash=Main')
     await expect(page.locator('.result-count')).toContainText('Results: 59')
-    await goSection(page,'Settings')
+    await goSection(page,'System settings')
     await page.getByRole('checkbox',{name:'Include stash Main',exact:true}).uncheck()
     hold=true
     await page.getByRole('button',{name:'Save settings and rebuild'}).click()
@@ -203,7 +205,7 @@ test('disabling a selected stash clears its filter, hides it everywhere and repo
     await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
     await goSection(page,'Summary')
     await expect(page.locator('.overview-cards article').first()).toContainText('1')
-    await goSection(page,'Settings')
+    await goSection(page,'System settings')
     await page.getByRole('checkbox',{name:'Include stash Main',exact:true}).check()
     await page.getByRole('button',{name:'Save settings and rebuild'}).click()
     await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
@@ -216,7 +218,7 @@ test('unchanged settings finish immediately and report-read failures do not leav
   let fail=false
   await page.route('**/quantities?*',route=>fail?route.fulfill({status:503,json:{error:'database_unavailable'}}):route.continue())
   try {
-    await page.goto(path+'&section=settings')
+    await page.goto(path+'&section=configuration')
     const save=page.getByRole('button',{name:'Save settings and rebuild'})
     await save.click()
     await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})

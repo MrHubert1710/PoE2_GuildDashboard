@@ -415,16 +415,15 @@
     "quantity.hourFormat": "Format godziny",
     "quantity.hourAuto": "Domyślny dla języka",
     "quantity.error.invalid_hour_format": "Wybierz 12 h, 24 h albo format domyślny dla języka.",
-    "auth.access": "Dostęp Player / Admin",
+    "auth.access": "Logowanie administratora",
     "auth.administrator": "Administracja",
     "auth.login": "Zaloguj się",
     "auth.logout": "Wyloguj się",
     "auth.close": "Zamknij",
-    "auth.username": "Nazwa użytkownika",
     "auth.password": "Hasło",
     "auth.pending": "Proszę czekać…",
     "auth.httpsRequired": "Logowanie administratora wymaga HTTPS.",
-    "auth.errors.invalid_credentials": "Nieprawidłowa nazwa użytkownika lub hasło.",
+    "auth.errors.invalid_credentials": "Nieprawidłowe hasło.",
     "auth.errors.login_limited": "Zbyt wiele prób. Spróbuj ponownie za 15 minut.",
     "auth.errors.https_required": "Logowanie administratora wymaga HTTPS.",
     "auth.errors.csrf_rejected": "Weryfikacja sesji nie powiodła się. Otwórz okno ponownie.",
@@ -439,6 +438,8 @@
     "auth.skipPassword": "Później (not recommended)",
     "auth.passwordChanged": "Hasło zmienione. Zaloguj się nowym hasłem.",
     "auth.errors.invalid_password": "Nowe hasło musi mieć od 12 do 1024 znaków.",
-    "auth.errors.password_mismatch": "Nowe hasła nie są jednakowe."
+    "auth.errors.password_mismatch": "Nowe hasła nie są jednakowe.",
+    "workspace.section.configuration": "Ustawienia systemowe",
+    "auth.loginButton": "Login"
   }
 }

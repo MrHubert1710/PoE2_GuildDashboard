@@ -15,13 +15,13 @@ class AdminClient(FlaskClient):
 
 def create_app(config):
     app = real_create_app({**config, 'AUTH_REQUIRE_HTTPS': False, 'AUTH_COOKIE_PATH': '/'})
-    app.extensions['auth_store'].set_password('test-admin', 'test-only-password-123')
+    app.extensions['auth_store'].set_password('admin', 'test-only-password-123')
     app.test_client_class = AdminClient
     original = app.test_client
     def test_client(*args, **kwargs):
         client = original(*args, **kwargs)
         csrf = client.get('/api/auth/status').json['csrf_token']
-        response = client.post('/api/auth/login', json={'username': 'test-admin', 'password': 'test-only-password-123'}, headers={'X-CSRF-Token': csrf})
+        response = client.post('/api/auth/login', json={'password': 'test-only-password-123'}, headers={'X-CSRF-Token': csrf})
         assert response.status_code == 200
         client.csrf = response.json['csrf_token']
         return client
