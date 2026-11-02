@@ -89,8 +89,12 @@ def event_order(row):
 
 
 def read_series(league_id):
-    if set(request.args) - FILTER_ARGUMENTS - {'revision', 'projection_id', 'series_item', 'max_points', 'view', 'window_start', 'window_end', 'all_items', 'at'}:
+    if set(request.args) - FILTER_ARGUMENTS - {'revision', 'projection_id', 'series_item', 'max_points', 'view', 'window_start', 'window_end', 'all_items', 'at', 'mode', 'pricing', 'price_revision'}:
         raise ReadError('unknown_parameter')
+    valuation=one_argument('mode','quantity')=='value'
+    if one_argument('mode','quantity') not in {'quantity','value'}:raise ReadError('invalid_view')
+    price_mode=one_argument('pricing','historical')
+    if price_mode not in {'historical','latest'}:raise ReadError('invalid_view')
     limit = number_argument('max_points', 240, 24, 600)
     view = one_argument('view','summary')
     if view not in {'summary','players','stashes'}:
@@ -101,7 +105,7 @@ def read_series(league_id):
     at=viewport_argument('at')
     all_items=one_argument('all_items','0')
     if all_items not in {'0','1'}:raise ReadError('invalid_all_items')
-    all_items=all_items=='1'
+    all_items=all_items=='1' or valuation
     filters = TextFilters()
     stashes, item = stash_arguments(), one_argument('series_item')
     with connect(current_app.config['DATABASE_FILE'], readonly=True) as c:
@@ -118,6 +122,12 @@ def read_series(league_id):
         base=dict(league_id=league_id,projection=meta,timezone=settings['timezone'],view=view,unit='item_count',
                   items=[],item=item or None,series=[],bounds=None,window=None,total_series=None,navigator=dict(bounds=None,series=[],total_series=None),resolution_ms=None,max_points=limit,
                   sampled=False,unresolved_events=0,series_truncated=False,totals=dict(added=0,removed=0,net=0,inferred=0))
+        if valuation:
+            from .valuation import current_valuation,money
+            value_run,price_version=current_valuation(c,league,price_mode)
+            base.update(unit='divine_orb',pricing=dict(state='ready' if value_run else 'missing',mode=price_mode,currency='Divine Orb',revision=price_version,coverage='none',priced_operations=0,unpriced_operations=0,estimated_operations=0,snapshot_ids=[]))
+            if one_argument('price_revision') and one_argument('price_revision')!=price_version:raise ReadError('price_revision_changed',409)
+            if not value_run:return jsonify(base)
         if not run:return jsonify(base)
         conditions,args=["m.run_id=?","q.effective_action!='excluded'"],[run['id']]
         for field,column in [('account','COALESCE(m.account,t.account)'),('item','m.item_name')]:
@@ -132,7 +142,7 @@ def read_series(league_id):
         catalog=[row[0] for row in c.execute('SELECT m.item_name'+common+' GROUP BY m.item_name ORDER BY SUM(ABS(m.quantity_delta)) DESC,m.item_name LIMIT 50',args)]
         item=None if all_items else item or (catalog[0] if catalog else None);base.update(items=catalog,item=item,all_items=all_items)
         item_sql,item_args=('',[]) if all_items else (' AND m.item_name=?',[item])
-        if at is not None:
+        if at is not None and not valuation:
             try:cutoff=(datetime(1970,1,1,tzinfo=timezone.utc)+timedelta(milliseconds=at+1)).isoformat(timespec='microseconds').replace('+00:00','Z')
             except (OverflowError,ValueError):raise ReadError('invalid_viewport')
             column='COALESCE(m.account,t.account)' if view=='players' else 'q.stash' if view=='stashes' else "'summary'"
@@ -149,7 +159,26 @@ def read_series(league_id):
         unknown_sql=('SELECT COUNT(*) FROM event_quantities q JOIN transactions t ON t.id=q.transaction_id WHERE '+' AND '.join(event_conditions)+
                      (" AND q.item_name=?" if not all_items else "")+" AND (q.effective_action='unknown' OR q.resolution_reason='invalid_quantity')"+extra)
         base['unresolved_events']=c.execute(unknown_sql,[*args,*([] if all_items else [item]),*extra_args]).fetchone()[0]
-        rows=[dict(row) for row in c.execute('SELECT t.id,t.external_id,t.occurred_at,COALESCE(m.account,t.account) AS account,q.stash,m.sequence,m.quantity_delta,m.confidence'+common+item_sql,[*args,*item_args])]
+        query_common=common;query_args=[*args,*item_args]
+        fields='t.id,t.external_id,t.occurred_at,COALESCE(m.account,t.account) AS account,q.stash,m.sequence,m.quantity_delta,m.confidence,m.item_name'
+        if valuation:
+            query_common=query_common.replace(' WHERE ',' LEFT JOIN valuation_lines v ON v.transaction_id=m.transaction_id AND v.sequence=m.sequence AND v.run_id=? WHERE ',1)
+            query_args=[value_run['id'],*query_args];fields+=',v.value_atomic,v.reason,v.snapshot_id'
+        rows=[dict(row) for row in c.execute('SELECT '+fields+query_common+item_sql,query_args)]
+        if valuation:
+            priced=[row for row in rows if row['value_atomic'] is not None]
+            base['pricing'].update(priced_operations=len(priced),unpriced_operations=len(rows)-len(priced),estimated_operations=sum(row['reason']=='estimated_undated' for row in priced),snapshot_ids=sorted({row['snapshot_id'] for row in priced}),coverage='none' if not priced else 'partial' if len(priced)!=len(rows) else 'complete')
+            rows=priced
+            for row in rows:row['quantity_delta']=int(row['value_atomic'])
+            if at is not None:
+                totals=defaultdict(int)
+                names={row['account'] if view=='players' else row['stash'] if view=='stashes' else 'summary' for row in rows}
+                for row in rows:
+                    name=row['account'] if view=='players' else row['stash'] if view=='stashes' else 'summary'
+                    if stamp(row['occurred_at'])<=at:totals[name]+=row['quantity_delta']
+                balances=[dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,reconstruction=name=='__poa_reconstruction__',balance=money(totals[name])) for name in sorted(names,key=lambda n:(n!='__poa_reconstruction__',n))[:100]]
+                if view!='summary':balances.append(dict(id='combined',name='Combined balance',balance=money(sum(totals.values()))))
+                return jsonify(league_id=league_id,projection=meta,timezone=settings['timezone'],timestamp=at,balances=balances,pricing=base['pricing'])
         if not rows:return jsonify(base)
         rows.sort(key=event_order)
         for row in rows:row['timestamp']=stamp(row['occurred_at'])
@@ -216,4 +245,14 @@ def read_series(league_id):
             if step:sampled=True;resolution=max(resolution or 0,step)
         base.update(series=output,bounds=domain,window=dict(start=low,end=high),sampled=sampled,
                     resolution_ms=resolution,max_points=point_limit)
+        if valuation:
+            converted=set()
+            for series in [*base['series'],base['total_series'],*base['navigator']['series'],base['navigator']['total_series']]:
+                if not series or id(series) in converted:continue
+                converted.add(id(series))
+                series['opening_balance']=money(series['opening_balance']);series['closing_balance']=money(series['closing_balance'])
+                for key in ('points','overview'):
+                    for point in series[key]:
+                        if id(point) not in converted:point['balance']=money(point['balance']);converted.add(id(point))
+            for key in base['totals']:base['totals'][key]=money(base['totals'][key])
         return jsonify(base)

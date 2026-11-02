@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import CollapsiblePanel from './CollapsiblePanel.vue'
-import { watch } from 'vue'
+import { watch, computed } from 'vue'
+import { currentUrl } from '../navigation'
+import ValuationPanel from './ValuationPanel.vue'
 import type { HistoryQuery } from '../browsing'
 import { t, number, date } from '../i18n'
 import { useQuantityReport } from '../composables/useQuantityReport'
@@ -13,6 +15,7 @@ watch([report, jobState], () => {
   if (jobState.value === 'failed') emit('progress', 'failed')
   else if (report.value) emit('progress', report.value.projection.state === 'ready' ? 'ready' : 'pending')
 })
+const valueMode=computed(()=>new URL(currentUrl.value).searchParams.get('chart_mode')!=='quantity'&&props.view!=='state')
 const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
 </script>
 <template>
@@ -23,7 +26,8 @@ const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
     <button v-if="error || jobState === 'failed'" type="button" :disabled="busy" @click="enqueue('manual')">{{ t('quantity.rebuild') }}</button>
     <template v-if="report?.projection.state === 'ready'">
       <slot v-if="!error" />
-      <CollapsiblePanel :title="t('layout.table')" :storage-key="'table:'+leagueId+':'+view" data-testid="quantity-table-container">
+      <ValuationPanel :key="leagueId+':'+view" :league-id="leagueId" :view="view" :query="query" :refresh-token="refreshToken" />
+      <CollapsiblePanel v-show="!valueMode" :title="t('layout.table')" :storage-key="'table:'+leagueId+':'+view" data-testid="quantity-table-container">
       <p v-if="!report.rows.length" class="empty-state">{{ t('quantity.empty') }}</p>
       <div v-else class="transactions-scroll" tabindex="0" role="region" :aria-label="t('quantity.table')">
         <table class="transactions quantity-table"><thead><tr>

@@ -3,7 +3,7 @@ import { test, expect } from './fixtures'
 import type { APIRequestContext } from './fixtures'
 
 test.use({ locale: 'en-US' })
-const path='/poe2guild/?lang=en'
+const path='/poe2guild/?chart_mode=quantity&lang=en'
 async function restore(request: APIRequestContext) {
   const leagues=(await (await request.get('/poe2guild/api/leagues')).json()).leagues
   for(const league of leagues) {

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 const root='/poe2guild/'
 
 test('Player has local settings but no diagnostics or server configuration, even via API',async({page,request})=>{
-  await page.goto(root+'?lang=en&section=settings&view=diagnostics')
+  await page.goto(root+'?chart_mode=quantity&lang=en&section=settings&view=diagnostics')
   await expect(page.getByTestId('admin-status')).toHaveText('Login')
   await expect(page.locator('.app-nav')).toHaveCount(0)
   await expect(page.getByRole('link',{name:'System settings',exact:true})).toHaveCount(0)
@@ -12,14 +12,14 @@ test('Player has local settings but no diagnostics or server configuration, even
   for(const path of ['database-status','rework-readiness','leagues/anything/quantity-settings']) {
     expect((await request.get(root+'api/'+path)).status()).toBe(401)
   }
-  await page.goto(root+'?lang=en&section=configuration')
+  await page.goto(root+'?chart_mode=quantity&lang=en&section=configuration')
   await expect(page.getByTestId('client-settings')).toBeVisible()
   await expect(page.getByTestId('quantity-settings')).toHaveCount(0)
   expect((await request.post(root+'api/leagues/anything/refresh',{data:{kind:'local_verify'}})).status()).toBe(401)
 })
 
 test('login popup, Admin controls, reload persistence and logout remove protected content',async({page})=>{
-  await page.goto(root+'?lang=en&section=settings')
+  await page.goto(root+'?chart_mode=quantity&lang=en&section=settings')
   await page.getByTestId('admin-status').click()
   const dialog=page.getByRole('dialog')
   await expect(dialog).toBeVisible()
@@ -60,7 +60,7 @@ test('default password prompt opens on entry, can be skipped and changes the pas
   })
   const original='test-only-password-123',updated='new-browser-password-123'
   try {
-    await page.goto(root+'?lang=en')
+    await page.goto(root+'?chart_mode=quantity&lang=en')
     const dialog=page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await expect(dialog).toContainText('still uses its default password')

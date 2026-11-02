@@ -46,6 +46,22 @@ def rebuild(database_path, archive_root, *, source_key='legacy-primary', setting
     try:
         migrate(temporary)
         result = import_bundle(temporary, archive_root, source_key=source_key, settings=settings)
+        # Observed market prices are source facts, not a disposable derived cache.
+        # Keep them across a history rebuild; refuse to silently orphan a league.
+        if database_path.exists():
+            with connect(database_path, readonly=True) as old, connect(temporary) as fresh:
+                if old.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='price_snapshots'").fetchone():
+                    known={row[0] for row in fresh.execute('SELECT id FROM leagues')}
+                    priced={row[0] for row in old.execute('SELECT DISTINCT league_id FROM price_snapshots')}
+                    if not priced <= known:
+                        raise DatabaseError('Rebuild would discard a league with price observations; retain its history or restore a full backup')
+                    fresh.execute('BEGIN IMMEDIATE')
+                    try:
+                        for table in ('price_http_cache','price_catalogs','price_categories','price_snapshots','price_quotes','price_aliases'):
+                            rows=old.execute('SELECT * FROM '+table).fetchall()
+                            if rows:fresh.executemany('INSERT INTO '+table+' VALUES ('+','.join('?' for _ in rows[0])+')',[tuple(row) for row in rows])
+                        fresh.commit()
+                    except BaseException:fresh.rollback();raise
         check = verify(temporary)
         with connect(temporary) as connection:
             if connection.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()[0]:

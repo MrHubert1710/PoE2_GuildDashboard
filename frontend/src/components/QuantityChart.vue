@@ -11,7 +11,7 @@ import CollapsiblePanel from './CollapsiblePanel.vue'
 const TimeSeriesChart=defineAsyncComponent(()=>import('./TimeSeriesChart.vue'))
 const props=defineProps<{leagueId:string;revision:string;settingsHash?:string;projectionId:string|null;query:HistoryQuery;active:boolean;refreshToken:number;view:string}>()
 const emit=defineEmits<{range:[from:string,to:string]}>()
-const {data,error,loading,selectedItem,chooseItem,valuation,chooseMode,stateAt,reload}=useQuantitySeries(props)
+const {data,error,loading,selectedItem,chooseItem,valuation,chooseMode,priceMode,choosePricing,stateAt,reload}=useQuantitySeries(props)
 const colors=computed(()=>clientPreferences.value.colors),picker=ref<{id:string;name:string;color:string;left:number;top:number}|null>(null)
 function colorId(series:{id:string;aggregate?:boolean}){return series.aggregate?'combined':props.view+':'+series.id}
 function colored<T extends {id:string;aggregate?:boolean}>(series:T){return {...series,color:colors.value[colorId(series)]}}
@@ -67,16 +67,20 @@ watch(data,value=>{if(value&&!initial){initial=true;if(new URL(currentUrl.value)
   <div class="chart-controls">
     <label class="check-label chart-mode"><input type="checkbox" role="switch" :checked="valuation" :aria-label="t('chart.valueMode')" @change="chooseMode(($event.target as HTMLInputElement).checked)" />{{ t(valuation?'chart.valueMode':'chart.quantityMode') }}</label>
     <label v-if="!valuation" class="chart-item"><span>{{ t('chart.item') }}</span><select :aria-label="t('chart.item')" :value="selectedItem==='__all__'?'__all__':data?.item??selectedItem" :disabled="!items.length" @change="selectItem(($event.target as HTMLSelectElement).value)"><option v-for="item in items" :key="item" :value="item">{{ item==='__all__'?t('chart.all'):item }}</option></select></label>
-    <label v-else class="check-label">{{ t('chart.historicalPrices') }}<input type="checkbox" role="switch" :aria-label="t('chart.currentPrices')" disabled />{{ t('chart.currentPrices') }}</label>
-    <button type="button" :disabled="valuation||loading||!projectionId" @click="reload">{{ t('chart.refresh') }}</button>
+    <label v-else class="check-label">{{ t('chart.historicalPrices') }}<input type="checkbox" role="switch" :aria-label="t('chart.currentPrices')" :checked="priceMode==='latest'" @change="choosePricing(($event.target as HTMLInputElement).checked)" />{{ t('chart.currentPrices') }}</label>
+    <button type="button" :disabled="loading||!projectionId" @click="reload">{{ t('chart.refresh') }}</button>
     <span v-if="loading" role="status" class="chart-loading">{{ t('chart.loading') }}</span>
   </div>
-  <p v-if="valuation" class="footnote">{{ t('chart.valuationPending') }}</p>
-  <div v-if="valuation" class="valuation-chart" role="img" :aria-label="t('chart.graph')" data-testid="valuation-chart"></div>
+  <p v-if="valuation" class="footnote valuation-status" data-testid="valuation-status">{{ t('pricing.currency') }} · {{ t(priceMode==='latest'?'pricing.latest':'pricing.historical') }}
+    <span v-if="data?.pricing?.state==='missing'" role="status"> · {{ t('pricing.pending') }}</span>
+    <span v-else-if="data?.pricing?.coverage==='none'"> · {{ t('pricing.noCoverage') }}</span>
+    <span v-else-if="data?.pricing?.coverage==='partial'"> · {{ t('pricing.partial') }}</span>
+    <span v-if="data?.pricing?.estimated_operations"> · {{ t('pricing.estimated') }}</span>
+  </p>
   <p v-if="error" role="alert">{{ t(`quantity.error.${error}`) }}</p>
   <p v-else-if="!projectionId" role="status">{{ t('quantity.pending') }}</p>
-  <p v-else-if="!valuation&&!loading&&!data?.series.length" class="empty-state">{{ t('chart.empty') }}</p>
-  <div v-if="!valuation&&data?.series.length" class="chart-legend" :aria-label="t('chart.groups',{count:chartSeries.length})" data-testid="chart-legend">
+  <p v-else-if="!loading&&!data?.series.length" class="empty-state">{{ t('chart.empty') }}</p>
+  <div v-if="data?.series.length" class="chart-legend" :aria-label="t('chart.groups',{count:chartSeries.length})" data-testid="chart-legend">
     <div v-for="series in chartSeries" :key="series.id" class="check-label">
       <input :id="'series-'+leagueId+'-'+view+'-'+series.id" type="checkbox" :checked="enabled.includes(series.id)" @change="toggle(series.id,($event.target as HTMLInputElement).checked)" />
       <button type="button" class="series-color-button" :aria-label="t('chart.colorFor',{name:seriesLabel(series)})" @click="openColor(series,$event)"><i class="series-swatch" :class="{'aggregate-swatch':series.aggregate}" :style="{background:balanceColor(series,navigator.series.findIndex(value=>value.id===series.id)),borderColor:balanceColor(series,navigator.series.findIndex(value=>value.id===series.id))}" aria-hidden="true"></i></button>
@@ -85,8 +89,9 @@ watch(data,value=>{if(value&&!initial){initial=true;if(new URL(currentUrl.value)
   </div>
   <div v-if="picker" class="color-picker-backdrop" @click="picker=null"></div>
   <ColorPicker v-if="picker" :name="picker.name" :value="picker.color" :left="picker.left" :top="picker.top" @change="setColor" @close="picker=null" />
-  <TimeSeriesChart v-if="!valuation&&data&&navigator.bounds&&navigator.series.length" :series="chartSeries" :view="view" :bounds="navigator.bounds" :context-series="navigator.series" :timezone="data.timezone" :enabled="enabled" :state-at="stateAt" :loaded-window="data.window" :value-window="valueWindow" :window="window" @zoom="zoom" @commit="commit" @value-zoom="valueZoom" @reset-time="reset" @reset-values="resetValues" />
-  <CollapsiblePanel v-if="!valuation" :title="t('chart.details')" :storage-key="'chart-info:'+leagueId+':'+view" :initial-open="false" class="chart-info">
+  <TimeSeriesChart v-if="data&&navigator.bounds&&navigator.series.length" :series="chartSeries" :unit="data.unit" :view="view" :bounds="navigator.bounds" :context-series="navigator.series" :timezone="data.timezone" :enabled="enabled" :state-at="stateAt" :loaded-window="data.window" :value-window="valueWindow" :window="window" @zoom="zoom" @commit="commit" @value-zoom="valueZoom" @reset-time="reset" @reset-values="resetValues" />
+  <CollapsiblePanel :title="t('chart.details')" :storage-key="'chart-info:'+leagueId+':'+view" :initial-open="false" class="chart-info">
+    <p v-if="valuation" class="footnote">{{ t('pricing.balanceNote') }}</p>
     <p class="footnote">{{ t('chart.note') }}</p><p class="footnote">{{ t('chart.interaction',{zone:data?.timezone??'UTC'}) }}</p>
     <p v-if="window&&data" class="footnote" data-testid="chart-window">{{ date(new Date(window.start).toISOString(),data.timezone) }} — {{ date(new Date(window.end).toISOString(),data.timezone) }} {{ data.timezone }}</p>
     <p v-if="data" class="footnote">{{ t(data.sampled?'chart.sampled':'chart.exact') }}</p>

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 import { goSection } from './workspace-helpers'
 
 test.use({ locale: 'en-US' })
-const base='/poe2guild/?lang=en'
+const base='/poe2guild/?chart_mode=quantity&lang=en'
 const nav=(page: import('@playwright/test').Page)=>page.getByRole('navigation',{name:'League views'})
 
 test('default workspace presents summary and separates history, settings and technical details',async({page})=>{

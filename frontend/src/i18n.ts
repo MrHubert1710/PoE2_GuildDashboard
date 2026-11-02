@@ -26,7 +26,7 @@ export function setLanguage(code: string) {
 }
 synchronize(true)
 window.addEventListener('popstate', () => { locale.value = resolveLanguage(); synchronize(true) })
-export function number(value: number) { return new Intl.NumberFormat(locale.value).format(value) }
+export function number(value: number) { return new Intl.NumberFormat(locale.value, { maximumFractionDigits: 12 }).format(value) }
 export function t(key: string, parameters: Record<string, string | number> = {}) {
   return formatMessage(catalogs, locale.value, key, parameters)
 }

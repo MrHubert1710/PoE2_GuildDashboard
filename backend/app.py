@@ -13,6 +13,7 @@ from .database import DatabaseError
 from .browsing import browser
 from .refresh_api import refresh
 from .quantity_api import quantities
+from .pricing_api import pricing
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,10 +28,12 @@ def create_app(config=None):
                             HISTORY_SCOPE=('ggg', os.environ.get('POE2GUILD_GUILD_REFERENCE', 'unconfigured'), 'guild_history'))
     if config:
         app.config.update(config)
+    app.config.setdefault('PRICE_FETCH_AVAILABLE', not app.testing)
     init_auth(app)
     app.register_blueprint(browser)
     app.register_blueprint(refresh)
     app.register_blueprint(quantities)
+    app.register_blueprint(pricing)
 
     @app.get('/health')
     def health():

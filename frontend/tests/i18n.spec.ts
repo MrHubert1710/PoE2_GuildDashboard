@@ -26,7 +26,7 @@ test('defaults to English and options come from locale file native names', async
 })
 
 test('switch and back/forward keep league, filters, page, drafts and rows without any fetch', async ({ page }) => {
-  await gotoHistory(page, path + '?lang=en&account=Synthetic%20Alice&page_size=25&page=2&sort=item&direction=asc&from=2026-01-01&to=2026-01-02')
+  await gotoHistory(page, path + '?chart_mode=quantity&lang=en&account=Synthetic%20Alice&page_size=25&page=2&sort=item&direction=asc&from=2026-01-01&to=2026-01-02')
   await ready(page)
   await expect(page.locator('.result-count')).toContainText('page 2')
   const before = new URL(page.url())
@@ -57,7 +57,7 @@ test('switch and back/forward keep league, filters, page, drafts and rows withou
 })
 
 test('language persists between views, links, reload and URL overrides saved preference', async ({ page }) => {
-  await gotoHistory(page, path + '?lang=pl')
+  await gotoHistory(page, path + '?chart_mode=quantity&lang=pl')
   await ready(page)
   await page.getByRole('link', { name: 'Diagnostyka', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Archiwa lig' })).toBeVisible()
@@ -67,7 +67,7 @@ test('language persists between views, links, reload and URL overrides saved pre
   await gotoHistory(page, path)
   await ready(page)
   await expect(language(page)).toHaveValue('pl')
-  await gotoHistory(page, path + '?lang=en')
+  await gotoHistory(page, path + '?chart_mode=quantity&lang=en')
   await ready(page)
   await expect(language(page)).toHaveValue('en')
 })
@@ -130,7 +130,7 @@ test('diagnostics keeps expanded evidence, formats numbers and translates provid
 })
 
 test('dates use the language with UTC independent of browser timezone', async ({ page }) => {
-  await gotoHistory(page, path + '?lang=en')
+  await gotoHistory(page, path + '?chart_mode=quantity&lang=en')
   await ready(page)
   const expected = await page.evaluate(async () => {
     const params = new URLSearchParams(location.search)

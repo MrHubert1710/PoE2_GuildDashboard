@@ -33,10 +33,11 @@ def scope_key(scope):
 
 class Queue:
     def __init__(self, path, *, clock=time.time, lease_seconds=30, cooldown=30,
-                 history_scope=('ggg', 'unconfigured', 'guild_history'), history_available=False, fresh_seconds=1800):
+                 history_scope=('ggg', 'unconfigured', 'guild_history'), history_available=False, fresh_seconds=1800, prices_available=True):
         self.path, self.clock, self.lease_seconds, self.cooldown = path, clock, lease_seconds, cooldown
         self.history_scope, self.history_available = history_scope, history_available
         self.fresh_seconds = fresh_seconds
+        self.prices_available = prices_available
 
     @contextmanager
     def transaction(self):
@@ -61,6 +62,7 @@ class Queue:
         return row
 
     def restriction(self, league, kind):
+        if kind == 'prices' and not self.prices_available:return 'source_unavailable'
         if kind == 'history':
             if league['archived']:
                 return 'archived'
@@ -82,7 +84,7 @@ class Queue:
                            "WHERE state='running' AND CAST(lease_until AS REAL)<=?", (now, stamp(now), now))
 
     def enqueue(self, league_id, kind='history', trigger='automatic'):
-        if kind not in {'history', 'local_verify', 'quantities'} or trigger not in {'automatic', 'manual'}:
+        if kind not in {'history', 'local_verify', 'quantities', 'prices', 'valuations'} or trigger not in {'automatic', 'manual'}:
             raise JobRejected('invalid_refresh_request')
         if kind == 'local_verify' and trigger != 'manual':
             raise JobRejected('invalid_refresh_request')
@@ -96,6 +98,14 @@ class Queue:
                 from .quantities import current_run
                 if current_run(connection, league):
                     return {'outcome': 'fresh', 'reason': 'fresh', 'job_id': None}
+            if kind == 'valuations':
+                from .valuation import current_valuation
+                if all(current_valuation(connection, league, mode)[0] for mode in ('historical','latest')):
+                    return {'outcome':'fresh','reason':'fresh','job_id':None}
+            if kind == 'prices':
+                scope=connection.execute('SELECT last_success_at FROM refresh_scopes WHERE scope_key=?',(key,)).fetchone()
+                if scope and scope[0] and datetime.fromisoformat(scope[0].replace('Z','+00:00')).timestamp()+3600>now:
+                    return {'outcome':'fresh','reason':'fresh','job_id':None}
             self.recover(connection, now)
             current = connection.execute("SELECT * FROM jobs WHERE scope_key=? AND state IN ('queued','running')", (key,)).fetchone()
             if current:
@@ -213,7 +223,7 @@ class Queue:
             worker_online = bool(worker and worker['state'] == 'running' and worker['heartbeat_at'] > now - 15)
             result = {'league_id': league_id, 'revision': revision(connection, league_id),
                       'worker': 'online' if worker_online else 'offline', 'history': {}, 'local_verify': {}}
-            for kind in ('history', 'local_verify', 'quantities'):
+            for kind in ('history', 'local_verify', 'quantities', 'prices', 'valuations'):
                 key = self.scope(league_id, kind)
                 job = connection.execute('SELECT id,state,trigger_kind,attempts,error_code,available_at,finished_at FROM jobs '
                                          'WHERE scope_key=? ORDER BY rowid DESC LIMIT 1', (key,)).fetchone()

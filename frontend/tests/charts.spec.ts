@@ -2,7 +2,7 @@ import {test,expect} from './fixtures'
 import type {Locator} from './fixtures'
 import {goSection,zoomTime,zoomValues,resetTime,resetValues} from './workspace-helpers'
 test.use({locale:'en-US'})
-const path='/poe2guild/?lang=en'
+const path='/poe2guild/?chart_mode=quantity&lang=en'
 const chart=(page:import('@playwright/test').Page)=>page.getByTestId('quantity-chart')
 
 test('balance chart is compact and group series differ between Players and Stashes',async({page})=>{
@@ -388,7 +388,7 @@ test('player filter tooltip shows one row per series for operations sharing a ti
   await expect(page.getByRole('tooltip').locator('strong').filter({hasText:/^29$/})).toHaveCount(2)
 })
 
-test('All sums quantities, value mode stays empty and historical pricing is locked',async({page})=>{
+test('All sums quantities and value mode supports historical and latest pricing',async({page})=>{
   await page.goto(path+'&section=players')
   const graph=page.getByTestId('time-series-chart')
   await expect(graph).toBeVisible()
@@ -403,14 +403,13 @@ test('All sums quantities, value mode stays empty and historical pricing is lock
   let quantityRequests=0
   page.on('request',request=>{if(request.url().includes('/quantity-series?'))quantityRequests++})
   await page.getByRole('switch',{name:'Value mode',exact:true}).check()
-  await expect(page.getByTestId('valuation-chart')).toBeVisible()
+  await expect(page.getByTestId('valuation-status')).toBeVisible()
   await expect(page.getByLabel('Chart item',{exact:true})).toHaveCount(0)
-  await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toBeDisabled()
+  await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toBeEnabled()
   await expect(page.getByRole('switch',{name:'Current prices',exact:true})).not.toBeChecked()
-  await expect(graph).toHaveCount(0)
-  await page.waitForTimeout(300)
-  expect(quantityRequests).toBe(0)
-  await page.reload();await expect(page.getByTestId('valuation-chart')).toBeVisible()
+  await expect(graph).toBeVisible()
+  await expect.poll(()=>quantityRequests).toBeGreaterThan(0)
+  await page.reload();await expect(page.getByTestId('valuation-status')).toBeVisible()
   await page.getByRole('switch',{name:'Value mode',exact:true}).uncheck()
   await expect(graph).toBeVisible()
   await expect(page.getByLabel('Chart item',{exact:true})).toHaveValue('__all__')

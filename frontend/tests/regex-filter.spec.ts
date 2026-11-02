@@ -2,7 +2,7 @@ import { gotoHistory, goSection } from './workspace-helpers'
 import { test, expect } from './fixtures'
 
 test.use({ locale: 'en-US' })
-const url='/poe2guild/?lang=en'
+const url='/poe2guild/?chart_mode=quantity&lang=en'
 
 test('regex toggles are independent, opt-in and kept in URL through reload/back/forward',async({page})=>{
   await gotoHistory(page, url)

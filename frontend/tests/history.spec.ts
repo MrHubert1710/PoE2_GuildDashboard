@@ -3,7 +3,7 @@ import { test, expect } from './fixtures'
 
 test.use({ locale: 'pl-PL' })
 
-const path = '/poe2guild/?lang=pl'
+const path = '/poe2guild/?chart_mode=quantity&lang=pl'
 const results = (page: import('@playwright/test').Page) => page.getByTestId('transaction-results')
 
 test('switches leagues and limits each server page', async ({ page }) => {

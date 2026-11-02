@@ -10,6 +10,7 @@ import QuantityPanel from './QuantityPanel.vue'
 import QuantityChart from './QuantityChart.vue'
 import ClientSettings from './ClientSettings.vue'
 import QuantitySettings from './QuantitySettings.vue'
+import PriceSources from './PriceSources.vue'
 import HistoryTable from './HistoryTable.vue'
 import HistoryFilters from './HistoryFilters.vue'
 import WorkspaceNavigation from './WorkspaceNavigation.vue'
@@ -72,6 +73,7 @@ const dataSection = computed(() => !['settings', 'configuration'].includes(secti
           </QuantityPanel>
           <HistoryTable v-show="section === 'history'" :query="query" :result="result" :loading-rows="loadingRows" :row-error="rowError" :timezone="displayTimezone" @set-page="setPage" @set-page-size="setPageSize" @sort-by="sortBy" />
           <ClientSettings v-show="section === 'settings'" />
+          <PriceSources v-if="isAdmin && section === 'configuration'" :key="'prices-'+selected.id" :league-id="selected.id" />
           <QuantitySettings v-if="isAdmin" v-show="section === 'configuration'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" :display-hash="selected.display_settings_hash" @saved="settingsSaved" />
           </div>
         </div>

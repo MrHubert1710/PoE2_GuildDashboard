@@ -25,7 +25,7 @@ if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='poe2guild-browser-data-') as temporary:
         database = build_browsing_fixture(temporary)
         app = create_app({'REFERENCE_FILE': ROOT / 'tests/fixtures/browser-reference.json',
-                          'DATABASE_FILE': database, 'DATA_DIRECTORY': temporary, 'AUTH_REQUIRE_HTTPS': False})
+                          'DATABASE_FILE': database, 'DATA_DIRECTORY': temporary, 'AUTH_REQUIRE_HTTPS': False, 'PRICE_FETCH_AVAILABLE': False})
         app.extensions['auth_store'].set_password('admin', 'test-only-password-123')
         mounted = DispatcherMiddleware(Response('Not found', status=404), {'/poe2guild': app})
         # Deterministic initial projections keep existing UI tests independent of background timing.
@@ -38,6 +38,21 @@ if __name__ == '__main__':
         worker_once = Worker(projection_queue)
         while worker_once.run_once():
             pass
+        from backend.prices import snapshot,save_snapshot
+        from backend.valuation import ValuationAdapter
+        from datetime import datetime, timezone
+        from backend.archive_import import canonical
+        payload={'core':{'primary':'divine','rates':{},'items':[]},'items':[
+            {'id':'rites','name':'Rites Token','category':'Currency'},
+            {'id':'aldur','name':'Aldur Token','category':'Currency'}],
+            'lines':[{'id':'rites','primaryValue':2},{'id':'aldur','primaryValue':3}]}
+        with connect(database) as c:
+            for league_id in league_ids:
+                save_snapshot(c,snapshot(league_id,'exchange','Currency',payload,effective_at='2026-01-01T00:00:00Z'))
+                later={**payload,'lines':[{'id':'rites','primaryValue':4},{'id':'aldur','primaryValue':6}]}
+                save_snapshot(c,snapshot(league_id,'exchange','Currency',later,effective_at='2026-01-02T00:00:00Z'))
+        for league_id in league_ids:projection_queue.enqueue(league_id,'valuations','manual')
+        while worker_once.run_once():pass
         stop = multiprocessing.Event()
         worker = multiprocessing.Process(target=run_worker, args=(database, stop))
         worker.start()

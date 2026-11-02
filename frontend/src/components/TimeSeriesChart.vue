@@ -14,7 +14,7 @@ import SeriesNavigator from './SeriesNavigator.vue'
 import ValueNavigator from './ValueNavigator.vue'
 import {axisDate,formatZonedDate} from '../timezones'
 echarts.use([LineChart,GridComponent,AriaComponent,MarkLineComponent,SVGRenderer])
-const props=defineProps<{series:BalanceSeries[];contextSeries:BalanceSeries[];view:string;bounds:{start:number;end:number};timezone:string;enabled:string[];window:{start:number;end:number}|null;loadedWindow:ChartWindow|null;valueWindow:ChartWindow|null;stateAt:(timestamp:number)=>Promise<CursorState>}>()
+const props=defineProps<{unit?:string;series:BalanceSeries[];contextSeries:BalanceSeries[];view:string;bounds:{start:number;end:number};timezone:string;enabled:string[];window:{start:number;end:number}|null;loadedWindow:ChartWindow|null;valueWindow:ChartWindow|null;stateAt:(timestamp:number)=>Promise<CursorState>}>()
 const emit=defineEmits<{zoom:[window:{start:number;end:number}];commit:[window:ChartWindow];valueZoom:[window:ChartWindow];resetTime:[];resetValues:[]}>()
 const root=ref<HTMLElement|null>(null)
 let chart:echarts.ECharts|undefined,observer:ResizeObserver|undefined,hoverTimer:ReturnType<typeof setTimeout>|undefined
@@ -49,14 +49,15 @@ function draw(){
   const markerValues=actualExtrema.value?[...new Set([actualExtrema.value.min,actualExtrema.value.max])].filter(value=>value>=currentValueWindow.value.start&&value<=currentValueWindow.value.end):[]
   const labelSpacing=(currentValueWindow.value.end-currentValueWindow.value.start)*16/Math.max(1,root.value.clientHeight-53)
   const crowded=markerValues.length===2&&Math.abs(markerValues[1]!-markerValues[0]!)<labelSpacing
+  const axisNumber=(value:number)=>props.unit==='divine_orb'?new Intl.NumberFormat(locale.value,{maximumSignificantDigits:6}).format(value):number(value)
   const options:EChartsOption={
     animation:false,backgroundColor:'transparent',color:balanceColors,
     textStyle:{color:'#b7c4ca',fontFamily:'system-ui'},aria:{enabled:true,description:t('chart.graph')},
-    grid:{left:65,right:20,top:18,bottom:35},
+    grid:{left:props.unit==='divine_orb'?88:65,right:20,top:18,bottom:35},
 
     xAxis:{type:'time',min:start,max:end,splitNumber:Math.max(2,Math.min(8,Math.floor(root.value.clientWidth/140))),axisLabel:{color:'#b7c4ca',hideOverlap:true,formatter:value=>axisDate(value,props.timezone,locale.value,span,displayHourFormat.value)},axisLine:{lineStyle:{color:'#46545e'}}},
-    yAxis:{type:'value',min:currentValueWindow.value.start,max:currentValueWindow.value.end,minInterval:1,axisLabel:{color:'#b7c4ca',showMinLabel:Boolean(props.valueWindow),showMaxLabel:Boolean(props.valueWindow),formatter:value=>markerValues.some(marker=>Math.abs(marker-value)<labelSpacing)?'':number(value)},splitLine:{showMinLine:false,showMaxLine:false,lineStyle:{color:'#29363e'}}},
-    series:plottedSeries.value.map((series,index)=>({id:series.id,name:label(series),type:'line',step:'end',clip:true,showSymbol:false,symbol:'none',lineStyle:{width:series.aggregate?2.5:2,type:series.aggregate?'dashed':series.reconstruction?'dotted':'solid',color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},itemStyle:{color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},markLine:index===0?{silent:true,animation:false,symbol:['none','none'],lineStyle:{color:'#a9bfb1',width:1,type:'solid'},label:{show:true,position:'start',align:'right',color:'#d8eadd',fontSize:11,padding:[2,4],backgroundColor:'#182128'},data:markerValues.map((value,markerIndex)=>({yAxis:value,label:{formatter:()=>number(value),offset:crowded?[0,markerIndex===0?8:-8]:[0,0]}}))}:undefined,data:series.visible.map(point=>[point.timestamp,point.balance])})),
+    yAxis:{type:'value',min:currentValueWindow.value.start,max:currentValueWindow.value.end,minInterval:props.unit==='divine_orb'?0:1,axisLabel:{color:'#b7c4ca',showMinLabel:Boolean(props.valueWindow),showMaxLabel:Boolean(props.valueWindow),formatter:value=>markerValues.some(marker=>Math.abs(marker-value)<labelSpacing)?'':axisNumber(value)},splitLine:{showMinLine:false,showMaxLine:false,lineStyle:{color:'#29363e'}}},
+    series:plottedSeries.value.map((series,index)=>({id:series.id,name:label(series),type:'line',step:'end',clip:true,showSymbol:false,symbol:'none',lineStyle:{width:series.aggregate?2.5:2,type:series.aggregate?'dashed':series.reconstruction?'dotted':'solid',color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},itemStyle:{color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},markLine:index===0?{silent:true,animation:false,symbol:['none','none'],lineStyle:{color:'#a9bfb1',width:1,type:'solid'},label:{show:true,position:'start',align:'right',color:'#d8eadd',fontSize:11,padding:[2,4],backgroundColor:'#182128'},data:markerValues.map((value,markerIndex)=>({yAxis:value,label:{formatter:()=>axisNumber(value),offset:crowded?[0,markerIndex===0?8:-8]:[0,0]}}))}:undefined,data:series.visible.map(point=>[point.timestamp,point.balance])})),
   }
   chart.setOption(options,{notMerge:true,silent:true});chart.resize();root.value.querySelector('svg')?.setAttribute('aria-hidden','true')
 }

@@ -3,7 +3,7 @@ import { test, expect } from './fixtures'
 import type { Page } from './fixtures'
 
 test.use({ locale: 'en-US' })
-const path = '/poe2guild/?lang=en'
+const path = '/poe2guild/?chart_mode=quantity&lang=en'
 const ready = (page: Page) => expect(page.getByTestId('transaction-results')).toBeVisible()
 const panel = (page: Page) => page.getByTestId('refresh-panel')
 

@@ -1,9 +1,10 @@
 # Plan implementacji poe2guild
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: fazy 0–5a odebrane przez użytkownika. Faza 5b zaimplementowana
-i wdrożona, oczekuje odbioru manualnego. Fazy 6 i dalsze nie są rozpoczęte; symulacja stasha to opcjonalny etap 9.
-Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md), [phase-5a.md](phase-5a.md), [phase-5b.md](phase-5b.md).
+Status: fazy 0–5b odebrane przez użytkownika. Faza 6 zaimplementowana
+i wdrożona, oczekuje odbioru manualnego. Fazy 7 i dalsze nie są rozpoczęte;
+symulacja stasha pozostaje opcjonalnym etapem 9.
+Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md), [phase-5a.md](phase-5a.md), [phase-5b.md](phase-5b.md), [phase-6.md](phase-6.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -239,6 +240,9 @@ lidze; po wycenie ten sam mechanizm obsługuje szeregi wartości.
 
 ## Etap 6 — katalog kategorii, snapshoty cen i wycena
 
+Status: wdrożona; oczekuje odbioru manualnego. Wyniki i ograniczenia danych:
+[phase-6.md](phase-6.md). Nie rozpoczęto fazy 7.
+
 Zależność: etapy 1, 3–4. Prezentacja wartości korzysta też z etapu 5.
 
 Zakres:
@@ -417,8 +421,8 @@ Nie łączyć automatycznie wdrożenia fetchera z analizą logów na żywo.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
-Faza 5a została odebrana; faza 5b (administracja i logowanie) została wdrożona
-i oczekuje odbioru. Następny jest etap 6 (wycena). Symulacja stasha została
+Fazy 5a i 5b zostały odebrane; faza 6 (wycena) została wdrożona
+i oczekuje odbioru. Następny jest etap 7 (katalog lig i synchronizacja). Symulacja stasha została
 odłożona do opcjonalnego etapu 9, po rozwiązaniu desynchronizacji i odbiorze w 8.
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.
@@ -454,7 +458,7 @@ Odbiór: dwie przeglądarki z różnymi preferencjami prezentują te same rekord
 z tego samego URL UTC, bez zapisu ustawień serwera i bez przeliczania projekcji.
 Działają reload, Wstecz/Dalej, migracja kolorów oraz zablokowany localStorage.
 
-### Etap 5b — administracja i logowanie (oczekuje odbioru)
+### Etap 5b — administracja i logowanie (odebrana)
 
 - Widoczny przycisk Login / Admin; kliknięcie otwiera popup logowania lub
   wylogowania. Konto administracyjne i sesja są weryfikowane na backendzie.
@@ -480,4 +484,4 @@ oraz wylogować. Konfiguracja połączenia GGG nastąpi z adapterem w 7B. Sekret
 
 Proponowana kolejność po odbiorze fazy 5a: 5b → 6 → 7A/7B → 7C (po 7B) → 8 → opcjonalnie 9.
 Każdy etap wymaga osobnego polecenia rozpoczęcia i kończy się zatrzymaniem do
-odbioru. Faza 5b jest wdrożona; wycena i opcjonalna symulacja nie zostały rozpoczęte.
+odbioru. Fazy 5b i 6 są wdrożone; faza 6 oczekuje odbioru. Opcjonalna symulacja nie została rozpoczęta.

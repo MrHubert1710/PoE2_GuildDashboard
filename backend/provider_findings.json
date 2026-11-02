@@ -26,15 +26,17 @@
       "id": "ninja-prices",
       "name": "Ligi ekonomiczne i ceny poe.ninja",
       "status": "documented",
-      "detail": "Udokumentowano publiczne endpointy ekonomii. Adapter będzie respektował cache i rozróżniał formaty exchange oraz stash item.",
-      "source": "https://poe.ninja/docs/api"
+      "detail": "Zaimplementowany adapter publicznych feedów exchange i stash item z cache, ETag oraz snapshotami cen per liga.",
+      "source": "https://poe.ninja/docs/api",
+      "checked_at": "2026-11-03"
     },
     {
       "id": "ninja-categories",
       "name": "Wykrywanie kategorii wyceny",
       "status": "not_documented",
-      "detail": "Dokumentacja publikuje nazwy kategorii, ale nie opisuje endpointu ich katalogu. Plan: izolowany odczyt publikowanej listy, walidacja i ostatnia poprawna kopia.",
-      "source": "https://poe.ninja/docs/api"
+      "detail": "Zaimplementowany izolowany parser publikowanych tabel PoE 2, z walidacją i zachowaniem ostatniego poprawnego katalogu. Brak osobnego wspieranego endpointu katalogu.",
+      "source": "https://poe.ninja/docs/api",
+      "checked_at": "2026-11-03"
     }
   ]
 }

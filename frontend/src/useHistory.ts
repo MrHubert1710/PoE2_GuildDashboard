@@ -11,7 +11,7 @@ class HistoryError extends Error {}
 
 export function useHistory() {
   const initialParams=new URLSearchParams(location.search)
-  const explicitWorkspace=[...initialParams.keys()].some(key=>key!=='lang'&&key!=='tz')
+  const explicitWorkspace=[...initialParams.keys()].some(key=>!['lang','tz','chart_mode','chart_pricing'].includes(key))
   let initialized=false
   const leagues = ref<League[]>([])
   const query = ref<HistoryQuery>(readQuery())

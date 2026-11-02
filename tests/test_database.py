@@ -47,6 +47,9 @@ class DatabaseTests(unittest.TestCase):
             c.executescript('ALTER TABLE archive_files RENAME TO current_files;'+definition+
                             'INSERT INTO archive_files SELECT * FROM current_files; DROP TABLE current_files;')
             c.execute("INSERT INTO archive_files SELECT id+1000,source_id,league_id,archive_key||'.retired',relative_path||'.retired','report',sha256,bytes,provenance_json,import_id FROM archive_files WHERE kind='history'")
+            import re
+            pricing=(Path(__file__).resolve().parents[1]/'backend/migrations/006_prices_and_valuations.sql').read_text()
+            for table in reversed(re.findall(r'CREATE TABLE (\w+)',pricing)):c.execute('DROP TABLE '+table)
             c.execute('DROP VIEW quantity_ledger')
             c.execute('DROP TABLE quantity_reconciliations')
             c.execute('DELETE FROM schema_migrations WHERE version>=4')
@@ -58,6 +61,32 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual([tuple(row) for row in c.execute('SELECT * FROM archive_files ORDER BY id')],files)
             with self.assertRaises(sqlite3.IntegrityError):
                 c.execute("UPDATE archive_files SET kind='report' WHERE kind='history'")
+
+    def test_history_rebuild_preserves_observed_price_facts_and_aliases(self):
+        from backend.prices import snapshot,save_snapshot
+        import_bundle(self.database,self.data)
+        with connect(self.database) as c:
+            league=c.execute("SELECT id FROM leagues WHERE name='Alpha'").fetchone()[0]
+            data=snapshot(league,'exchange','Currency',{'core':{'primary':'divine'},'items':[{'id':'token','name':'Token','category':'Currency'}],'lines':[{'id':'token','primaryValue':2}]},effective_at='2026-01-01T00:00:00Z')
+            save_snapshot(c,data);c.execute('INSERT INTO price_aliases VALUES(?,?,?)',(league,'old token','token'))
+            before=[tuple(row) for row in c.execute('SELECT * FROM price_snapshots')]
+        rebuild(self.database,self.data)
+        with connect(self.database,readonly=True) as c:
+            self.assertEqual([tuple(row) for row in c.execute('SELECT * FROM price_snapshots')],before)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM price_quotes').fetchone()[0],1)
+            self.assertEqual(c.execute('SELECT target_key FROM price_aliases').fetchone()[0],'token')
+
+    def test_history_rebuild_cannot_silently_discard_a_league_with_prices(self):
+        from backend.prices import snapshot,save_snapshot
+        import_bundle(self.database,self.data)
+        with connect(self.database) as c:
+            league=c.execute("SELECT id FROM leagues WHERE name='Beta'").fetchone()[0]
+            save_snapshot(c,snapshot(league,'exchange','Currency',{'core':{'primary':'divine'},'items':[{'id':'token','name':'Token'}],'lines':[{'id':'token','primaryValue':2}]},effective_at='2026-01-01T00:00:00Z'))
+        self.manifest['leagues']=[row for row in self.manifest['leagues'] if row['name']=='Alpha'];self.save_manifest()
+        with self.assertRaisesRegex(DatabaseError,'discard a league'):rebuild(self.database,self.data)
+        with connect(self.database,readonly=True) as c:
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM transactions').fetchone()[0],2)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM price_snapshots').fetchone()[0],1)
 
     def row(self, league='Alpha', event_id='1', **changes):
         result = dict(zip(FIELDS, ['2026-01-01T23:30:00Z', event_id, league, 'PRIVATE_ACCOUNT',

@@ -113,7 +113,7 @@ Odtworzenie danych ze starego katalogu:
 
 Importer kopiuje pliki i weryfikuje SHA-256. Powtórzenie z tymi samymi danymi
 jest bezpieczne; przy różnej zawartości istniejącego archiwum przerywa pracę.
-Baza SQLite (obecnie schemat 5) jest tworzona z tych danych lub z niezależnej kopii starego
+Baza SQLite (obecnie schemat 6) jest tworzona z tych danych lub z niezależnej kopii starego
 katalogu. Komendy fazy 1:
 
 ```sh
@@ -150,3 +150,5 @@ Nieznane adresy API i zasobów zwracają 404, a nie dokument HTML.
 
 Administracja i konto lokalne: [faza 5b](docs/phase-5b.md).
 HTTPS nginx: [instalacja i odnowienie](docs/https.md).
+
+Wycena operacji i pochodzenie cen: [faza 6](docs/phase-6.md).

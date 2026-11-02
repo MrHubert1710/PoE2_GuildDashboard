@@ -65,7 +65,9 @@ class Worker:
     def __init__(self, queue, *, adapters=None, stop=None):
         self.queue = queue
         from .quantities import QuantityAdapter
-        self.adapters = adapters or {'local_verify': LocalVerification(), 'history': UnavailableHistory(), 'quantities': QuantityAdapter()}
+        from .prices import PricesAdapter
+        from .valuation import ValuationAdapter
+        self.adapters = adapters or {'local_verify': LocalVerification(), 'history': UnavailableHistory(), 'quantities': QuantityAdapter(), 'prices': PricesAdapter(), 'valuations': ValuationAdapter()}
         self.stop = stop or threading.Event()
         self.id = str(uuid.uuid4())
 
@@ -87,6 +89,10 @@ class Worker:
             publish = self.adapters[job['kind']].stage(self.queue, job, self.stop)
             if not lost.is_set():
                 self.queue.complete(job, publish)
+                if job['kind'] in {'prices','quantities'}:
+                    with connect(self.queue.path, readonly=True) as c:
+                        prices_available=c.execute('SELECT 1 FROM price_snapshots WHERE league_id=? LIMIT 1',(job['league_id'],)).fetchone()
+                    if prices_available:self.queue.enqueue(job['league_id'],'valuations','automatic')
                 log.info('Job finished kind=%s', job['kind'])
         except LeaseLost:
             log.warning('Lease lost; staged result discarded')

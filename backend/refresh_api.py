@@ -11,7 +11,8 @@ refresh = Blueprint('refresh', __name__)
 def queue():
     return Queue(current_app.config['DATABASE_FILE'],
                  history_scope=current_app.config['HISTORY_SCOPE'],
-                 history_available=current_app.config['HISTORY_AVAILABLE'])
+                 history_available=current_app.config['HISTORY_AVAILABLE'],
+                 prices_available=current_app.config['PRICE_FETCH_AVAILABLE'])
 
 
 @refresh.after_request

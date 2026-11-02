@@ -1,0 +1,40 @@
+import {test,expect} from './fixtures'
+const root='/poe2guild/?lang=en'
+
+test('value mode is default, historical and latest prices differ without changing quantities or UTC filters',async({page,request})=>{
+ await page.goto(root+'&section=players')
+ const chart=page.getByTestId('quantity-chart')
+ await expect(page.getByRole('switch',{name:'Value mode',exact:true})).toBeChecked()
+ await expect(page.getByLabel('Chart item',{exact:true})).toHaveCount(0)
+ await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toBeEnabled()
+ await expect(page.getByTestId('time-series-chart')).toBeVisible()
+ await expect(page.getByTestId('valuation-report')).toContainText('Divine Orbs')
+ const league=new URL(page.url()).searchParams.get('league'),endpoint=`/poe2guild/api/leagues/${league}`
+ const quantities=await(await request.get(endpoint+'/quantities')).json()
+ const historical=await(await request.get(endpoint+'/quantity-series?mode=value&view=players')).json()
+ const latest=await(await request.get(endpoint+'/quantity-series?mode=value&view=players&pricing=latest')).json()
+ expect(historical.total_series.closing_balance).not.toBe(latest.total_series.closing_balance)
+ const displayed=page.waitForResponse(response=>response.url().includes('/quantity-series?')&&response.url().includes('pricing=latest')&&!response.url().includes('at='))
+ await page.getByRole('switch',{name:'Current prices',exact:true}).check();await displayed
+ await expect(page.getByTestId('valuation-status')).toContainText('Latest available prices')
+ await page.reload();await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toBeChecked()
+ expect((await(await request.get(endpoint+'/quantities')).json()).projection.id).toBe(quantities.projection.id)
+ await page.getByRole('switch',{name:'Value mode',exact:true}).uncheck()
+ await expect(page.getByLabel('Chart item',{exact:true})).toBeVisible()
+ await expect(page.getByTestId('valuation-report')).toHaveCount(0)
+})
+
+test('missing prices remain explicit and source provenance is visible in system settings',async({page})=>{
+ await page.goto(root)
+ await expect(page.getByTestId('valuation-report')).toContainText('Items without a price')
+ await expect(page.getByTestId('valuation-report')).toContainText('No dated price observed')
+ await page.getByRole('link',{name:'System settings',exact:true}).click()
+ const sources=page.getByTestId('price-sources')
+ await expect(sources).toContainText('Price sources')
+ await expect(sources).toContainText('Price snapshots (2)')
+ await sources.getByText('Price snapshots (2)',{exact:true}).click()
+ await expect(sources).toContainText('Observed price')
+ await page.getByRole('combobox',{name:'Language',exact:true}).selectOption('pl')
+ await expect(sources).toContainText('Źródła cen')
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+})

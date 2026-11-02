@@ -1,7 +1,7 @@
 import {test,expect} from './fixtures'
 import {goSection} from './workspace-helpers'
 const key='path-of-accounting.preferences.v1'
-const base='/poe2guild/?lang=en'
+const base='/poe2guild/?chart_mode=quantity&lang=en'
 
 test('display preferences are local, leave server settings and projection unchanged, and preserve UTC filters across clients',async({browser,request})=>{
   const first=await browser.newContext({locale:'en-US'}),second=await browser.newContext({locale:'en-US'})

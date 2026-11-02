@@ -1,3 +1,4 @@
+import { priceVersions } from '../pricing-state'
 import { displayTimezone } from '../i18n'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import type { HistoryQuery } from '../browsing'
@@ -7,7 +8,7 @@ export interface BalancePoint { timestamp:number; balance:number }
 export interface BalanceSeries {reconstruction?:boolean;aggregate?:boolean;color?:string;id:string;name:string;opening_balance:number;closing_balance:number;event_count:number;point_count:number;points:BalancePoint[];overview:BalancePoint[]}
 export interface CursorState {timestamp:number;balances:{id:string;name:string;balance:number}[]}
 export interface SeriesData {
-  league_id:string;projection:{id:string|null;state:string};timezone:string;view:string;unit:string
+  league_id:string;projection:{id:string|null;state:string};pricing?:{state:string;mode:string;currency:string;revision:string;coverage:string;priced_operations:number;unpriced_operations:number;estimated_operations:number};timezone:string;view:string;unit:string
   unresolved_events:number;item:string|null;items:string[];series:BalanceSeries[];resolution_ms:number|null
   sampled:boolean;series_truncated:boolean;bounds:{start:number;end:number}|null;window:{start:number;end:number}|null
   total_series:BalanceSeries|null
@@ -17,20 +18,22 @@ export interface SeriesData {
 export function useQuantitySeries(props:{leagueId:string;revision:string;settingsHash?:string;projectionId:string|null;query:HistoryQuery;active:boolean;refreshToken:number;view:string}){
   const data=ref<SeriesData|null>(null),error=ref(''),loading=ref(false)
   const selectedItem=computed(()=>new URL(currentUrl.value).searchParams.get('chart_item')??'')
-  const valuation=computed(()=>new URL(currentUrl.value).searchParams.get('chart_mode')==='value')
-  function chooseMode(value:boolean){const url=new URL(currentUrl.value);if(value){url.searchParams.set('chart_quantity_item',selectedItem.value);url.searchParams.set('chart_item','__all__');url.searchParams.set('chart_mode','value')}else{const item=url.searchParams.get('chart_quantity_item')??'';if(item)url.searchParams.set('chart_item',item);else url.searchParams.delete('chart_item');url.searchParams.delete('chart_mode');url.searchParams.delete('chart_quantity_item')}url.searchParams.delete('chart_ymin');url.searchParams.delete('chart_ymax');updateUrl(url)}
+  const valuation=computed(()=>new URL(currentUrl.value).searchParams.get('chart_mode')!=='quantity')
+  function chooseMode(value:boolean){const url=new URL(currentUrl.value);if(value){url.searchParams.set('chart_quantity_item',selectedItem.value);url.searchParams.set('chart_item','__all__');url.searchParams.set('chart_mode','value')}else{const item=url.searchParams.get('chart_quantity_item')??'';if(item)url.searchParams.set('chart_item',item);else url.searchParams.delete('chart_item');url.searchParams.set('chart_mode','quantity');url.searchParams.delete('chart_quantity_item')}url.searchParams.delete('chart_ymin');url.searchParams.delete('chart_ymax');updateUrl(url)}
+  const priceMode=computed(()=>new URL(currentUrl.value).searchParams.get('chart_pricing')==='latest'?'latest':'historical')
+  function choosePricing(value:boolean){const url=new URL(currentUrl.value);url.searchParams.set('chart_pricing',value?'latest':'historical');url.searchParams.delete('valuation_page');url.searchParams.delete('unpriced_page');url.searchParams.delete('chart_ymin');url.searchParams.delete('chart_ymax');updateUrl(url)}
   const viewport=computed(()=>{const p=new URL(currentUrl.value).searchParams;return [p.get('chart_from'),p.get('chart_to')]})
   const effectiveQuery=computed(()=>({...props.query,...(viewport.value.every(value=>value!==null)?{from:'',to:''}:{})}))
   const {request,stopped}=useApiRequest(`${import.meta.env.BASE_URL}api/leagues/${encodeURIComponent(props.leagueId)}`)
   let sequence=0,timer:ReturnType<typeof setTimeout>|undefined,lastContext=''
-  const context=()=>JSON.stringify([props.active,valuation.value,displayTimezone.value,props.projectionId,props.revision,props.settingsHash,selectedItem.value,props.view,...(['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word'] as Array<keyof HistoryQuery>).map(key=>effectiveQuery.value[key])])
+  const context=()=>JSON.stringify([props.active,priceVersions.value[props.leagueId],valuation.value,priceMode.value,displayTimezone.value,props.projectionId,props.revision,props.settingsHash,selectedItem.value,props.view,...(['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word'] as Array<keyof HistoryQuery>).map(key=>effectiveQuery.value[key])])
   function chooseItem(value:string){const url=new URL(currentUrl.value);if(value)url.searchParams.set('chart_item',value);else url.searchParams.delete('chart_item');url.searchParams.delete('chart_from');url.searchParams.delete('chart_to');url.searchParams.delete('chart_ymin');url.searchParams.delete('chart_ymax');updateUrl(url)}
   async function load(){
     const current=++sequence,key=context()
-    if(!props.active||valuation.value||!props.projectionId){data.value=null;loading.value=false;return}
+    if(!props.active||!props.projectionId){data.value=null;loading.value=false;return}
     if(key!==lastContext)data.value=null
     lastContext=key;loading.value=true;error.value=''
-    const params=new URLSearchParams({timezone:displayTimezone.value,revision:props.revision,projection_id:props.projectionId,max_points:'240',view:props.view})
+    const params=new URLSearchParams({timezone:displayTimezone.value,revision:props.revision,projection_id:props.projectionId,max_points:'240',view:props.view,mode:valuation.value?'value':'quantity',pricing:priceMode.value})
     for(const key of ['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word','from','to'] as Array<keyof HistoryQuery>){
       const value=effectiveQuery.value[key]
       if(key==='stash'){for(const name of effectiveQuery.value.stash)params.append('stash',name)}
@@ -47,11 +50,15 @@ export function useQuantitySeries(props:{leagueId:string;revision:string;setting
       if(stopped()||current!==sequence)return
       if(result.league_id!==props.leagueId||result.projection.id!==props.projectionId)throw Error('projection_changed')
       data.value=result
+      if(result.pricing?.state==='missing'){
+        await request('/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'valuations',trigger:'automatic'})})
+        timer=setTimeout(()=>{void load()},1500)
+      }
     }catch(cause){if(!stopped()&&current===sequence)error.value=cause instanceof Error?cause.message:'report_unavailable'}
     finally{if(!stopped()&&current===sequence)loading.value=false}
   }
   async function stateAt(timestamp:number):Promise<CursorState>{
-    const params=new URLSearchParams({timezone:displayTimezone.value,revision:props.revision,projection_id:props.projectionId??'',view:props.view,at:String(timestamp)})
+    const params=new URLSearchParams({timezone:displayTimezone.value,revision:props.revision,projection_id:props.projectionId??'',view:props.view,at:String(timestamp),mode:valuation.value?'value':'quantity',pricing:priceMode.value,...(data.value?.pricing?{price_revision:data.value.pricing.revision}:{})})
     for(const key of ['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word'] as Array<keyof HistoryQuery>){
       const value=props.query[key]
       if(key==='stash'){for(const name of props.query.stash)params.append('stash',name)}
@@ -68,5 +75,5 @@ export function useQuantitySeries(props:{leagueId:string;revision:string;setting
     timer=setTimeout(()=>{void load()},180)
   },{immediate:true})
   onUnmounted(()=>{++sequence;clearTimeout(timer)})
-  return {data,error,loading,selectedItem,chooseItem,valuation,chooseMode,stateAt,reload:load}
+  return {data,error,loading,selectedItem,chooseItem,valuation,chooseMode,priceMode,choosePricing,stateAt,reload:load}
 }
