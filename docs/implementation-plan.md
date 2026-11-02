@@ -302,9 +302,62 @@ jest oficjalnym, trwalszym rozwiązaniem. Nie deklarować fetchowania jako gotow
 Kamień milowy B: analityka i ceny. Kamień milowy C: pełna synchronizacja,
 o ile wymagane źródła są dostępne.
 
+## Etap 7C — analiza wiarygodności logów GGG na żywo
+
+Status: zaplanowany; nie rozpoczynać przed wdrożeniem i odbiorem pobierania
+historii z API w 7B. Osobna faza, wymagająca polecenia użytkownika.
+Zależność: działający adapter historii oraz dostęp do ligi, w której można
+wykonać kontrolowane operacje w skrytce gildii. Przy braku dostępu etap czeka;
+analiza samych archiwów nie zastępuje odtworzenia na żywo.
+
+Problem do sprawdzenia:
+- Według doniesień graczy przekazanych przez użytkownika logi GGG bywają
+  nierzetelne. To przesłanka do eksperymentów, nie potwierdzona przyczyna
+  rozbieżności w naszej bazie.
+- Szczególnie sprawdzić **podmianę różnych przedmiotów w tym samym slocie**:
+  czy pojawia się osobne usunięcie poprzedniego przedmiotu, jaki przedmiot
+  i ilość opisuje Modified oraz czy współrzędne jednoznacznie identyfikują slot.
+- Obecny model może wywnioskować usunięcie przy pojawieniu się innego
+  przedmiotu, a Removed może opróżnić slot zawierający według replaya inny
+  przedmiot. Trzeba oddzielić niepełność źródła od błędnej interpretacji,
+  niewłaściwego klucza slotu i problemów naszego fetchera.
+- Przypadek referencyjny: Runes of Aldur, Abyss/Expedition, Verisium.
+  Bilans operacji 7776, suma znanych stanów slotów 21776; różnica 14000.
+  W modelu 21 usunięć Verisium bez pasującego stanu zmniejsza bilans o 21000,
+  a 7 usunięć innych przedmiotów zeruje 7000 Verisium bez odpowiadającej
+  zmiany jego bilansu. Żadna z tych końcowych liczb nie jest potwierdzonym
+  stanem w grze. Zachować ten przypadek jako regresję do analizy.
+
+Zakres eksperymentów:
+- Uzgodnić z użytkownikiem sekwencję ręcznie wykonywanych działań w grze.
+  Zapisać rzeczywistą zawartość i ilości przed oraz po każdej operacji.
+- Sprawdzić Added, częściowe zmiany stosu, Removed, podmianę A → B,
+  przenoszenie pomiędzy slotami/skrytkami, dzielenie i łączenie stosów,
+  szybkie dodanie/usunięcie oraz działania różnych graczy. Jeśli dostępne,
+  porównać zwykłą i specjalną skrytkę oraz różne kontenery w jej obrębie.
+- Dla każdego kroku zachować oryginalne odpowiedzi API, identyfikatory,
+  czasy, wszystkie dostępne pola identyfikujące skrytkę/kontener/przedmiot
+  i parametry pobierania: kursor, strony, czas żądania. Nie utrwalać sekretów.
+  Ponowić odczyt po opóźnieniu, aby sprawdzić widoczność i kolejność wpisów.
+- Porównać stan gry → surowe API → zaimportowane wpisy → wyliczone operacje
+  → replay. Sprawdzić paginację, duplikaty, kolejność i opóźnione zdarzenia,
+  zanim brakujący wpis zostanie przypisany systemowi GGG.
+- Opisać potwierdzoną semantykę oraz przypadki niejednoznaczne. Zbudować
+  zanonimizowane fixture'y i testy regresyjne; dopiero na tej podstawie zmienić
+  interpretację i wersję algorytmu. Surowa historia pozostaje niezmieniona.
+- Weryfikować warunek: stan początkowy + suma zmian = stan końcowy dla każdego
+  przedmiotu i skrytki. Niewyjaśnione przejścia oznaczać jawnie; nie maskować
+  problemu przycięciem wykresu do zera ani uznaniem replaya za pewny stan gry.
+
+Odbiór: sytuacje odtworzono na żywo, istnieje zapis rzeczywistych działań
+wraz z odpowiadającymi odpowiedziami API oraz udokumentowane reguły ich
+interpretacji. Testy odróżniają operacje źródłowe, wnioskowane i nierozstrzygnięte;
+każda korekta obliczeń ma dowód w zebranych danych i zachowuje audytowalność.
+
 ## Etap 8 — zgodność i przejście na rework
 
-Zależność: etapy 2, 4–6; etap 7B tylko dla odbioru synchronizacji.
+Zależność: etapy 2, 4–6; etapy 7B i 7C dla odbioru synchronizacji
+i interpretacji historii z API.
 
 Zakres:
 - Porównanie wyników obu aplikacji na tym samym wejściu i jawne opisanie
@@ -326,6 +379,8 @@ Główna ścieżka: 0 → 1 → 2 → 2a → 3 → 4 → 4b → 5 → 5a → 5b 
 Etap 3 dostarcza mechanizm aktualizacji używany następnie przez 4, 6 i 7.
 Rozpoznanie dostępu z etapu 0 trwa niezależnie od portowania archiwów.
 Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
+Ścieżka integracji historii: 7B → 7C → odbiór integracyjny w 8.
+Nie łączyć automatycznie wdrożenia fetchera z analizą logów na żywo.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
@@ -407,6 +462,6 @@ Nie budować wizualnej symulacji na podstawie domyślnych założeń.
 Odbiór: uzgodniony design, zgodność układu i stanów z replay, ostatnie zdarzenia
 w tooltipach, płynna zmiana czasu i izolacja lig oraz ukrytych skrytek.
 
-Proponowana kolejność po odbiorze fazy 5a: 5b → 5c → 6 → 7 / 8.
+Proponowana kolejność po odbiorze fazy 5a: 5b → 5c → 6 → 7A/7B → 7C (po 7B) → 8.
 Każdy etap wymaga osobnego polecenia rozpoczęcia i kończy się zatrzymaniem do
 odbioru. Faza 5b jest wdrożona; faza 5c i wycena nie zostały rozpoczęte.
