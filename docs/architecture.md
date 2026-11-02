@@ -76,6 +76,9 @@ statycznych wykresów; nie jest źródłem danych interaktywnej aplikacji.
 ## Język i lokalizacja
 
 Planowana osobna faza 2a wprowadzi PL/EN i rozszerzalne katalogi tłumaczeń.
+Angielski (en) jest językiem domyślnym, bazą słowników oraz fallbackiem
+brakujących tłumaczeń. en.json musi być obecny i poprawny; walidacja innych
+języków porównuje ich klucze i parametry z angielskim słownikiem.
 Lista języków wynika z plików `frontend/src/locales/*.json`, bez dodatkowego
 rejestru w kodzie. Nazwa pliku określa kod locale, metadane nativeName — nazwę
 opcji, a messages — tłumaczenia. Build odkrywa i waliduje pliki. Nowy język

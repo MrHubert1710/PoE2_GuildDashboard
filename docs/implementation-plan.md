@@ -121,7 +121,9 @@ Zakres:
   błędów, pustych stanów, tooltipów i etykiet dostępności do słowników.
 - Kompaktowy wybór języka, opisany nazwami własnymi języków, bez flag państw.
   Kolejność wyboru: obsługiwany lang w URL → zapisana preferencja przeglądarki
-  → obsługiwany język przeglądarki → domyślne PL. Fallback brakującego tekstu: PL.
+  → obsługiwany język przeglądarki → domyślne EN. Fallback brakującego tekstu: EN.
+  Angielski jest językiem bazowym; plik en.json jest wymagany i stanowi punkt
+  odniesienia przy sprawdzaniu kluczy i parametrów pozostałych tłumaczeń.
 - Język zapisywać w preferencji i parametrze lang, aby link odtwarzał również
   język widoku. Zmiana aktualizuje URL bez utraty ligi, filtrów, sortowania,
   strony i otwartych elementów; nie wywołuje fetchowania ani ponownego importu.
@@ -151,7 +153,7 @@ Odbiór:
   a dodanie/usunięcie języka nie wymaga zmiany kodu. Niepoprawny JSON,
   metadane lub kod locale dają błąd walidacji builda. Po usunięciu języka
   zapisana preferencja lub lang w URL bez odpowiadającego pliku korzysta
-  z reguł fallbacku. Język domyślny musi pozostać dostępny.
+  z reguł fallbacku. Brak en.json lub nieprawidłowy słownik angielski blokuje build.
 
 ## Etap 3 — worker i kontrakt odświeżania
 
