@@ -453,3 +453,18 @@ test('tooltip uses pointer time between snapshots, keeps state and main wheel do
   expect(await graph.getAttribute('data-window-end')).toBe(String(end))
   await expect(graph.locator('svg circle')).toHaveCount(0)
 })
+
+test('automatic value-axis padding is not labelled as a real minimum or maximum',async({page})=>{
+  await page.goto(path)
+  const graph=page.getByTestId('time-series-chart')
+  await expect(graph).toBeVisible()
+  const min=Number(await graph.getAttribute('data-value-min')),max=Number(await graph.getAttribute('data-value-max'))
+  expect(min).toBe(-4);expect(max).toBe(67)
+  await expect(graph.locator('svg text').filter({hasText:/^-4$/})).toHaveCount(0)
+  await expect(graph.locator('svg text').filter({hasText:/^67$/})).toHaveCount(0)
+  await expect(graph.locator('svg text').filter({hasText:/^0$/})).toHaveCount(1)
+  await expect(graph.locator('svg text').filter({hasText:/^60$/})).toHaveCount(1)
+  const query=new URL(page.url());query.searchParams.set('chart_ymin','0');query.searchParams.set('chart_ymax','1')
+  await page.goto(query.href);await expect(graph).toBeVisible()
+  await expect(graph.locator('svg text').filter({hasText:/^1$/})).toHaveCount(1)
+})

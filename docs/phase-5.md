@@ -375,3 +375,15 @@ odczytem API dla czasu kursora, suma nie jest zdublowana. Sprawdzono miniatury,
 All, placeholder wyceny, popup koloru i mobile. Brak błędów JavaScript.
 Hash wszystkich surowych transakcji oraz konfiguracje lig/gildii są identyczne
 przed i po weryfikacji. Faza 5 kończy się ponownie odbiorem manualnym.
+
+### Etykiety marginesów osi Y
+
+Automatyczna skala zachowuje 5% marginesu, lecz nie podpisuje jego granic jako
+pozornych minimów/maksimów danych. Zwykłe podziałki pozostają widoczne. Ręcznie
+wybrany zakres nadal ma etykiety granic, także przy powiększeniu do jednej
+jednostki. Zmiana nie przycina linii ani nie modyfikuje danych.
+
+Zweryfikowany przykład: Runes of Aldur, stash $$$, All — rzeczywisty zakres
+serii 0–12136, podczas gdy -607 i 12743 były wyłącznie granicami marginesu.
+Build i 2 testy przeglądarkowe przeszły. Publiczny nginx potwierdził ukrycie
+obu etykiet marginesu i pozostawienie zwykłej podziałki 12000.

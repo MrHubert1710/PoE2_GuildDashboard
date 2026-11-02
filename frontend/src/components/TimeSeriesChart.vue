@@ -47,7 +47,7 @@ function draw(){
     grid:{left:65,right:20,top:18,bottom:35},
 
     xAxis:{type:'time',min:start,max:end,splitNumber:Math.max(2,Math.min(8,Math.floor(root.value.clientWidth/140))),axisLabel:{color:'#b7c4ca',hideOverlap:true,formatter:value=>axisDate(value,props.timezone,locale.value,span,displayHourFormat.value)},axisLine:{lineStyle:{color:'#46545e'}}},
-    yAxis:{type:'value',min:currentValueWindow.value.start,max:currentValueWindow.value.end,minInterval:1,axisLabel:{color:'#b7c4ca',formatter:value=>number(value)},splitLine:{lineStyle:{color:'#29363e'}}},
+    yAxis:{type:'value',min:currentValueWindow.value.start,max:currentValueWindow.value.end,minInterval:1,axisLabel:{color:'#b7c4ca',showMinLabel:Boolean(props.valueWindow),showMaxLabel:Boolean(props.valueWindow),formatter:value=>number(value)},splitLine:{lineStyle:{color:'#29363e'}}},
     series:plottedSeries.value.map(series=>({id:series.id,name:label(series),type:'line',step:'end',clip:true,showSymbol:false,symbol:'none',lineStyle:{width:series.aggregate?2.5:2,type:series.aggregate?'dashed':'solid',color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},itemStyle:{color:balanceColor(series,props.contextSeries.findIndex(value=>value.id===series.id))},data:series.visible.map(point=>[point.timestamp,point.balance])})),
   }
   chart.setOption(options,{notMerge:true,silent:true});chart.resize();root.value.querySelector('svg')?.setAttribute('aria-hidden','true')
