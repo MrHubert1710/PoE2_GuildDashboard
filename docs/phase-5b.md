@@ -103,8 +103,9 @@ Ta faza nie zmienia danych lig, algorytmu ilościowego ani cen.
 5. Wylogować się: znika diagnostyka i ustawienia serwera; bezpośrednie API
    `/api/database-status` i `/api/leagues/<id>/quantity-settings` zwracają 401.
 
-Po zakończeniu fazy zatrzymujemy się do ręcznej weryfikacji. Następna jest 5c,
-przed którą trzeba uzgodnić wygląd symulacji stasha.
+Po zakończeniu fazy zatrzymujemy się do ręcznej weryfikacji. Następna jest faza 6 — wycena. Symulacja stasha jest opcjonalnym etapem 9:
+po rozwiązaniu desynchronizacji stanów z logami w 7C i odbiorze głównego
+zakresu w 8. Przed jej rozpoczęciem nadal trzeba uzgodnić design.
 
 ## Weryfikacja — 2026-11-02
 

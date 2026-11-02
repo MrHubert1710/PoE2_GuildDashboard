@@ -2,7 +2,7 @@
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
 Status: fazy 0–5a odebrane przez użytkownika. Faza 5b zaimplementowana
-i wdrożona, oczekuje odbioru manualnego. Fazy 5c, 6 i dalsze nie są rozpoczęte.
+i wdrożona, oczekuje odbioru manualnego. Fazy 6 i dalsze nie są rozpoczęte; symulacja stasha to opcjonalny etap 9.
 Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md), [phase-5a.md](phase-5a.md), [phase-5b.md](phase-5b.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
@@ -376,9 +376,39 @@ bez sieci, odtworzenie danych jest powtarzalne, a znane ograniczenia źródeł s
 widoczne. Stara usługa pozostaje dostępna do porównania; wyłączenie jej lub
 usunięcie katalogu wymaga osobnego polecenia użytkownika.
 
+## Etap 9 — symulacja Stash state (opcjonalny, nice to have)
+
+Status: odłożony na koniec głównej ścieżki; wcześniej planowany jako 5c.
+Nie jest wymagany do ukończenia ani wdrożenia podstawowej aplikacji.
+
+Warunki rozpoczęcia:
+- Zakończyć integrację historii z API (7B), analizę na żywo (7C) i rozwiązać
+  problem desynchronizacji odtwarzanego stanu z logami. Potwierdzić reguły
+  interpretacji i zgodność stanów na kontrolowanych operacjach w grze.
+- Tymczasowe korekty rekonstrukcji uzgadniające księgowanie nie wystarczają
+  do uznania problemu desynchronizacji za rozwiązany.
+- Zakończyć główny zakres i odbiór w etapie 8. Wrócić do funkcji wyłącznie
+  na osobne polecenie użytkownika, jeśli nadal będzie potrzebna.
+
+**Przed rozpoczęciem zapytać użytkownika o design i poczekać na doprecyzowanie.**
+Nie budować wizualnej symulacji na podstawie domyślnych założeń.
+
+- Zastąpić tabelę odwzorowaniem skrytek z przedmiotami i tooltipem zawierającym
+  ostatnie zdarzenie dla danego przedmiotu/slotu.
+- Suwak czasu rekonstruuje stan skrytek w wybranym momencie, z osobną historią
+  każdej ligi. Removed opróżnia slot, a brak operacji zachowuje wcześniejszy stan.
+- Filtry strony nie wpływają na ten widok i mogą być w nim ukryte. Serwerowa
+  lista ignorowanych zakładek pozostaje wiążąca i nie może być obchodzona.
+- Rozważyć snapshoty stanów i odtwarzanie przyrostowe dla płynnego suwaka,
+  z testami spójności względem pełnego replay i kolejności równoczesnych operacji.
+
+Odbiór: uzgodniony design, zgodność układu i stanów z replay, ostatnie zdarzenia
+w tooltipach, płynna zmiana czasu i izolacja lig oraz ukrytych skrytek.
+
 ## Zależności i następny zakres pracy
 
-Główna ścieżka: 0 → 1 → 2 → 2a → 3 → 4 → 4b → 5 → 5a → 5b → 5c → 6 → 8.
+Główna ścieżka: 0 → 1 → 2 → 2a → 3 → 4 → 4b → 5 → 5a → 5b → 6 → 7A/7B → 7C → 8.
+Po głównej ścieżce: opcjonalny etap 9, po rozwiązaniu desynchronizacji stanów.
 Etap 3 dostarcza mechanizm aktualizacji używany następnie przez 4, 6 i 7.
 Rozpoznanie dostępu z etapu 0 trwa niezależnie od portowania archiwów.
 Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
@@ -388,8 +418,8 @@ Nie łączyć automatycznie wdrożenia fetchera z analizą logów na żywo.
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
 Faza 5a została odebrana; faza 5b (administracja i logowanie) została wdrożona
-i oczekuje odbioru. Następnie 5c
-(symulacja stasha po uzgodnieniu designu) oraz 6 (wycena).
+i oczekuje odbioru. Następny jest etap 6 (wycena). Symulacja stasha została
+odłożona do opcjonalnego etapu 9, po rozwiązaniu desynchronizacji i odbiorze w 8.
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.
 
@@ -448,23 +478,6 @@ Odbiór: gracz nie może odczytać diagnostyki ani zmieniać konfiguracji także
 bezpośrednio przez API; administrator może zalogować się, skonfigurować skrytki
 oraz wylogować. Konfiguracja połączenia GGG nastąpi z adapterem w 7B. Sekrety nie trafiają do odpowiedzi ani frontendu.
 
-### Etap 5c — symulacja Stash state (do realizacji po ustaleniu designu)
-
-**Przed rozpoczęciem zapytać użytkownika o design i poczekać na doprecyzowanie.**
-Nie budować wizualnej symulacji na podstawie domyślnych założeń.
-
-- Zastąpić tabelę odwzorowaniem skrytek z przedmiotami i tooltipem zawierającym
-  ostatnie zdarzenie dla danego przedmiotu/slotu.
-- Suwak czasu rekonstruuje stan skrytek w wybranym momencie, z osobną historią
-  każdej ligi. Removed opróżnia slot, a brak operacji zachowuje wcześniejszy stan.
-- Filtry strony nie wpływają na ten widok i mogą być w nim ukryte. Serwerowa
-  lista ignorowanych zakładek pozostaje wiążąca i nie może być obchodzona.
-- Rozważyć snapshoty stanów i odtwarzanie przyrostowe dla płynnego suwaka,
-  z testami spójności względem pełnego replay i kolejności równoczesnych operacji.
-
-Odbiór: uzgodniony design, zgodność układu i stanów z replay, ostatnie zdarzenia
-w tooltipach, płynna zmiana czasu i izolacja lig oraz ukrytych skrytek.
-
-Proponowana kolejność po odbiorze fazy 5a: 5b → 5c → 6 → 7A/7B → 7C (po 7B) → 8.
+Proponowana kolejność po odbiorze fazy 5a: 5b → 6 → 7A/7B → 7C (po 7B) → 8 → opcjonalnie 9.
 Każdy etap wymaga osobnego polecenia rozpoczęcia i kończy się zatrzymaniem do
-odbioru. Faza 5b jest wdrożona; faza 5c i wycena nie zostały rozpoczęte.
+odbioru. Faza 5b jest wdrożona; wycena i opcjonalna symulacja nie zostały rozpoczęte.
