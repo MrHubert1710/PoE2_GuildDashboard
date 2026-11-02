@@ -101,7 +101,7 @@ wszystkie filtry, zakresy UTC, stabilność stron, korektę numeru strony,
 Unicode/literalne znaki specjalne, walidację i SQL injection, rewizje, puste
 bazy/ligi, izolację HTML, brak pliku, checksum mismatch i ścieżkę poza data.
 
-Chromium: 16 scenariuszy łącznie, z 9 dla historii. Używają prawdziwych API
+Chromium: 17 scenariuszy łącznie, z 10 dla historii. Używają prawdziwych API
 na odrębnej syntetycznej bazie z 60/3 zdarzeniami. Obejmują reload, back/forward,
 wyścig spóźnionych odpowiedzi, błędy i retry, brak wyników, mobilny overflow,
 bezpieczne wyświetlenie HTML w polu przedmiotu i interaktywny dokument archiwum.
@@ -127,3 +127,17 @@ Odbiór w przeglądarce:
 5. Sprawdź mobilny układ i zakładkę Diagnostyka.
 
 Po zakończeniu fazy praca zatrzymuje się. Faza 3 wymaga osobnego polecenia.
+
+## Poprawka interfejsu po odbiorze fazy 2
+
+Kolumna ID zdarzenia jest ukryta w tabeli. Identyfikatory pozostają w modelu
+oraz API dla stabilnego stronicowania i identyfikacji wierszy.
+Wybór ligi przeniesiono do małego przełącznika nad nagłówkiem historii.
+Lista jest osobnym listboxem, dzięki czemu każda opcja ma własny pill statusu.
+Obsługa: kliknięcie, strzałki, Home/End, Enter/Space, Escape i zamknięcie poza listą.
+
+Status prezentacji: aktywna w metadanych → Aktywna; lokalnie zarchiwizowana →
+Archiwalna; zakończona bez lokalnej archiwizacji → Zakończona; pozostałe →
+Nieustalona. Nie ustalamy statusu na podstawie dat transakcji. Pill Archiwalna
+opisuje lokalną politykę; tooltip wyjaśnia, że status w grze może być nieznany.
+To korekta fazy 2, bez rozpoczęcia fazy 3.

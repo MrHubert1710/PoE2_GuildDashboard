@@ -10,7 +10,8 @@ test('switches leagues and limits each server page', async ({ page }) => {
   await page.getByRole('button', { name: 'Następna' }).click()
   await expect(page.locator('tbody tr')).toHaveCount(10)
   await expect(page).toHaveURL(/page=2/)
-  await page.getByRole('combobox', { name: 'Liga', exact: true }).selectOption({ label: 'Runes of Aldur' })
+  await page.getByRole('combobox', { name: 'Liga', exact: true }).click()
+  await page.getByRole('option', { name: 'Runes of Aldur', exact: false }).click()
   await expect(results(page)).toContainText('Wyniki: 3')
   await expect(page.locator('tbody')).toContainText('Aldur Token')
   await expect(page.locator('tbody')).not.toContainText('Rites Token')
@@ -58,7 +59,7 @@ test('combines stash and inclusive day filters and shows no matches', async ({ p
 test('a delayed old league response cannot overwrite the current league', async ({ page }) => {
   await page.goto(path)
   await expect(results(page)).toBeVisible()
-  const oldId = await page.getByRole('combobox', { name: 'Liga', exact: true }).inputValue()
+  const oldId = new URL(page.url()).searchParams.get('league')!
   let release!: () => void
   const blocked = new Promise<void>(resolve => { release = resolve })
   let captured!: () => void
@@ -71,7 +72,8 @@ test('a delayed old league response cannot overwrite the current league', async 
   })
   await page.getByRole('button', { name: 'Następna' }).click()
   await entered
-  await page.getByRole('combobox', { name: 'Liga', exact: true }).selectOption({ label: 'Runes of Aldur' })
+  await page.getByRole('combobox', { name: 'Liga', exact: true }).click()
+  await page.getByRole('option', { name: 'Runes of Aldur', exact: false }).click()
   await expect(results(page)).toContainText('Wyniki: 3')
   release()
   await expect(page.locator('tbody')).toContainText('Aldur Token')
@@ -108,7 +110,7 @@ test('unknown URL league is explicit and out-of-range pages are canonicalized', 
   await expect(page.getByRole('alert')).toContainText('Liga wskazana w adresie')
   await page.getByRole('button', { name: 'Wybierz pierwszą ligę' }).click()
   await expect(results(page)).toBeVisible()
-  const id = await page.getByRole('combobox', { name: 'Liga', exact: true }).inputValue()
+  const id = new URL(page.url()).searchParams.get('league')!
   await page.goto(path + `?league=${id}&page=999`)
   await expect(results(page)).toContainText('strona 2 z 2')
   await expect(page).toHaveURL(/page=2/)
@@ -144,4 +146,34 @@ test('mobile page stays within viewport and diagnostics remain accessible', asyn
   await expect(page.getByRole('heading', { name: 'Baza danych', exact: true })).toBeVisible()
   await page.goBack()
   await expect(page.getByRole('heading', { name: 'Historia skrytki.' })).toBeVisible()
+})
+
+test('compact league picker shows per-option status, supports keyboard and hides event IDs', async ({ page }) => {
+  await page.route('**/api/leagues', async route => {
+    const response = await route.fetch()
+    const payload = await response.json()
+    payload.leagues[1].lifecycle = 'active'
+    payload.leagues[1].archived = false
+    await route.fulfill({ json: payload })
+  })
+  await page.goto(path)
+  await expect(results(page)).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: 'ID zdarzenia' })).toHaveCount(0)
+  await expect(page.locator('thead th')).toHaveCount(6)
+  const picker = page.getByRole('combobox', { name: 'Liga', exact: true })
+  await picker.focus()
+  await picker.press('ArrowDown')
+  await expect(picker).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('option', { name: 'Forbidden Rites', exact: false })).toContainText('Archiwalna')
+  await expect(page.getByRole('option', { name: 'Runes of Aldur', exact: false })).toContainText('Aktywna')
+  await picker.press('End')
+  await picker.press('Enter')
+  await expect(results(page)).toContainText('Wyniki: 3')
+  await expect(picker).toContainText('Aktywna')
+  await picker.press('Enter')
+  await picker.press('Escape')
+  await expect(picker).toHaveAttribute('aria-expanded', 'false')
+  await picker.click()
+  await page.getByRole('heading', { name: 'Historia skrytki.' }).click()
+  await expect(picker).toHaveAttribute('aria-expanded', 'false')
 })

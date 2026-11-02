@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useHistory } from '../useHistory'
+import LeaguePicker from './LeaguePicker.vue'
 
 const { leagues, query, draft, result, loadingLeagues, loadingRows, leagueError, rowError, formError,
   selected, loadLeagues, selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy } = useHistory()
@@ -8,7 +9,6 @@ const date = (value: string | null) => value ? new Intl.DateTimeFormat('pl-PL', 
   dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC',
 }).format(new Date(value)) : 'Brak danych'
 const actionNames: Record<string, string> = { added: 'Dodano', removed: 'Usunięto', modified: 'Zmieniono' }
-const lifecycleNames = { unknown: 'Status nieustalony', active: 'Aktywna', ended: 'Zakończona' }
 const columns = [
   { key: 'date', label: 'Data (UTC)' }, { key: 'account', label: 'Gracz' },
   { key: 'action', label: 'Akcja' }, { key: 'stash', label: 'Skrytka' }, { key: 'item', label: 'Przedmiot' },
@@ -18,6 +18,9 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
 
 <template>
   <section class="history-browser" aria-labelledby="history-title">
+    <div v-if="leagues.length && !leagueError" class="history-options">
+      <LeaguePicker :leagues="leagues" :selected-id="query.league" :disabled="loadingLeagues" @select="selectLeague" />
+    </div>
     <div class="history-heading">
       <div><p class="eyebrow">POE2 GUILD</p><h1 id="history-title">Historia skrytki<span>.</span></h1><p class="intro">Przeglądaj transakcje gildii z zachowanych danych.</p></div>
       <button type="button" :disabled="loadingLeagues" @click="loadLeagues">Odśwież widok <span aria-hidden="true">↗</span></button>
@@ -28,24 +31,13 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
     <p v-if="!loadingLeagues && !leagueError && !leagues.length" class="empty-state">Brak lig w bazie. Po imporcie historii pojawią się tutaj dane.</p>
 
     <template v-if="leagues.length && !leagueError">
-      <div class="league-selection">
-        <label> Liga
-          <select aria-label="Liga" :value="query.league" :disabled="loadingLeagues" @change="selectLeague(($event.target as HTMLSelectElement).value)">
-            <option v-if="!selected" value="" disabled>Wybierz ligę</option>
-            <option v-for="league in leagues" :key="league.id" :value="league.id">{{ league.name }}</option>
-          </select>
-        </label>
-        <div v-if="selected" class="league-context">
-          <span class="badge">{{ selected.archived ? 'Archiwum lokalne' : 'Monitorowana liga' }}</span>
-          <span>{{ lifecycleNames[selected.lifecycle] }} · {{ number(selected.transactions) }} transakcji</span>
-        </div>
-      </div>
       <div v-if="!selected && !loadingLeagues" class="empty-state" role="alert">
         <p>Liga wskazana w adresie nie jest dostępna.</p><button type="button" @click="selectLeague(leagues[0]!.id)">Wybierz pierwszą ligę</button>
       </div>
 
       <template v-if="selected">
         <div class="league-summary">
+          <p>{{ number(selected.transactions) }} transakcji w lokalnej historii</p>
           <p>Zakres zachowanych danych: <strong>{{ date(selected.oldest_at) }}</strong> — <strong>{{ date(selected.newest_at) }}</strong> UTC</p>
           <p>Kompletność historii {{ selected.history_complete === null ? 'niepotwierdzona' : selected.history_complete ? 'potwierdzona' : 'niepełna' }}. Widok korzysta z lokalnej bazy.</p>
         </div>
@@ -75,12 +67,12 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
                 <th v-for="column in columns" :key="column.key" scope="col" :aria-sort="query.sort === column.key ? (query.direction === 'asc' ? 'ascending' : 'descending') : 'none'">
                   <button type="button" @click="sortBy(column.key)">{{ column.label }} <span v-if="query.sort === column.key" aria-hidden="true">{{ query.direction === 'asc' ? '↑' : '↓' }}</span></button>
                 </th>
-                <th scope="col">Pozycja</th><th scope="col">ID zdarzenia</th>
+                <th scope="col">Pozycja</th>
               </tr></thead>
               <tbody><tr v-for="row in result.rows" :key="row.id" :data-event-id="row.external_id">
                 <td class="date-cell">{{ date(row.occurred_at) }}</td><td>{{ row.account }}</td>
                 <td><span class="action" :class="row.action">{{ actionNames[row.action] ?? row.action }}</span></td>
-                <td>{{ row.stash }}</td><td class="item-cell">{{ row.item }}</td><td>{{ row.x }}, {{ row.y }}</td><td>{{ row.external_id }}</td>
+                <td>{{ row.stash }}</td><td class="item-cell">{{ row.item }}</td><td>{{ row.x }}, {{ row.y }}</td>
               </tr></tbody>
             </table>
           </div>
