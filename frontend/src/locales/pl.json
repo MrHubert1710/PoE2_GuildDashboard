@@ -384,6 +384,14 @@
     "rangeZone": "Zakres dat w strefie {zone}",
     "chart.navigator": "Zakres podglądu wykresu",
     "chart.navigatorStart": "Początek zakresu wykresu",
-    "chart.navigatorEnd": "Koniec zakresu wykresu"
+    "chart.navigatorEnd": "Koniec zakresu wykresu",
+    "chart.zoomValues": "Przybliż wartości",
+    "chart.resetValues": "Resetuj wartości",
+    "chart.valueNavigator": "Zakres wartości wykresu",
+    "chart.valueMin": "Minimalna wartość wykresu",
+    "chart.valueMax": "Maksymalna wartość wykresu",
+    "quantity.hourFormat": "Format godziny",
+    "quantity.hourAuto": "Domyślny dla języka",
+    "quantity.error.invalid_hour_format": "Wybierz 12 h, 24 h albo format domyślny dla języka."
   }
 }

@@ -34,7 +34,8 @@ test('switch and back/forward keep league, filters, page, drafts and rows withou
   const row = await page.locator('.history-transactions tbody tr').first().elementHandle()
   await page.getByLabel('Player', { exact: true }).fill('unsubmitted draft')
   const requests: string[] = []
-  page.on('request', request => { if (request.url().includes('/api/')) requests.push(request.url()) })
+  // The regular status poll runs independently of language navigation.
+  page.on('request', request => { if (request.url().includes('/api/') && !(request.method() === 'GET' && request.url().endsWith('/refresh'))) requests.push(request.url()) })
   await language(page).selectOption('pl')
   await expect(page.getByRole('navigation',{name:'Widoki ligi'}).getByRole('link',{name:'Historia',exact:true})).toBeVisible()
   await expect(page.getByLabel('Gracz', { exact: true })).toHaveValue('unsubmitted draft')
@@ -102,7 +103,8 @@ test('existing errors translate immediately without retrying the API', async ({ 
   await gotoHistory(page, path)
   await expect(page.getByRole('alert')).toContainText('League data has changed')
   const requests: string[] = []
-  page.on('request', request => { if (request.url().includes('/api/')) requests.push(request.url()) })
+  // The regular status poll runs independently of language navigation.
+  page.on('request', request => { if (request.url().includes('/api/') && !(request.method() === 'GET' && request.url().endsWith('/refresh'))) requests.push(request.url()) })
   await language(page).selectOption('pl')
   await expect(page.getByRole('alert')).toContainText('Dane ligi zmieniły się')
   await settle(page)
@@ -116,7 +118,8 @@ test('diagnostics keeps expanded evidence, formats numbers and translates provid
   const evidence = page.locator('[data-league]').first().locator('details')
   await evidence.locator('summary').click()
   const requests: string[] = []
-  page.on('request', request => { if (request.url().includes('/api/')) requests.push(request.url()) })
+  // The regular status poll runs independently of language navigation.
+  page.on('request', request => { if (request.url().includes('/api/') && !(request.method() === 'GET' && request.url().endsWith('/refresh'))) requests.push(request.url()) })
   await language(page).selectOption('pl')
   await expect(evidence).toHaveAttribute('open', '')
   await expect(page.getByTestId('database-summary')).toContainText('104\u00a0534 transakcje w SQLite')

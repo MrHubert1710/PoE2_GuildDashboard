@@ -252,3 +252,35 @@ test('league timezone applies to date filters, chart range and diagnostics label
     await expect(page.locator('main > footer')).toContainText('UTC+13:00')
   } finally {await restore(request)}
 })
+
+test('12/24 hour setting applies to history, chart and diagnostics without rebuilding quantities',async({page,request})=>{
+  try{
+    await page.goto(path+'&section=settings')
+    await expect(page.getByLabel('Time format',{exact:true})).toBeVisible()
+    const league=new URL(page.url()).searchParams.get('league'),endpoint=`/poe2guild/api/leagues/${league}`
+    await expect.poll(async()=>(await(await request.get(endpoint+'/quantities')).json()).projection?.state,{timeout:15000}).toBe('ready')
+    const original=await(await request.get(endpoint+'/quantities')).json()
+    await page.getByLabel('Time format',{exact:true}).selectOption('24')
+    await page.getByRole('button',{name:'Save settings and rebuild'}).click()
+    await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
+    const after=await(await request.get(endpoint+'/quantities')).json()
+    expect(after.projection.id).toBe(original.projection.id)
+    await goSection(page,'History')
+    await expect(page.locator('.history-transactions tbody tr').first().locator('td').first()).toContainText('12:00')
+    await expect(page.locator('.history-transactions tbody tr').first().locator('td').first()).not.toContainText(/AM|PM/)
+    await goSection(page,'Summary');await expect(page.getByTestId('time-series-chart')).toBeVisible()
+    await expect(page.getByTestId('time-series-chart').locator('svg')).not.toContainText(/AM|PM/)
+    await goSection(page,'Settings')
+    await page.getByLabel('Time format',{exact:true}).selectOption('12')
+    await page.getByRole('button',{name:'Save settings and rebuild'}).click()
+    await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
+    await goSection(page,'History')
+    await expect(page.locator('.history-transactions tbody tr').first().locator('td').first()).toContainText('PM')
+    await page.getByRole('link',{name:'Diagnostics',exact:true}).click()
+    await expect(page.locator('.refresh-facts')).toContainText(/AM|PM/)
+    await page.reload()
+    await page.getByRole('link',{name:'Workspace',exact:true}).click()
+    await goSection(page,'Settings')
+    await expect(page.getByLabel('Time format',{exact:true})).toHaveValue('12')
+  }finally{await restore(request)}
+})

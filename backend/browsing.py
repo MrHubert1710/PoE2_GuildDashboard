@@ -75,9 +75,11 @@ def leagues():
             league = dict(row)
             league['archived'] = bool(league['archived'])
             league['history_complete'] = None if row['history_complete'] is None else bool(row['history_complete'])
-            from .quantities import effective_settings, projection_hash, visible_stashes
+            from .quantities import effective_settings, projection_hash, visible_stashes, settings_hash
             configured = effective_settings(row, connection)
             league['timezone'] = configured['timezone']
+            league['hour_format'] = configured['hour_format']
+            league['display_settings_hash'] = settings_hash(configured)
             league['quantity_settings_hash'] = projection_hash(row, connection)
             league.pop('settings_json', None)
             league['revision'] = revision(connection, row['id'])

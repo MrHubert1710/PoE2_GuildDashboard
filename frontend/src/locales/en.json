@@ -374,6 +374,14 @@
     "rangeZone": "Date range in {zone}",
     "chart.navigator": "Chart overview range",
     "chart.navigatorStart": "Start of chart range",
-    "chart.navigatorEnd": "End of chart range"
+    "chart.navigatorEnd": "End of chart range",
+    "chart.zoomValues": "Zoom values",
+    "chart.resetValues": "Reset values",
+    "chart.valueNavigator": "Chart value range",
+    "chart.valueMin": "Minimum chart value",
+    "chart.valueMax": "Maximum chart value",
+    "quantity.hourFormat": "Time format",
+    "quantity.hourAuto": "Language default",
+    "quantity.error.invalid_hour_format": "Choose 12 h, 24 h or the language default."
   }
 }

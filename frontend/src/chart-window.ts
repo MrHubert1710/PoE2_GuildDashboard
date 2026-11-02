@@ -16,3 +16,9 @@ export function visiblePoints(overview:BalancePoint[],details:BalancePoint[],loa
   selected.push({timestamp:window.end,balance})
   return selected
 }
+
+export function clampValueRange(start:number,end:number,bounds:ChartWindow):ChartWindow {
+  const width=Math.min(bounds.end-bounds.start,Math.max(Math.min(1,bounds.end-bounds.start),end-start))
+  const first=Math.max(bounds.start,Math.min(bounds.end-width,start))
+  return {start:first,end:first+width}
+}

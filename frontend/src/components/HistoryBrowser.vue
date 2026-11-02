@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { t, date, displayTimezone } from '../i18n'
+import { t, date, displayTimezone, displayHourFormat } from '../i18n'
 import { section, currentUrl, navigateSection } from '../navigation'
 import { useHistory } from '../useHistory'
 import LeaguePicker from './LeaguePicker.vue'
@@ -27,6 +27,7 @@ const projectionId = ref<string | null>(null)
 watch([() => selected.value?.id,() => selected.value?.quantity_settings_hash], () => { projectionId.value = null })
 watch(() => selected.value?.id, () => { updateState.value = '' })
 watch(() => selected.value?.timezone, value => { displayTimezone.value = value ?? 'UTC' },{immediate:true})
+watch(() => selected.value?.hour_format, value => { displayHourFormat.value = value ?? 'auto' },{immediate:true})
 function updateProgress(state: 'pending' | 'failed' | 'ready') {
   if (state !== 'ready' || updateState.value) updateState.value = state
 }
@@ -67,7 +68,7 @@ const dataSection = computed(() => !['settings', 'archives'].includes(section.va
             <QuantityChart v-show="['summary','players','stashes'].includes(section)" :key="'chart-' + selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :projection-id="projectionId" :view="analysisView" :query="query" :active="!diagnostics && ['summary','players','stashes'].includes(section)" :refresh-token="refreshToken" @range="setDateRange" />
           </QuantityPanel>
           <HistoryTable v-show="section === 'history'" :query="query" :result="result" :loading-rows="loadingRows" :row-error="rowError" :timezone="selected.timezone ?? 'UTC'" @set-page="setPage" @set-page-size="setPageSize" @sort-by="sortBy" />
-          <QuantitySettings v-show="section === 'settings'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" @saved="settingsSaved" />
+          <QuantitySettings v-show="section === 'settings'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" :display-hash="selected.display_settings_hash" @saved="settingsSaved" />
           <ArchiveReports v-show="section === 'archives'" :selected="selected" />
         </div>
       </div>

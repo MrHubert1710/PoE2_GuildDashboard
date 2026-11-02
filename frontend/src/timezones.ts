@@ -12,7 +12,7 @@ export function timezoneSuggestions() {
   ]
 }
 
-export function formatZonedDate(value: string, locale: string, timeZone: string, options?: Intl.DateTimeFormatOptions) {
+export function formatZonedDate(value: string, locale: string, timeZone: string, options?: Intl.DateTimeFormatOptions, hourFormat: 'auto'|'12'|'24' = 'auto') {
   const input = timeZone.trim()
   const zone = (aliases as Record<string, string>)[input.toUpperCase()] ?? input
   const offset = /^UTC\s*([+-])\s*(\d{1,2})(?:(?::(\d{2}))|(\.\d{1,2}))?$/i.exec(zone)
@@ -24,7 +24,7 @@ export function formatZonedDate(value: string, locale: string, timeZone: string,
     date = new Date(date.getTime() + (offset[1] === '+' ? 1 : -1) * minutes * 60000)
     target = 'UTC'
   }
-  return new Intl.DateTimeFormat(locale, { ...(options ?? { dateStyle: 'medium', timeStyle: 'short' }), timeZone: target }).format(date)
+  return new Intl.DateTimeFormat(locale, { ...(options ?? { dateStyle: 'medium', timeStyle: 'short' }), timeZone: target, ...(hourFormat==='auto'?{}:{hourCycle:hourFormat==='12'?'h12':'h23'}) }).format(date)
 }
 
 
@@ -32,11 +32,11 @@ export function localDay(timestamp: number, zone: string) {
   const text=formatZonedDate(new Date(timestamp).toISOString(),'sv-SE',zone,{year:'numeric',month:'2-digit',day:'2-digit'})
   return text
 }
-export function axisDate(timestamp: number, zone: string, language: string, span: number) {
+export function axisDate(timestamp: number, zone: string, language: string, span: number, hourFormat: 'auto'|'12'|'24' = 'auto') {
   const options: Intl.DateTimeFormatOptions = span < 60000
     ? {hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3}
     : span < 86400000 ? {hour:'2-digit',minute:'2-digit',...(span<600000?{second:'2-digit'}:{})}
     : span < 31536000000 ? {month:'short',day:'numeric',...(span<604800000?{hour:'2-digit',minute:'2-digit'}:{})}
     : {year:'numeric',month:'short'}
-  return formatZonedDate(new Date(timestamp).toISOString(),language,zone,options)
+  return formatZonedDate(new Date(timestamp).toISOString(),language,zone,options,hourFormat)
 }

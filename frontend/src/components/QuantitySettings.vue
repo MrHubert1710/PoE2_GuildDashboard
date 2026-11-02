@@ -3,13 +3,13 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { timezoneSuggestions } from '../timezones'
 import { t } from '../i18n'
 import { useApiRequest } from '../composables/useApiRequest'
-const props = defineProps<{ leagueId: string; settingsHash?: string; refreshToken: number }>()
+const props = defineProps<{ leagueId: string; settingsHash?: string; displayHash?: string; refreshToken: number }>()
 const emit = defineEmits<{ saved: [] }>()
 const { request, stopped } = useApiRequest(`${import.meta.env.BASE_URL}api/leagues/${encodeURIComponent(props.leagueId)}`)
 const settingsError = ref(''), saving = ref(false), dirty = ref(false), ready = ref(false)
 const scope = ref('league'), guildAvailable = ref(false), guildHash = ref(''), inherited = ref(false)
 const settingsHash = ref(''), rawStashes = ref<string[]>([])
-const allStashes = ref(true), targets = ref<string[]>([]), timezone = ref('UTC')
+const allStashes = ref(true), targets = ref<string[]>([]), timezone = ref('UTC'), hourFormat = ref<'auto'|'12'|'24'>('auto')
 const aliases = reactive<Record<string, string>>({})
 const stashNames = computed(() => {
   const names = new Set([...rawStashes.value, ...Object.keys(aliases)])
@@ -50,6 +50,7 @@ async function loadSettings() {
   allStashes.value = result.settings.target_stashes === null
   targets.value = result.settings.target_stashes ?? []
   timezone.value = result.settings.timezone
+  hourFormat.value = result.settings.hour_format ?? 'auto'
   for (const key of Object.keys(aliases)) delete aliases[key]
   Object.assign(aliases, result.settings.stash_aliases)
   ready.value = true
@@ -59,7 +60,7 @@ async function save(selectedScope = scope.value) {
   try {
     const stash_aliases = Object.fromEntries(Object.entries(aliases).map(([name, alias]) => [name, alias.trim()]).filter(([raw, alias]) => alias && alias !== raw))
     const result = await request('/quantity-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected_hash: settingsHash.value, scope: selectedScope, expected_guild_hash: guildHash.value,
-      settings: { target_stashes: allStashes.value ? null : targets.value, stash_aliases, timezone: timezone.value.trim() } }) })
+      settings: { target_stashes: allStashes.value ? null : targets.value, stash_aliases, timezone: timezone.value.trim(), hour_format: hourFormat.value } }) })
     if (stopped()) return
     settingsHash.value = result.settings_hash
     emit('saved')
@@ -69,7 +70,7 @@ async function save(selectedScope = scope.value) {
   } catch (cause) { if (!stopped()) settingsError.value = cause instanceof Error ? cause.message : 'invalid_settings' }
   finally { if (!stopped()) saving.value = false }
 }
-watch(() => [props.settingsHash, props.refreshToken], () => { if (!dirty.value) void loadSettings().catch(() => { settingsError.value = 'report_unavailable' }) })
+watch(() => [props.settingsHash, props.displayHash, props.refreshToken], () => { if (!dirty.value) void loadSettings().catch(() => { settingsError.value = 'report_unavailable' }) })
 onMounted(() => { void loadSettings().catch(() => { settingsError.value = 'report_unavailable' }) })
 </script>
 <template><section class="quantity-settings settings-view" data-testid="quantity-settings">
@@ -83,6 +84,7 @@ onMounted(() => { void loadSettings().catch(() => { settingsError.value = 'repor
         <label class="check-label"><input v-model="allStashes" type="checkbox" />{{ t('quantity.allStashes') }}</label>
 
         <label>{{ t('quantity.timezone') }}<input v-model="timezone" list="quantity-timezones" required maxlength="100" aria-describedby="timezone-help" /></label><datalist id="quantity-timezones"><option v-for="zone in timezones" :key="zone.value" :value="zone.value">{{ zone.label }}</option></datalist>
+        <label>{{ t('quantity.hourFormat') }}<select v-model="hourFormat" :aria-label="t('quantity.hourFormat')"><option value="auto">{{ t('quantity.hourAuto') }}</option><option value="12">12 h</option><option value="24">24 h</option></select></label>
         <p id="timezone-help" class="footnote">{{ t('quantity.timezoneHelp') }}</p>
         <p class="footnote">{{ t('quantity.aliasNote') }}</p>
         <p class="footnote">{{ t('quantity.stashSelectionNote') }}</p>

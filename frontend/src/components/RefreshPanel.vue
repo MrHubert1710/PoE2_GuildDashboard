@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { t, date, displayTimezone } from '../i18n'
 interface Job { state: string; attempts: number; error_code: string | null; available_at: string }
 interface ScopeStatus { available: boolean; reason: string | null; last_success_at: string | null; cooldown_until: string | null; automatic_retry_at: string | null; job: Job | null; last_result: { transactions: number; revision: string } | null }
-interface Status { quantity_settings_hash?: string; league_id: string; revision: string; worker: string; history: ScopeStatus; local_verify: ScopeStatus; last_generated_at: string | null }
+interface Status { display_settings_hash?: string; quantity_settings_hash?: string; league_id: string; revision: string; worker: string; history: ScopeStatus; local_verify: ScopeStatus; last_generated_at: string | null }
 const props = defineProps<{ leagueId: string; revision: string; diagnostics: boolean }>()
 const emit = defineEmits<{ revisionChanged: [] }>()
 const status = ref<Status | null>(null)
@@ -39,8 +39,8 @@ async function load() {
     if (['refresh.queued', 'refresh.coalesced', 'refresh.cooldown'].includes(notice.value) && !active(payload[noticeKind])) notice.value = ''
     status.value = payload
     error.value = false
-    if (payload.revision !== props.revision || (previousSettings && previousSettings !== payload.quantity_settings_hash)) emit('revisionChanged')
-    previousSettings = payload.quantity_settings_hash
+    if (payload.revision !== props.revision || (previousSettings && previousSettings !== payload.quantity_settings_hash + ':' + (payload.display_settings_hash ?? ''))) emit('revisionChanged')
+    previousSettings = payload.quantity_settings_hash + ':' + (payload.display_settings_hash ?? '')
   } catch { if (!stopped && current === sequence) error.value = true }
 }
 async function submit(kind: 'history' | 'local_verify', trigger: 'manual' | 'automatic' = 'manual') {

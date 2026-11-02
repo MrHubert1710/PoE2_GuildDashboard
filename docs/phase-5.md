@@ -184,3 +184,35 @@ identyczne ścieżki i domenę, a pola dni aktualizowały się automatycznie.
 Zweryfikowano Home/End, reset pierwotnych dat, stale widoczną legendę i mobile.
 Porównanie wszystkich źródłowych kolumn transakcji i ustawień przed/po wykazało
 brak zmian. Nie ma migracji, zmiany ilości ani rozpoczęcia fazy 6.
+
+### Miniatura wartości i format godzin
+
+Po prawej stronie wykresu znajduje się pionowa miniatura pełnego zakresu
+wartości. Górny i dolny uchwyt zawężają oś Y, a przesuwanie zaznaczenia zmienia
+jej położenie. Obsługuje także strzałki, Shift oraz Home/End. „Przybliż wartości”
+zawęża zakres, „Resetuj wartości” przywraca automatyczną skalę dla aktualnego
+okna czasu. Zakres Y jest zapisany w URL jako chart_ymin/chart_ymax; zachowuje
+się po odświeżeniu. Nie zmienia czasu, filtrów ani danych i nie pobiera ponownie
+serii. Zmiana przedmiotu lub pełny reset usuwa ręczne przybliżenie wartości.
+
+Ustawienia zawierają wybór formatu godzin: domyślny dla języka, 12 h lub 24 h.
+Obejmuje tabele, wykresy, tooltipy, diagnostykę i stopkę. Ustawienie hour_format
+jest przechowywane na serwerze wraz z ustawieniami ligi albo domyślnymi gildii;
+obowiązuje wszystkich klientów korzystających z tej konfiguracji. Starsze
+konfiguracje otrzymują domyślne auto bez zapisywania ich ponownie.
+Zmiana samego formatu godzin nie unieważnia projekcji ilości i nie wymaga
+przeliczania historii. display_settings_hash pozwala innym klientom wykryć
+zmianę prezentacji. Schemat bazy i surowe transakcje pozostają bez zmian.
+
+Walidacja: 133 testy backendu, 69 przeglądarkowych i 16 tłumaczeń przeszły;
+TypeScript/Vite buduje się poprawnie. Testy obejmują niezależność osi, zachowanie
+URL po refresh/reload, reset, wysokość miniatur na desktop/mobile, dziedziczenie
+formatu godzin i brak nowej projekcji przy jego zmianie. Test zmiany języka
+pomija niezależne, cykliczne odczyty statusu synchronizacji.
+
+Po wdrożeniu przez nginx sprawdzono zoom Y, przesuwanie zaznaczenia, zachowanie
+osi czasu, reload/reset, ustawienie formatu i gotowe projekcje obu lig.
+Obie miniatury mieszczą się przy głównym wykresie; mobile nie ma poziomego
+przepełnienia dokumentu. Brak błędów JavaScript. Hash wszystkich kolumn 104534
+źródłowych transakcji oraz konfiguracje lig/gildii są identyczne przed i po.
+Faza 6 nie została rozpoczęta; etap kończy się weryfikacją manualną użytkownika.

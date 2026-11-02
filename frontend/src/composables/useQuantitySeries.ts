@@ -18,7 +18,7 @@ export function useQuantitySeries(props:{leagueId:string;revision:string;setting
   const {request,stopped}=useApiRequest(`${import.meta.env.BASE_URL}api/leagues/${encodeURIComponent(props.leagueId)}`)
   let sequence=0,timer:ReturnType<typeof setTimeout>|undefined,lastContext=''
   const context=()=>JSON.stringify([props.active,props.projectionId,props.revision,props.settingsHash,selectedItem.value,props.view,...(['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word','from','to'] as Array<keyof HistoryQuery>).map(key=>effectiveQuery.value[key])])
-  function chooseItem(value:string){const url=new URL(currentUrl.value);if(value)url.searchParams.set('chart_item',value);else url.searchParams.delete('chart_item');url.searchParams.delete('chart_from');url.searchParams.delete('chart_to');updateUrl(url)}
+  function chooseItem(value:string){const url=new URL(currentUrl.value);if(value)url.searchParams.set('chart_item',value);else url.searchParams.delete('chart_item');url.searchParams.delete('chart_from');url.searchParams.delete('chart_to');url.searchParams.delete('chart_ymin');url.searchParams.delete('chart_ymax');updateUrl(url)}
   async function load(){
     const current=++sequence,key=context()
     if(!props.active||!props.projectionId){data.value=null;loading.value=false;return}

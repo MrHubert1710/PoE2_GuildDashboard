@@ -208,6 +208,35 @@ class QuantityApiTests(unittest.TestCase):
                              (state['projection']['id'],)).fetchone()
             self.assertEqual(tuple(latest),(0,''))
 
+    def test_hour_format_is_validated_and_does_not_invalidate_quantity_projection(self):
+        first=self.build()['projection']['id']
+        before=self.client.get('/api/leagues').json['leagues']
+        old=next(row for row in before if row['id']=='A')
+        result=self.save(dict(DEFAULTS,hour_format='24'))
+        self.assertEqual(result.status_code,200)
+        self.assertEqual(self.config()['settings']['hour_format'],'24')
+        report=self.client.get('/api/leagues/A/quantities').json
+        self.assertEqual(report['projection']['state'],'ready')
+        self.assertEqual(report['projection']['id'],first)
+        self.assertEqual(self.queue.enqueue('A','quantities','manual')['outcome'],'fresh')
+        new=next(row for row in self.client.get('/api/leagues').json['leagues'] if row['id']=='A')
+        self.assertEqual(new['hour_format'],'24')
+        self.assertEqual(new['quantity_settings_hash'],old['quantity_settings_hash'])
+        self.assertNotEqual(new['display_settings_hash'],old['display_settings_hash'])
+        for value in ('25',24,True,[],None):
+            with self.subTest(value=value):
+                self.assertEqual(self.save(dict(DEFAULTS,hour_format=value)).status_code,400)
+
+    def test_hour_format_inherits_from_guild_and_old_settings_remain_compatible(self):
+        self.save(dict(DEFAULTS,hour_format='12'),scope='guild')
+        self.assertEqual(self.config('B')['settings']['hour_format'],'12')
+        self.assertEqual(self.config('C')['settings']['hour_format'],'auto')
+        self.save(dict(DEFAULTS,hour_format='24'),'B')
+        self.assertEqual(self.config('B')['settings']['hour_format'],'24')
+        legacy={key:value for key,value in DEFAULTS.items() if key!='hour_format'}
+        self.assertEqual(self.save(legacy,'B').status_code,200)
+        self.assertEqual(self.config('B')['settings']['hour_format'],'auto')
+
     def test_filter_replays_prior_days_and_accounts_before_applying_filters(self):
         self.build()
         result=self.client.get('/api/leagues/A/quantities?account=Buyer&from=2026-01-02&to=2026-01-02').json

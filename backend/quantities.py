@@ -12,7 +12,7 @@ from .database import connect, require_schema, utc_now
 
 ALGORITHM = 'quantities-v3'
 MAX_QUANTITY = 10**9  # Bounded integer arithmetic, safely representable by browser clients.
-DEFAULTS = {'target_stashes': None, 'stash_aliases': {}, 'timezone': 'UTC'}
+DEFAULTS = {'target_stashes': None, 'stash_aliases': {}, 'timezone': 'UTC', 'hour_format': 'auto'}
 
 
 def guild_source(connection, league_id):
@@ -26,13 +26,13 @@ def guild_source(connection, league_id):
 def guild_defaults(connection, league_id):
     source = guild_source(connection, league_id)
     row = connection.execute('SELECT settings_json FROM guild_quantity_defaults WHERE source_id=?', (source,)).fetchone() if source else None
-    return source, json.loads(row[0]) if row else DEFAULTS.copy()
+    return source, dict(DEFAULTS, **json.loads(row[0])) if row else DEFAULTS.copy()
 
 
 def effective_settings(league, connection=None):
     original = json.loads(league['settings_json'])
     if 'quantity_settings' in original:
-        return original['quantity_settings'].copy()
+        return dict(DEFAULTS, **original['quantity_settings'])
     return guild_defaults(connection, league['id'])[1] if connection is not None else DEFAULTS.copy()
 
 
@@ -50,7 +50,7 @@ def settings_hash(settings):
 
 
 def validate_settings(value):
-    if not isinstance(value, dict) or set(value) != set(DEFAULTS):
+    if not isinstance(value, dict) or not (set(DEFAULTS) - {'hour_format'}) <= set(value) or set(value) - set(DEFAULTS):
         raise ValueError('invalid_settings')
     def name(text):
         return isinstance(text, str) and 0 < len(text) <= 200 and text == text.strip()
@@ -62,8 +62,11 @@ def validate_settings(value):
     if any(target in aliases and aliases[target] != target for target in aliases.values()):
         raise ValueError('alias_chain')
     zone = normalize_timezone(zone)
+    hour_format = value.get('hour_format', 'auto')
+    if hour_format not in ('auto', '12', '24'):
+        raise ValueError('invalid_hour_format')
     return {'target_stashes': sorted(set(targets)) if targets is not None else None,
-            'stash_aliases': dict(sorted(aliases.items())), 'timezone': zone}
+            'stash_aliases': dict(sorted(aliases.items())), 'timezone': zone, 'hour_format': hour_format}
 
 
 def parse_quantity(text):
@@ -195,7 +198,8 @@ def replay(events, settings, stop=None):
 
 
 def projection_hash(league, connection):
-    return settings_hash({'settings': effective_settings(league, connection), 'initial_empty': True})
+    configured = effective_settings(league, connection)
+    return settings_hash({'settings': {key: configured[key] for key in ('target_stashes', 'stash_aliases', 'timezone')}, 'initial_empty': True})
 
 
 def current_run(connection, league, input_revision=None):

@@ -230,7 +230,8 @@ class Queue:
                     result[kind]['job']['available_at'] = stamp(job['available_at'])
             generated = connection.execute("SELECT MAX(created_at) FROM revisions WHERE league_id=? AND kind='report'", (league_id,)).fetchone()[0]
             quantity_date = connection.execute('SELECT MAX(created_at) FROM quantity_runs WHERE league_id=?', (league_id,)).fetchone()[0]
-            from .quantities import effective_settings, projection_hash
+            from .quantities import effective_settings, projection_hash, settings_hash
             result['quantity_settings_hash'] = projection_hash(league, connection)
+            result['display_settings_hash'] = settings_hash(effective_settings(league, connection))
             result['last_generated_at'] = max(filter(None, (generated, quantity_date)), default=None)
             return result
