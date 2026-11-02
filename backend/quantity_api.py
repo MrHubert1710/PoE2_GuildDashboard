@@ -123,7 +123,7 @@ def report(league_id):
         settings = effective_settings(league, c)
         if not run:
             return jsonify(league_id=league_id, projection=meta, settings=settings, rows=[], total=0, pages=1, page=1, stats=None)
-        conditions, values = ['q.run_id=?'], [run['id']]
+        conditions, values = ["q.run_id=?", "q.effective_action!='excluded'"], [run['id']]
         if account:
             predicate, arguments = filters.predicate('account', 't.account')
             conditions.append(predicate); values.extend(arguments)

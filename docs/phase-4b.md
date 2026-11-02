@@ -181,3 +181,40 @@ Walidacja rozszerzenia stref: 115 testów backendu, 55 przeglądarkowych,
 nginx potwierdził obsługę PST i przesunięć, odrzucenie UTC+25 oraz podpowiedzi
 PL/EN/mobile. Próby walidacji użyły celowo niezgodnego hasha wersji; porównanie
 przed/po potwierdziło brak zmiany produkcyjnych ustawień.
+
+
+## Poprawka widoczności wyłączonych skrytek
+
+Pomijanie skrytki obejmuje teraz cały bieżący panel: listę opcji filtra,
+źródłową tabelę historii, liczniki i zakres dat ligi oraz wszystkie podsumowania
+ilościowe. Odczyt historii i metadanych stosuje aktualną konfigurację bez
+oczekiwania na projekcję. Wyniki analizy pozostają puste do zakończenia nowego
+przeliczenia; stary wynik nie jest przedstawiany jako aktualny. Statystyki
+zdarzeń nie uwzględniają już wpisów excluded. Jawny filtr API wyłączonej skrytki
+zwraca zero zdarzeń. Zapisane URL i drafty są czyszczone z ukrytych zaznaczeń.
+
+Pełna lista pozostaje dostępna w Ustawieniach, aby można było przywrócić
+skrytki. Wybór respektuje aliasy i dziedziczenie gildii; nadpisania ligi są
+niezależne. transactions/raw_json i stare projekcje nie są usuwane ani zmieniane.
+Oryginalne archiwalne dokumenty HTML nadal pozostają historycznymi plikami,
+których treść nie jest dynamicznie generowana na podstawie bieżących ustawień.
+Diagnostyka integralności nadal opisuje wszystkie przechowywane dane źródłowe.
+
+Zapis pokazuje status zapisywania, a w panelu nad treścią widoczny jest stan
+aktualizacji analizy: oczekiwanie, gotowe lub błąd z przejściem do ponowienia.
+Status działa też podczas oglądania Ustawień lub Historii. Wspólny polling
+raportu wykrywa zakończenie; nie dodano drugiego niezależnego pollera. Zapis
+odświeża metadane także wtedy, gdy późniejsze zgłoszenie przeliczenia zawiedzie.
+Ponowny zapis bez zmiany ustawień również kończy się stanem „Analiza jest aktualna”.
+
+
+Walidacja poprawki widoczności: 117 testów backendu, 57 przeglądarkowych,
+16 tłumaczeń i build TypeScript/Vite zakończone powodzeniem. Scenariusze
+obejmują opóźniony raport, ukrycie wcześniej zaznaczonej skrytki i czyszczenie
+URL, przywracanie, brak zmiany ustawień, błąd odczytu i odzyskanie gotowości.
+Publiczny nginx przy zachowanych ustawieniach potwierdził 9 344 widoczne
+zdarzenia / 8 ukrytych zakładek dla Forbidden Rites oraz 60 608 / 10 dla
+Runes of Aldur. Liczniki, opcje filtra, API historii i statystyki podsumowania
+są zgodne. Porównanie skrótów wszystkich kolumn źródłowych transakcji przed
+wdrożeniem i po nim potwierdziło brak zmian. Przeliczono brakującą projekcję
+Forbidden Rites, bez zmiany produkcyjnej konfiguracji.

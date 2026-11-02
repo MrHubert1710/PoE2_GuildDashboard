@@ -36,6 +36,15 @@ def effective_settings(league, connection=None):
     return guild_defaults(connection, league['id'])[1] if connection is not None else DEFAULTS.copy()
 
 
+def visible_stashes(connection, league_id, settings):
+    """Raw names visible under the league's current canonical stash selection."""
+    names = [row[0] for row in connection.execute(
+        'SELECT DISTINCT stash FROM transactions WHERE league_id=? ORDER BY stash', (league_id,))]
+    targets = settings['target_stashes']
+    aliases = settings['stash_aliases']
+    return names if targets is None else [name for name in names if aliases.get(name, name) in targets]
+
+
 def settings_hash(settings):
     return hashlib.sha256(canonical(settings).encode()).hexdigest()
 

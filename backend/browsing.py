@@ -75,15 +75,21 @@ def leagues():
             league = dict(row)
             league['archived'] = bool(league['archived'])
             league['history_complete'] = None if row['history_complete'] is None else bool(row['history_complete'])
-            from .quantities import effective_settings, projection_hash
+            from .quantities import effective_settings, projection_hash, visible_stashes
             configured = effective_settings(row, connection)
             league['timezone'] = configured['timezone']
             league['quantity_settings_hash'] = projection_hash(row, connection)
             league.pop('settings_json', None)
             league['revision'] = revision(connection, row['id'])
             league['reports'] = reports(connection, row['id'])
-            league['stashes'] = [stash[0] for stash in connection.execute(
-                'SELECT DISTINCT stash FROM transactions WHERE league_id=? ORDER BY stash', (row['id'],))]
+            league['stashes'] = visible_stashes(connection, row['id'], configured)
+            if configured['target_stashes'] is not None:
+                names = league['stashes']
+                placeholders = ','.join('?' for _ in names)
+                coverage = connection.execute(
+                    f'SELECT COUNT(*) AS transactions,MIN(occurred_at) AS oldest_at,MAX(occurred_at) AS newest_at '
+                    f'FROM transactions WHERE league_id=? AND stash IN ({placeholders})', [row['id'], *names]).fetchone()
+                league.update(dict(coverage))
             result.append(league)
         return jsonify(leagues=result)
 
@@ -172,6 +178,13 @@ def transactions(league_id):
         connection.create_function('casefold', 1, lambda value: value.casefold(), deterministic=True)
         filters.bind(connection)
         league_or_error(connection, league_id)
+        from .quantities import effective_settings, visible_stashes
+        league = connection.execute('SELECT * FROM leagues WHERE id=?', (league_id,)).fetchone()
+        configured = effective_settings(league, connection)
+        if configured['target_stashes'] is not None:
+            names = visible_stashes(connection, league_id, configured)
+            conditions.append('t.stash IN (' + ','.join('?' for _ in names) + ')')
+            values.extend(names)
         current_revision = revision(connection, league_id)
         if expected_revision and current_revision != expected_revision:
             raise ReadError('revision_changed', 409)

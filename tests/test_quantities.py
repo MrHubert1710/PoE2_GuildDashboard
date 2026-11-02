@@ -206,11 +206,48 @@ class QuantityApiTests(unittest.TestCase):
         self.assertEqual(self.save(dict(DEFAULTS,target_stashes=[])).status_code,200)
         current=self.client.get('/api/leagues/A/quantities').json
         self.assertEqual(current['projection']['state'],'stale');self.assertEqual(current['rows'],[])
-        self.assertNotIn('quantity',self.client.get('/api/leagues/A/transactions').json['rows'][0])
+        self.assertEqual(self.client.get('/api/leagues/A/transactions').json['rows'],[])
         response=self.client.put('/api/leagues/A/quantity-settings',json={'expected_hash':configuration['settings_hash'],'settings':DEFAULTS})
         self.assertEqual(response.status_code,409)
-        result=self.build();self.assertEqual(result['stats']['excluded'],4)
+        result=self.build();self.assertEqual(result['stats']['events'],0)
+        self.assertEqual(result['stats']['excluded'],0)
         with connect(self.path) as c:self.assertIsNotNone(c.execute('SELECT * FROM quantity_runs WHERE id=?',(old,)).fetchone())
+
+    def test_hidden_stashes_are_removed_from_all_views_before_rebuild_and_can_be_restored(self):
+        self.insert(event(30,'added',2,stash='Special',x=5),'A')
+        self.build()
+        self.save(dict(DEFAULTS,target_stashes=['Special'],stash_aliases={'Main':'Renamed'}))
+        # Visibility follows saved settings immediately, even while the projection is stale.
+        league=next(row for row in self.client.get('/api/leagues').json['leagues'] if row['id']=='A')
+        self.assertEqual(league['stashes'],['Special'])
+        self.assertEqual(league['transactions'],1)
+        self.assertEqual(self.client.get('/api/leagues/A/transactions').json['total'],1)
+        self.assertEqual(self.client.get('/api/leagues/A/transactions?stash=Main').json['total'],0)
+        self.assertEqual(set(self.config()['stashes']),{'Main','Special'})
+        self.assertEqual(self.client.get('/api/leagues/A/quantities').json['projection']['state'],'stale')
+        self.build()
+        for view in ('summary','players','stashes','state'):
+            report=self.client.get('/api/leagues/A/quantities?view='+view).json
+            self.assertEqual(report['stats']['events'],1)
+            self.assertEqual(report['stats']['excluded'],0)
+            self.assertTrue(all(row.get('stash','Special')=='Special' for row in report['rows']))
+        with connect(self.path) as c:self.assertEqual(c.execute("SELECT COUNT(*) FROM transactions WHERE league_id='A'").fetchone()[0],5)
+        self.save(DEFAULTS)
+        self.assertEqual(self.client.get('/api/leagues/A/transactions').json['total'],5)
+        self.build()
+        self.assertEqual(self.client.get('/api/leagues/A/quantities').json['stats']['events'],5)
+
+    def test_alias_selection_hides_raw_names_and_guild_defaults_apply_per_league(self):
+        self.save(dict(DEFAULTS,stash_aliases={'Main':'Shared'},target_stashes=['Shared']),scope='guild')
+        a=next(row for row in self.client.get('/api/leagues').json['leagues'] if row['id']=='A')
+        self.assertEqual(a['stashes'],['Main'])
+        self.assertEqual(a['transactions'],4)
+        self.save(dict(DEFAULTS,target_stashes=[]),scope='guild')
+        leagues={row['id']:row for row in self.client.get('/api/leagues').json['leagues']}
+        self.assertEqual(leagues['A']['transactions'],0)
+        self.assertEqual(leagues['B']['transactions'],0)
+        self.assertEqual(leagues['C']['transactions'],1)
+        self.assertEqual(self.client.get('/api/leagues/B/transactions').json['rows'],[])
 
     def test_input_change_and_settings_change_fence_staged_publication(self):
         self.queue.enqueue('A','quantities','automatic');lease=self.queue.claim('worker')

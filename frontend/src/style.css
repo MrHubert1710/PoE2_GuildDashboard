@@ -235,3 +235,5 @@ header { flex-wrap: wrap; }
   .stash-settings-row { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
   .stash-settings-row > label:last-child { grid-column: 1 / -1; }
 }
+
+.projection-status { padding: 12px 14px; margin: 0 0 16px; background: #22342b; border: 1px solid #4b6656; border-radius: 6px; font-size: 13px; }

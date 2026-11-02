@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import { watch } from 'vue'
 import type { HistoryQuery } from '../browsing'
 import { t, number, date } from '../i18n'
 import { useQuantityReport } from '../composables/useQuantityReport'
 const props = defineProps<{ leagueId: string; revision: string; settingsHash?: string; query: HistoryQuery; view: string; refreshToken: number }>()
-const emit = defineEmits<{ generated: [] }>()
+const emit = defineEmits<{ generated: []; progress: [state: 'pending' | 'failed' | 'ready']; problem: [] }>()
 const { report, error, jobState, busy, move, enqueue } = useQuantityReport(props, () => emit('generated'))
+watch(error, value => { if (value) emit('problem') })
+watch([report, jobState], () => {
+  if (jobState.value === 'failed') emit('progress', 'failed')
+  else if (report.value) emit('progress', report.value.projection.state === 'ready' ? 'ready' : 'pending')
+})
 const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
 </script>
 <template>

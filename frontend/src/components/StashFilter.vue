@@ -33,7 +33,7 @@ function toggle(stash: string) {
         <button type="button" @click="selectAll">{{ t('allStashes') }}</button>
       </div>
       <div class="stash-filter-options">
-        <label v-for="stash in [...new Set([...options, ...modelValue])]" :key="stash" :class="{ selected: modelValue.includes(stash) }">
+        <label v-for="stash in [...new Set(options)]" :key="stash" :class="{ selected: modelValue.includes(stash) }">
           <input type="checkbox" name="stash" :value="stash" :checked="modelValue.includes(stash)" @change="toggle(stash)" />
           <span>{{ stash }}</span>
         </label>

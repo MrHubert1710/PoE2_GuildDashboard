@@ -61,11 +61,11 @@ test('league settings rebuild projections and change display timezone without al
     await page.getByTestId('quantity-settings').getByRole('checkbox',{name:'Include stash Special',exact:true}).check()
     await page.getByTestId('quantity-settings').getByLabel('Display timezone',{exact:true}).fill('Europe/Warsaw')
     await page.getByTestId('quantity-settings').getByRole('button',{name:'Save settings and rebuild'}).click()
-    await expect(page.locator('.history-transactions [data-event-id="12"]')).toContainText('Excluded',{timeout:15000})
+    await expect(page.locator('.history-transactions [data-event-id="12"]')).toHaveCount(0)
     await goSection(page, 'History')
     await expect(page.getByRole('button',{name:'Date (Europe/Warsaw)',exact:false})).toBeVisible()
-    await expect(panel.getByTestId('quantity-stats')).toContainText('excluded stashes: 59')
-    await expect(page.locator('.history-transactions [data-event-id="12"]')).toContainText('Modified')
+    await expect(panel.getByTestId('quantity-stats')).toContainText('Events: 1 ·',{timeout:15000})
+    await expect(page.locator('.result-count')).toContainText('Results: 1')
   } finally {await restore(request)}
 })
 
@@ -132,8 +132,8 @@ test('stash inclusion sits beside renaming, survives renaming and preserves sour
     await settings.getByRole('button',{name:'Save settings and rebuild'}).click()
     await expect(main).not.toBeChecked()
     await goSection(page,'History')
-    await expect(page.locator('.history-transactions [data-event-id="12"]')).toContainText('Excluded',{timeout:15000})
-    await expect(page.locator('.result-count')).toContainText('Results: 60')
+    await expect(page.locator('.history-transactions [data-event-id="12"]')).toHaveCount(0)
+    await expect(page.locator('.result-count')).toContainText('Results: 1')
     await goSection(page,'Settings')
     await main.check()
     await settings.getByLabel('Alias for stash Main',{exact:true}).fill('Renamed stash')
@@ -171,4 +171,60 @@ test('timezone accepts fixed UTC offsets and abbreviations and formats dates acr
     await expect(settings.getByLabel('Display timezone',{exact:true})).toHaveValue('UTC+05:30')
     await expect(page.locator('#quantity-timezones option[value="PST"]')).toHaveText('PST (UTC-08:00)')
   } finally {await restore(request)}
+})
+
+
+test('disabling a selected stash clears its filter, hides it everywhere and reports rebuild progress',async({page,request})=>{
+  let hold=false
+  await page.route('**/quantities?*',async route=>{
+    const response=await route.fetch()
+    if(!hold) return route.fulfill({response})
+    const data=await response.json()
+    await route.fulfill({response,json:{...data,projection:{...data.projection,state:'stale',id:null},rows:[],stats:null}})
+  })
+  try {
+    await page.goto(path+'&section=history&stash=Main')
+    await expect(page.locator('.result-count')).toContainText('Results: 59')
+    await goSection(page,'Settings')
+    await page.getByRole('checkbox',{name:'Include stash Main',exact:true}).uncheck()
+    hold=true
+    await page.getByRole('button',{name:'Save settings and rebuild'}).click()
+    await expect(page.getByTestId('projection-status')).toContainText('please wait')
+    await goSection(page,'History')
+    await expect(page.locator('.result-count')).toContainText('Results: 1')
+    expect(new URL(page.url()).searchParams.getAll('stash')).toEqual([])
+    await page.getByRole('button',{name:'Stashes',exact:true}).click()
+    await expect(page.locator('.stash-filter-options').getByRole('checkbox',{name:'Main',exact:true})).toHaveCount(0)
+    await expect(page.locator('.stash-filter-options').getByRole('checkbox',{name:'Special',exact:true})).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('projection-status')).toContainText('please wait')
+    hold=false
+    await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
+    await goSection(page,'Summary')
+    await expect(page.locator('.overview-cards article').first()).toContainText('1')
+    await goSection(page,'Settings')
+    await page.getByRole('checkbox',{name:'Include stash Main',exact:true}).check()
+    await page.getByRole('button',{name:'Save settings and rebuild'}).click()
+    await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
+    await goSection(page,'History')
+    await expect(page.locator('.result-count')).toContainText('Results: 60')
+  } finally {hold=false;await restore(request)}
+})
+
+test('unchanged settings finish immediately and report-read failures do not leave an endless waiting status',async({page,request})=>{
+  let fail=false
+  await page.route('**/quantities?*',route=>fail?route.fulfill({status:503,json:{error:'database_unavailable'}}):route.continue())
+  try {
+    await page.goto(path+'&section=settings')
+    const save=page.getByRole('button',{name:'Save settings and rebuild'})
+    await save.click()
+    await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
+    fail=true
+    await save.click()
+    await expect(page.getByTestId('projection-status')).toContainText('could not be updated',{timeout:15000})
+    await expect(page.getByTestId('projection-status')).toHaveAttribute('role','alert')
+    fail=false
+    await page.getByRole('button',{name:'Refresh view',exact:true}).click()
+    await expect(page.getByTestId('projection-status')).toHaveText('Analysis is up to date.',{timeout:15000})
+  } finally {fail=false;await restore(request)}
 })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { t, number, date } from '../i18n'
-import { section, currentUrl, navigateDiagnostics } from '../navigation'
+import { section, currentUrl, navigateDiagnostics, navigateSection } from '../navigation'
 import { useHistory } from '../useHistory'
 import LeaguePicker from './LeaguePicker.vue'
 import RefreshPanel from './RefreshPanel.vue'
@@ -19,6 +19,16 @@ const analysisView = computed(() => {
   return ['summary', 'players', 'stashes', 'state'].includes(value ?? '') ? value! : 'summary'
 })
 const refreshToken = ref(0)
+const updateState = ref('')
+watch(() => selected.value?.id, () => { updateState.value = '' })
+function updateProgress(state: 'pending' | 'failed' | 'ready') {
+  if (state !== 'ready' || updateState.value) updateState.value = state
+}
+async function settingsSaved() {
+  updateState.value = 'pending'
+  await refreshRevision()
+  refreshToken.value++
+}
 async function refreshView() { await loadLeagues(true); refreshToken.value++ }
 const dataSection = computed(() => !['settings', 'archives'].includes(section.value))
 </script>
@@ -49,10 +59,11 @@ const dataSection = computed(() => !['settings', 'archives'].includes(section.va
       <div class="workspace-layout">
         <WorkspaceNavigation />
         <div class="workspace-content">
+          <p v-if="updateState" class="projection-status" :role="updateState === 'failed' ? 'alert' : 'status'" aria-live="polite" data-testid="projection-status">{{ t(`quantity.update.${updateState}`) }} <button v-if="updateState === 'failed'" type="button" @click="navigateSection('summary')">{{ t('workspace.section.summary') }}</button></p>
           <HistoryFilters v-show="dataSection" :draft="draft" :stashes="selected.stashes" :form-error="formError" @apply="applyFilters" @clear="clearFilters" />
-          <QuantityPanel v-show="['summary', 'players', 'stashes', 'state'].includes(section)" :key="'report-' + selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :query="query" :view="analysisView" :refresh-token="refreshToken" @generated="refreshRevision" />
+          <QuantityPanel v-show="['summary', 'players', 'stashes', 'state'].includes(section)" :key="'report-' + selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :query="query" :view="analysisView" :refresh-token="refreshToken" @generated="refreshRevision" @progress="updateProgress" @problem="updateState === 'pending' && (updateState = 'failed')" />
           <HistoryTable v-show="section === 'history'" :query="query" :result="result" :loading-rows="loadingRows" :row-error="rowError" :timezone="selected.timezone ?? 'UTC'" @set-page="setPage" @set-page-size="setPageSize" @sort-by="sortBy" />
-          <QuantitySettings v-show="section === 'settings'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" @saved="refreshRevision" />
+          <QuantitySettings v-show="section === 'settings'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" @saved="settingsSaved" />
           <ArchiveReports v-show="section === 'archives'" :selected="selected" />
         </div>
       </div>

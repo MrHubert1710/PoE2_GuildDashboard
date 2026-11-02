@@ -91,6 +91,13 @@ export function useHistory() {
       leagues.value = payload.leagues
       if (!query.value.league && leagues.value[0]) query.value.league = leagues.value[0].id
       if (!preserveDraft) Object.assign(draft, query.value)
+      // Retire selections hidden by new settings, including saved URLs and unsaved drafts.
+      if (selected.value) {
+        const visible = new Set(selected.value.stashes)
+        const keep = query.value.stash.filter(name => visible.has(name))
+        if (keep.length !== query.value.stash.length) query.value = { ...query.value, stash: keep, page: 1 }
+        draft.stash = draft.stash.filter(name => visible.has(name))
+      }
       writeQuery(query.value, true)
       loadingLeagues.value = false
       await loadRows()
@@ -102,11 +109,16 @@ export function useHistory() {
     }
   }
 
+  function visibleQuery(next: HistoryQuery) {
+    const league = leagues.value.find(value => value.id === next.league)
+    if (!league) return next
+    return { ...next, stash: next.stash.filter(name => league.stashes.includes(name)) }
+  }
   function change(next: HistoryQuery) {
-    query.value = next
-    Object.assign(draft, next)
+    query.value = visibleQuery(next)
+    Object.assign(draft, query.value)
     formError.value = ''
-    writeQuery(next)
+    writeQuery(query.value)
     void loadRows()
   }
 
@@ -129,7 +141,8 @@ export function useHistory() {
   function popState() {
     const next = readQuery()
     if (JSON.stringify(next) === JSON.stringify(query.value)) return
-    query.value = next
+    query.value = visibleQuery(next)
+    writeQuery(query.value, true)
     Object.assign(draft, query.value)
     formError.value = ''
     void loadRows()

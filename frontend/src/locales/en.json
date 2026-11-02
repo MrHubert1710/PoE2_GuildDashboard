@@ -332,7 +332,11 @@
     "quantity.stashEnabled": "Included",
     "quantity.stashDisabled": "Ignored",
     "quantity.displayName": "Name in analysis",
-    "quantity.stashSelectionNote": "Uncheck a stash to ignore it in analysis. Its source history and name are preserved. Stashes sharing an analysis name share the same inclusion setting.",
-    "quantity.timezoneHelp": "Accepts IANA names (Europe/Warsaw), UTC+2, UTC-8, UTC+05:30 or UTC+5.5. Abbreviations are fixed offsets: PST = UTC-08:00, PDT = UTC-07:00, CST = UTC-06:00 (North America). Use America/Los_Angeles for automatic daylight saving time. Suggestions show abbreviation offsets."
+    "quantity.stashSelectionNote": "Uncheck a stash to hide it from filters, history, tables and summaries. Its source records are preserved. Stashes sharing an analysis name share the same inclusion setting.",
+    "quantity.timezoneHelp": "Accepts IANA names (Europe/Warsaw), UTC+2, UTC-8, UTC+05:30 or UTC+5.5. Abbreviations are fixed offsets: PST = UTC-08:00, PDT = UTC-07:00, CST = UTC-06:00 (North America). Use America/Los_Angeles for automatic daylight saving time. Suggestions show abbreviation offsets.",
+    "quantity.update.saving": "Saving settings…",
+    "quantity.update.pending": "Updating analysis — please wait.",
+    "quantity.update.ready": "Analysis is up to date.",
+    "quantity.update.failed": "Analysis could not be updated. Open Summary to retry."
   }
 }

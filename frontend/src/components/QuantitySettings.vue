@@ -62,10 +62,10 @@ async function save(selectedScope = scope.value) {
       settings: { target_stashes: allStashes.value ? null : targets.value, stash_aliases, timezone: timezone.value.trim() } }) })
     if (stopped()) return
     settingsHash.value = result.settings_hash
+    emit('saved')
     await loadSettings()
     dirty.value = false
     await request('/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'quantities', trigger: 'manual' }) })
-    emit('saved')
   } catch (cause) { if (!stopped()) settingsError.value = cause instanceof Error ? cause.message : 'invalid_settings' }
   finally { if (!stopped()) saving.value = false }
 }
@@ -93,6 +93,7 @@ onMounted(() => { void loadSettings().catch(() => { settingsError.value = 'repor
             <label>{{ t('quantity.displayName') }}<input :value="aliases[name] ?? ''" :aria-label="t('quantity.aliasFor', { name })" :placeholder="name" maxlength="200" @input="renameStash(name, ($event.target as HTMLInputElement).value)" /></label>
           </div>
         </div>
+        <p v-if="saving" role="status">{{ t('quantity.update.saving') }}</p>
         <p v-if="settingsError" role="alert">{{ t(`quantity.error.${settingsError}`) }}</p>
         <div class="filter-actions"><button type="submit" :disabled="saving">{{ t('quantity.save') }}</button><button v-if="!inherited" type="button" :disabled="saving" @click="save('inherit')">{{ t('quantity.restoreInheritance') }}</button></div>
       </form>

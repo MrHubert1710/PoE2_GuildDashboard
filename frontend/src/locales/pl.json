@@ -342,7 +342,11 @@
     "quantity.stashEnabled": "Uwzględniana",
     "quantity.stashDisabled": "Pomijana",
     "quantity.displayName": "Nazwa w analizie",
-    "quantity.stashSelectionNote": "Odznacz skrytkę, aby pominąć ją w analizie. Jej historia źródłowa i nazwa zostaną zachowane. Skrytki o wspólnej nazwie w analizie mają wspólne ustawienie uwzględniania.",
-    "quantity.timezoneHelp": "Obsługiwane są nazwy IANA (Europe/Warsaw), UTC+2, UTC-8, UTC+05:30 i UTC+5.5. Skróty oznaczają stałe przesunięcia: PST = UTC-08:00, PDT = UTC-07:00, CST = UTC-06:00 (Ameryka Północna). America/Los_Angeles automatycznie uwzględnia czas letni. Podpowiedzi pokazują przesunięcia skrótów."
+    "quantity.stashSelectionNote": "Odznacz skrytkę, aby ukryć ją w filtrach, historii, tabelach i podsumowaniach. Jej dane źródłowe zostaną zachowane. Skrytki o wspólnej nazwie w analizie mają wspólne ustawienie uwzględniania.",
+    "quantity.timezoneHelp": "Obsługiwane są nazwy IANA (Europe/Warsaw), UTC+2, UTC-8, UTC+05:30 i UTC+5.5. Skróty oznaczają stałe przesunięcia: PST = UTC-08:00, PDT = UTC-07:00, CST = UTC-06:00 (Ameryka Północna). America/Los_Angeles automatycznie uwzględnia czas letni. Podpowiedzi pokazują przesunięcia skrótów.",
+    "quantity.update.saving": "Zapisywanie ustawień…",
+    "quantity.update.pending": "Trwa aktualizacja analizy — poczekaj.",
+    "quantity.update.ready": "Analiza jest aktualna.",
+    "quantity.update.failed": "Nie udało się zaktualizować analizy. Otwórz Podsumowanie, aby ponowić."
   }
 }
