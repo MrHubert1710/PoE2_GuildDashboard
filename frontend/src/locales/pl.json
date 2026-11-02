@@ -363,7 +363,7 @@
     "chart.reset": "Resetuj widok",
     "chart.apply": "Zastosuj zakres do filtrów",
     "chart.bucket": "{count} przedziałów po maksymalnie {hours} godzin.",
-    "chart.interaction": "Przewijaj, aby przybliżać; przeciągaj, aby przesuwać. Przybliżenie pobiera dokładniejsze dane z zachowaniem ekstremów. Zastosowanie zakresu zaokrągla go na zewnątrz do dni kalendarzowych w {zone}.",
+    "chart.interaction": "Przewijaj, aby przybliżać; przeciągaj, aby przesuwać. Przybliżenie pobiera dokładniejsze dane z zachowaniem ekstremów. Daty wybierają zaznaczony przedział; miniatury zachowują pełną historię pasującą do pozostałych filtrów. Zaznaczenie synchronizuje dni w {zone}.",
     "chart.totals": "Cały zakres po filtrach: dodano {added} · usunięto {removed} · bilans {net} · jednostki wywnioskowane {inferred}.",
     "chart.data": "Pokaż dane wykresu",
     "chart.unresolved": "Zdarzenia z nieustaloną ilością dla tego przedmiotu: {count}. Ich ilości nie są uwzględnione na wykresie.",

@@ -14,7 +14,7 @@ import SeriesNavigator from './SeriesNavigator.vue'
 import ValueNavigator from './ValueNavigator.vue'
 import {axisDate,formatZonedDate} from '../timezones'
 echarts.use([LineChart,GridComponent,TooltipComponent,AriaComponent,MarkPointComponent,SVGRenderer])
-const props=defineProps<{series:BalanceSeries[];view:string;bounds:{start:number;end:number};timezone:string;enabled:string[];window:{start:number;end:number}|null;loadedWindow:ChartWindow|null;valueWindow:ChartWindow|null}>()
+const props=defineProps<{series:BalanceSeries[];contextSeries:BalanceSeries[];view:string;bounds:{start:number;end:number};timezone:string;enabled:string[];window:{start:number;end:number}|null;loadedWindow:ChartWindow|null;valueWindow:ChartWindow|null}>()
 const emit=defineEmits<{zoom:[window:{start:number;end:number}];commit:[window:ChartWindow];valueZoom:[window:ChartWindow]}>()
 const root=ref<HTMLElement|null>(null)
 let chart:echarts.ECharts|undefined,observer:ResizeObserver|undefined,wheelTimer:ReturnType<typeof setTimeout>|undefined
@@ -23,7 +23,7 @@ function update(value:ChartWindow){lastWindow=value;emit('zoom',value)}
 const currentWindow=computed(()=>props.window??props.bounds)
 const plottedSeries=computed(()=>props.series.filter(series=>props.enabled.includes(series.id)).map(series=>({...series,visible:visiblePoints(series.overview??series.points,series.points,props.loadedWindow,currentWindow.value)})))
 function padded(min:number,max:number){const padding=Math.max(1,(max-min)*.05);return {start:Math.floor(min-padding),end:Math.ceil(max+padding)}}
-const fullValueBounds=computed(()=>{let min=0,max=0;for(const series of props.series)for(const point of [...(series.overview??series.points),...series.points]){min=Math.min(min,point.balance);max=Math.max(max,point.balance)}return padded(min,max)})
+const fullValueBounds=computed(()=>{let min=0,max=0;for(const series of props.contextSeries)for(const point of series.overview??series.points){min=Math.min(min,point.balance);max=Math.max(max,point.balance)}return padded(min,max)})
 const autoValueWindow=computed(()=>{let min=0,max=0;for(const series of plottedSeries.value)for(const point of series.visible){min=Math.min(min,point.balance);max=Math.max(max,point.balance)}const range=padded(min,max);return {start:Math.max(fullValueBounds.value.start,range.start),end:Math.min(fullValueBounds.value.end,range.end)}})
 const currentValueWindow=computed(()=>props.valueWindow&&props.valueWindow.start<fullValueBounds.value.end&&props.valueWindow.end>fullValueBounds.value.start?clampValueRange(props.valueWindow.start,props.valueWindow.end,fullValueBounds.value):autoValueWindow.value)
 const label=(name:string)=>props.view==='summary'?t('chart.total'):name
@@ -38,7 +38,7 @@ function draw(){
     tooltip:{trigger:'axis',renderMode:'richText',confine:true,valueFormatter:value=>number(Number(value)),axisPointer:{type:'cross',label:{formatter:params=>params.axisDimension==='x'?formatZonedDate(new Date(Number(params.value)).toISOString(),locale.value,props.timezone,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3},displayHourFormat.value):number(Number(params.value))}}},
     xAxis:{type:'time',min:start,max:end,splitNumber:Math.max(2,Math.min(8,Math.floor(root.value.clientWidth/140))),axisLabel:{color:'#b7c4ca',hideOverlap:true,formatter:value=>axisDate(value,props.timezone,locale.value,span,displayHourFormat.value)},axisLine:{lineStyle:{color:'#46545e'}}},
     yAxis:{type:'value',min:currentValueWindow.value.start,max:currentValueWindow.value.end,minInterval:1,axisLabel:{color:'#b7c4ca',formatter:value=>number(value)},splitLine:{lineStyle:{color:'#29363e'}}},
-    series:plottedSeries.value.map(series=>({id:series.id,name:label(series.name),type:'line',step:'end',clip:true,showSymbol:series.visible.length<64,symbolSize:4,lineStyle:{width:2,color:balanceColors[props.series.findIndex(value=>value.id===series.id)%balanceColors.length]},itemStyle:{color:balanceColors[props.series.findIndex(value=>value.id===series.id)%balanceColors.length]},markPoint:{symbol:'circle',symbolSize:6,label:{show:false},data:[{name:'max',type:'max'},{name:'min',type:'min'}]},data:series.visible.map(point=>[point.timestamp,point.balance])})),
+    series:plottedSeries.value.map(series=>({id:series.id,name:label(series.name),type:'line',step:'end',clip:true,showSymbol:series.visible.length<64,symbolSize:4,lineStyle:{width:2,color:balanceColors[props.contextSeries.findIndex(value=>value.id===series.id)%balanceColors.length]},itemStyle:{color:balanceColors[props.contextSeries.findIndex(value=>value.id===series.id)%balanceColors.length]},markPoint:{symbol:'circle',symbolSize:6,label:{show:false},data:[{name:'max',type:'max'},{name:'min',type:'min'}]},data:series.visible.map(point=>[point.timestamp,point.balance])})),
   }
   chart.setOption(options,{notMerge:true,silent:true});chart.resize();root.value.querySelector('svg')?.setAttribute('aria-hidden','true')
 }
@@ -70,11 +70,11 @@ function up(event:PointerEvent){if(drag&&lastWindow)emit('commit',lastWindow);dr
 function zoomIn(){const start=currentWindow.value.start,end=currentWindow.value.end,q=(end-start)/4;if(end-start>2){const value={start:Math.round(start+q),end:Math.round(end-q)};update(value);emit('commit',value)}}
 function zoomValuesIn(){const range=currentValueWindow.value,q=(range.end-range.start)/4;emit('valueZoom',clampValueRange(range.start+q,range.end-q,fullValueBounds.value))}
 defineExpose({zoomIn,zoomValuesIn})
-watch(()=>[props.series,props.bounds,props.enabled,props.window,props.loadedWindow,props.timezone,props.view,props.valueWindow,locale.value,displayHourFormat.value],()=>{void nextTick(draw)},{deep:true})
+watch(()=>[props.series,props.contextSeries,props.bounds,props.enabled,props.window,props.loadedWindow,props.timezone,props.view,props.valueWindow,locale.value,displayHourFormat.value],()=>{void nextTick(draw)},{deep:true})
 onMounted(()=>{observer=new ResizeObserver(()=>{if(root.value?.clientWidth)draw()});if(root.value)observer.observe(root.value);draw()})
 onUnmounted(()=>{clearTimeout(wheelTimer);observer?.disconnect();chart?.dispose()})
 </script>
 <template><div class="balance-chart"><div ref="root" class="time-series-chart" role="img" :aria-label="t('chart.graph')" data-testid="time-series-chart" :data-window-start="currentWindow.start" :data-window-end="currentWindow.end" :data-value-min="currentValueWindow.start" :data-value-max="currentValueWindow.end" @wheel="wheel" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up"></div>
-<ValueNavigator :series="series" :time-bounds="bounds" :bounds="fullValueBounds" :window="currentValueWindow" :enabled="enabled" @zoom="emit('valueZoom',$event)" />
-<SeriesNavigator :series="series" :bounds="bounds" :window="currentWindow" :enabled="enabled" @zoom="emit('zoom',$event)" @commit="emit('commit',$event)" />
+<ValueNavigator :series="contextSeries" :time-bounds="bounds" :bounds="fullValueBounds" :window="currentValueWindow" :enabled="enabled" @zoom="emit('valueZoom',$event)" />
+<SeriesNavigator :series="contextSeries" :bounds="bounds" :window="currentWindow" :enabled="enabled" @zoom="emit('zoom',$event)" @commit="emit('commit',$event)" />
 </div></template>

@@ -246,3 +246,32 @@ i mobile. Dotychczasowe testy nadal sprawdzają szczegóły po przesuwaniu dalek
 od początkowego okna oraz synchronizację dat. Publiczny nginx potwierdził
 przeciąganie, wyśrodkowanie, reset domeny po reloadzie, End i brak przepełnienia
 na mobile. Brak błędów JavaScript; surowe transakcje mają niezmieniony hash.
+
+### Daty wybierają okno, bez ograniczania miniatur
+
+Doprecyzowanie: wyłącznie filtry dat są oddzielone od kontekstu miniatur.
+Gracz, skrytki, wyszukiwany przedmiot, wybrany przedmiot wykresu i ustawienia
+wyłączonych skrytek nadal wpływają na ich dane. Nawigator czasu i wartości
+korzystają z pełnej pasującej historii, również po końcowej dacie filtra.
+
+API quantity-series zawiera dodatkowe pole navigator z niezależnymi bounds
+oraz seriami overview z całej pasującej historii. Dotychczasowe series/window
+opisują szczegóły wybranego przedziału. Zakres wartości miniatury wyznaczany jest
+z navigator.series, więc przycięcie dat nie usuwa jej minimów ani maksimów.
+Oba zestawy powstają z tej samej projekcji i w jednej transakcji odczytu.
+
+Ręczne daty ustawiają zaznaczenie i główny wykres w strefie ligi. Przeciągnięcie
+lub zoom wybiera dokładny przedział i synchronizuje dni filtrów. Zapytanie
+szczegółów używa wtedy dokładnego okna zamiast ograniczać je ponownie do
+pierwotnych dni. Można przesunąć wybór poza początkowy filtr. Reload zachowuje
+to rozdzielenie; reset przywraca pełny okres pasujących danych i czyści daty.
+Parametry chart_base_from/to nie ograniczają już miniatur i są usuwane przy
+kolejnym zatwierdzeniu gestu. Wyśrodkowanie 30% i animacja pozostają w użyciu.
+
+Walidacja: 135 testów backendu, 71 przeglądarkowych i 16 tłumaczeń przeszły;
+TypeScript/Vite buduje się poprawnie. Testy obejmują daty przed historią i po
+niej, niezmienność obu miniatur przy zmianie dni, zachowanie innych filtrów
+oraz wyłączeń skrytek, dokładne okno poza początkową datą i sumę ruchów w nim.
+Publiczny nginx: potwierdzono identyczny kontekst API z datami i bez, zachowanie
+obu zakresów po ręcznej zmianie dat i reloadzie oraz wyjście Home poza pierwotny
+filtr z automatyczną synchronizacją dni. Bez błędów JavaScript. Brak migracji.

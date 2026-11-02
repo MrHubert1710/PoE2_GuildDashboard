@@ -172,7 +172,7 @@ test('repeated main-chart pans load detail beyond the original central window an
   await expect(page.getByLabel('From day (UTC)',{exact:true})).toHaveValue('2026-01-02')
 })
 
-test('linked dates retain the original overview after reload and manual dates establish a new domain',async({page})=>{
+test('linked dates and manual dates select time without restricting either navigator',async({page})=>{
   await page.goto(path+'&from=2026-01-01&to=2026-01-02')
   const graph=page.getByTestId('time-series-chart'),navigator=page.getByTestId('series-navigator')
   await expect(graph).toBeVisible()
@@ -188,8 +188,13 @@ test('linked dates retain the original overview after reload and manual dates es
   await page.getByRole('button',{name:'Apply filters',exact:true}).click()
   await expect(page).not.toHaveURL(/chart_base_from=|chart_from=/)
   await expect(graph).toBeVisible()
-  const width=Number(await navigator.getAttribute('data-domain-end'))-Number(await navigator.getAttribute('data-domain-start'))
-  expect(width).toBe(86400000)
+  expect(await navigator.getAttribute('data-domain-start')).toBe(start)
+  expect(await navigator.getAttribute('data-domain-end')).toBe(end)
+  await expect(page.getByLabel('From day (UTC)',{exact:true})).toHaveValue('2026-01-01')
+  const later=page.waitForResponse(r=>r.url().includes('/quantity-series?')&&r.url().includes('window_start='))
+  await page.getByRole('slider',{name:'Chart overview range',exact:true}).press('End')
+  await later
+  await expect(page.getByLabel('To day (UTC)',{exact:true})).toHaveValue('2026-01-02')
 })
 
 test('vertical value navigator zooms and pans independently of time and survives refresh and reload',async({page})=>{
@@ -275,4 +280,29 @@ test('time navigator freezes context while dragging and animates back to the cen
   expect(await navigator.getAttribute('data-window-start')).toBe(await navigator.getAttribute('data-domain-start'))
   await page.setViewportSize({width:390,height:844});await expectCentered(navigator)
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+})
+
+test('initial and manual day filters retain full history and value bounds in miniatures',async({page})=>{
+  await page.goto(path+'&chart_item=Rites+Token&from=2026-01-01&to=2026-01-01')
+  const graph=page.getByTestId('time-series-chart'),nav=page.getByTestId('series-navigator'),values=page.getByTestId('value-navigator')
+  await expect(graph).toBeVisible()
+  const start=await nav.getAttribute('data-domain-start'),end=await nav.getAttribute('data-domain-end')
+  const minimum=await values.getAttribute('data-domain-min'),maximum=await values.getAttribute('data-domain-max')
+  expect(Number(end)).toBeGreaterThan(Date.parse('2026-01-02T00:00:00Z'))
+  expect(Number(await graph.getAttribute('data-window-end'))).toBe(Date.parse('2026-01-02T00:00:00Z'))
+  await page.getByLabel('From day (UTC)',{exact:true}).fill('2026-01-02')
+  await page.getByLabel('To day (UTC)',{exact:true}).fill('2026-01-02')
+  await page.getByRole('button',{name:'Apply filters',exact:true}).click()
+  await expect.poll(()=>graph.getAttribute('data-window-start')).toBe(String(Date.parse('2026-01-02T00:00:00Z')))
+  expect(await nav.getAttribute('data-domain-start')).toBe(start)
+  expect(await nav.getAttribute('data-domain-end')).toBe(end)
+  expect(await values.getAttribute('data-domain-min')).toBe(minimum)
+  expect(await values.getAttribute('data-domain-max')).toBe(maximum)
+  await page.reload();await expect(graph).toBeVisible()
+  expect(await values.getAttribute('data-domain-max')).toBe(maximum)
+  await page.getByRole('slider',{name:'Chart overview range',exact:true}).press('Home')
+  await expect(page.getByLabel('From day (UTC)',{exact:true})).toHaveValue('2026-01-01')
+  await expectCentered(nav)
+  expect(await nav.getAttribute('data-domain-end')).toBe(end)
+  expect(await values.getAttribute('data-domain-max')).toBe(maximum)
 })

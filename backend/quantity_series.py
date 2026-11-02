@@ -46,6 +46,33 @@ def sample_extrema(points, limit):
     return [points[index] for index in sorted(keep)], math.ceil(width / bins)
 
 
+def navigator_context(rows, view, limit):
+    """Full filtered history; calendar dates only select the detail window."""
+    bounds = dict(start=rows[0]['timestamp']-1, end=rows[-1]['timestamp']+1)
+    groups = defaultdict(list)
+    for row in rows:
+        name=row['account'] if view=='players' else row['stash'] if view=='stashes' else 'summary'
+        groups[name].append(row)
+    ranked=sorted(groups,key=lambda name:(-sum(abs(row['quantity_delta']) for row in groups[name]),name))[:100]
+    point_limit=min(limit,max(24,6000//max(1,len(ranked))))
+    series=[]
+    for name in ranked:
+        balance=0;points=[dict(timestamp=bounds['start'],balance=0)]
+        for row in groups[name]:
+            balance+=row['quantity_delta'];points.append(dict(timestamp=row['timestamp'],balance=balance))
+        points.append(dict(timestamp=bounds['end'],balance=balance))
+        overview,_=sample_extrema(points,point_limit)
+        series.append(dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,
+                           opening_balance=0,closing_balance=balance,event_count=len(points)-2,
+                           point_count=len(points),points=overview,overview=overview))
+    return dict(bounds=bounds,series=series)
+
+
+def event_order(row):
+    external=row['external_id'];numeric=external.isascii() and external.isdigit()
+    return row['occurred_at'],0 if numeric else 1,int(external) if numeric else external,row['id'],row['sequence']
+
+
 def read_series(league_id):
     if set(request.args) - FILTER_ARGUMENTS - {'revision', 'projection_id', 'series_item', 'max_points', 'view', 'window_start', 'window_end'}:
         raise ReadError('unknown_parameter')
@@ -70,7 +97,7 @@ def read_series(league_id):
         start,end=date_argument('from',zone=settings['timezone']),date_argument('to',end=True,zone=settings['timezone'])
         if start and end and start>=end: raise ReadError('invalid_date_range')
         base=dict(league_id=league_id,projection=meta,timezone=settings['timezone'],view=view,unit='item_count',
-                  items=[],item=item or None,series=[],bounds=None,window=None,resolution_ms=None,max_points=limit,
+                  items=[],item=item or None,series=[],bounds=None,window=None,navigator=dict(bounds=None,series=[]),resolution_ms=None,max_points=limit,
                   sampled=False,unresolved_events=0,series_truncated=False,totals=dict(added=0,removed=0,net=0,inferred=0))
         if not run:return jsonify(base)
         conditions,args=["m.run_id=?","q.effective_action!='excluded'"],[run['id']]
@@ -81,36 +108,35 @@ def read_series(league_id):
         if names:
             conditions.append('q.stash IN ('+','.join('?' for _ in names)+')');args.extend(names)
         # Read preceding movements too: a date/viewport filter must not reset the balance.
-        if end:conditions.append('t.occurred_at<?');args.append(end)
         common=(' FROM quantity_movements m JOIN event_quantities q ON q.run_id=m.run_id AND q.transaction_id=m.transaction_id '
                 'JOIN transactions t ON t.id=m.transaction_id WHERE '+' AND '.join(conditions))
         catalog=[row[0] for row in c.execute('SELECT m.item_name'+common+' GROUP BY m.item_name ORDER BY SUM(ABS(m.quantity_delta)) DESC,m.item_name LIMIT 50',args)]
         item=item or (catalog[0] if catalog else None);base.update(items=catalog,item=item)
         if not item:return jsonify(base)
         event_conditions=[value.replace('m.run_id','q.run_id').replace('m.item_name','q.item_name') for value in conditions]
-        extra,extra_args=('',[]) if not start else (' AND t.occurred_at>=?',[start])
+        extra,extra_args='',[]
+        if start:extra+=' AND t.occurred_at>=?';extra_args.append(start)
+        if end:extra+=' AND t.occurred_at<?';extra_args.append(end)
         unknown_sql=('SELECT COUNT(*) FROM event_quantities q JOIN transactions t ON t.id=q.transaction_id WHERE '+' AND '.join(event_conditions)+
                      " AND q.item_name=? AND (q.effective_action='unknown' OR q.resolution_reason='invalid_quantity')"+extra)
         base['unresolved_events']=c.execute(unknown_sql,[*args,item,*extra_args]).fetchone()[0]
         rows=[dict(row) for row in c.execute('SELECT t.id,t.external_id,t.occurred_at,t.account,q.stash,m.sequence,m.quantity_delta,m.confidence'+common+' AND m.item_name=?',[*args,item])]
         if not rows:return jsonify(base)
-        def order(row):
-            external=row['external_id']; numeric=external.isascii() and external.isdigit()
-            return row['occurred_at'],0 if numeric else 1,int(external) if numeric else external,row['id'],row['sequence']
-        rows.sort(key=order)
+        rows.sort(key=event_order)
         for row in rows:row['timestamp']=stamp(row['occurred_at'])
+        base['navigator']=navigator_context(rows,view,limit)
         first=stamp(start) if start else rows[0]['timestamp']-1
         last=stamp(end) if end else rows[-1]['timestamp']+1
         if last<=first:last=first+1
         domain=dict(start=first,end=last)
-        low=max(first,lower) if lower is not None else first
-        high=min(last,upper) if upper is not None else last
+        low=lower if lower is not None else first
+        high=upper if upper is not None else last
         if low>=high:low,high=first,last
         grouped=defaultdict(list)
         for row in rows:
             group=row['account'] if view=='players' else row['stash'] if view=='stashes' else 'summary'
             grouped[group].append(row)
-            if first<=row['timestamp']<last:
+            if low<=row['timestamp']<high:
                 amount=row['quantity_delta'];base['totals']['added' if amount>0 else 'removed']+=abs(amount)
                 base['totals']['net']+=amount
                 if row['confidence']=='inferred':base['totals']['inferred']+=abs(amount)

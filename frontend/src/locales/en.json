@@ -353,7 +353,7 @@
     "chart.reset": "Reset view",
     "chart.apply": "Apply range to filters",
     "chart.bucket": "{count} intervals of up to {hours} hours.",
-    "chart.interaction": "Scroll to zoom, drag to pan. Zoom reloads finer extrema-preserving data. Apply range rounds outwards to calendar days in {zone}.",
+    "chart.interaction": "Scroll to zoom, drag to pan. Zoom reloads finer extrema-preserving data. Dates select the highlighted interval; miniatures retain the full history matching the other filters. The selection synchronizes calendar days in {zone}.",
     "chart.totals": "Full filtered range: added {added} · removed {removed} · balance {net} · inferred units {inferred}.",
     "chart.data": "Show chart data",
     "chart.unresolved": "Unresolved quantity events for this item: {count}. These quantities are not included in the chart.",

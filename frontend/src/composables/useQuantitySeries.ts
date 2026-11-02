@@ -8,13 +8,14 @@ export interface SeriesData {
   league_id:string;projection:{id:string|null;state:string};timezone:string;view:string;unit:string
   unresolved_events:number;item:string|null;items:string[];series:BalanceSeries[];resolution_ms:number|null
   sampled:boolean;series_truncated:boolean;bounds:{start:number;end:number}|null;window:{start:number;end:number}|null
+  navigator:{bounds:{start:number;end:number}|null;series:BalanceSeries[]}
   totals:{added:number;removed:number;net:number;inferred:number}
 }
 export function useQuantitySeries(props:{leagueId:string;revision:string;settingsHash?:string;projectionId:string|null;query:HistoryQuery;active:boolean;refreshToken:number;view:string}){
   const data=ref<SeriesData|null>(null),error=ref(''),loading=ref(false)
   const selectedItem=computed(()=>new URL(currentUrl.value).searchParams.get('chart_item')??'')
   const viewport=computed(()=>{const p=new URL(currentUrl.value).searchParams;return [p.get('chart_from'),p.get('chart_to')]})
-  const effectiveQuery=computed(()=>{const p=new URL(currentUrl.value).searchParams;return {...props.query,from:p.has('chart_base_from')?p.get('chart_base_from')!:props.query.from,to:p.has('chart_base_to')?p.get('chart_base_to')!:props.query.to}})
+  const effectiveQuery=computed(()=>({...props.query,...(viewport.value.every(value=>value!==null)?{from:'',to:''}:{})}))
   const {request,stopped}=useApiRequest(`${import.meta.env.BASE_URL}api/leagues/${encodeURIComponent(props.leagueId)}`)
   let sequence=0,timer:ReturnType<typeof setTimeout>|undefined,lastContext=''
   const context=()=>JSON.stringify([props.active,props.projectionId,props.revision,props.settingsHash,selectedItem.value,props.view,...(['account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word','from','to'] as Array<keyof HistoryQuery>).map(key=>effectiveQuery.value[key])])

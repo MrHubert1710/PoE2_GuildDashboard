@@ -79,6 +79,40 @@ class SeriesTests(unittest.TestCase):
             self.assertEqual(data['series'][0]['closing_balance'],0)
             self.assertLessEqual(len(data['series'][0]['overview']),data['max_points'])
 
+    def test_calendar_filters_select_details_without_truncating_either_navigator(self):
+        self.insert(event(40,'added',100,stash='Special',x=8,occurred_at='2026-01-05T12:00:00.000000Z'),'A')
+        self.build()
+        full=self.series(series_item='Token')
+        for day in ('2025-12-31','2026-01-01','2026-01-02','2026-01-06'):
+            filtered=self.series(series_item='Token',**{'from':day,'to':day})
+            self.assertEqual(filtered['navigator'],full['navigator'])
+            self.assertEqual(filtered['window']['end']-filtered['window']['start'],86400000)
+        early=self.series(series_item='Token',**{'from':'2026-01-01','to':'2026-01-01'})
+        self.assertEqual(early['series'][0]['closing_balance'],20)
+        self.assertEqual(full['navigator']['series'][0]['closing_balance'],115)
+        # An exact selection can leave the initially selected calendar day.
+        late=self.series(series_item='Token',window_start=1767614400000,window_end=1767700800000,
+                         **{'from':'2026-01-01','to':'2026-01-01'})
+        self.assertEqual(late['series'][0]['event_count'],1)
+        self.assertEqual(late['totals']['net'],100)
+        self.assertEqual(late['series'][0]['closing_balance'],115)
+        self.assertEqual(late['navigator'],full['navigator'])
+
+    def test_non_date_filters_still_change_navigator_data_and_respect_league_settings(self):
+        self.insert(event(40,'added',100,stash='Special',x=8,account='Trader',occurred_at='2026-01-05T12:00:00.000000Z'),'A')
+        self.build()
+        full=self.series(view='stashes',series_item='Token')
+        main=self.series(view='stashes',series_item='Token',stash='Main')
+        self.assertEqual([series['name'] for series in main['navigator']['series']],['Main'])
+        self.assertNotEqual(main['navigator'],full['navigator'])
+        buyer=self.series(view='players',series_item='Token',account='Buyer')
+        self.assertEqual([series['name'] for series in buyer['navigator']['series']],['Buyer'])
+        self.assertEqual(buyer['navigator']['series'][0]['closing_balance'],-5)
+        self.assertEqual(self.series(series_item='Token',item='No matching item')['navigator']['series'],[])
+        self.save(dict(DEFAULTS,target_stashes=['Main']));self.build()
+        hidden=self.series(view='stashes',series_item='Token')
+        self.assertEqual([series['name'] for series in hidden['navigator']['series']],['Main'])
+
     def test_extrema_sampler_keeps_order_and_limit(self):
         points=[dict(timestamp=i,balance=(50 if i==123 else -30 if i==234 else i%10)) for i in range(1000)]
         result,resolution=sample_extrema(points,24)
