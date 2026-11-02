@@ -404,6 +404,21 @@
     "chart.valueMax": "Maximum chart value",
     "quantity.hourFormat": "Time format",
     "quantity.hourAuto": "Language default",
-    "quantity.error.invalid_hour_format": "Choose 12 h, 24 h or the language default."
+    "quantity.error.invalid_hour_format": "Choose 12 h, 24 h or the language default.",
+    "auth.access": "Player / Admin access",
+    "auth.administrator": "Administration",
+    "auth.login": "Log in",
+    "auth.logout": "Log out",
+    "auth.close": "Close",
+    "auth.username": "Username",
+    "auth.password": "Password",
+    "auth.pending": "Please wait…",
+    "auth.httpsRequired": "Administrator login requires HTTPS.",
+    "auth.errors.invalid_credentials": "Incorrect username or password.",
+    "auth.errors.login_limited": "Too many attempts. Try again in 15 minutes.",
+    "auth.errors.https_required": "Administrator login requires HTTPS.",
+    "auth.errors.csrf_rejected": "Session verification failed. Reopen this window.",
+    "auth.errors.auth_unavailable": "Login is unavailable.",
+    "auth.errors.admin_required": "Your session has expired. Log in again."
   }
 }

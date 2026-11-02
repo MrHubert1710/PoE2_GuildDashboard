@@ -1,6 +1,6 @@
 import { gotoHistory, goSection, zoomTime } from './workspace-helpers'
-import { test, expect } from '@playwright/test'
-import type { APIRequestContext } from '@playwright/test'
+import { test, expect } from './fixtures'
+import type { APIRequestContext } from './fixtures'
 
 test.use({ locale: 'en-US' })
 const path='/poe2guild/?lang=en'

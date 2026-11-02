@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isAdmin } from '../auth'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { t, date, displayTimezone } from '../i18n'
 import { section, currentUrl, navigateSection } from '../navigation'
@@ -54,7 +55,7 @@ const dataSection = computed(() => !['settings', 'archives'].includes(section.va
       <p>{{ t('unknownLeague') }}</p><button type="button" @click="selectLeague(leagues[0]!.id)">{{ t('firstLeague') }}</button>
     </div>
     <template v-if="selected && !leagueError">
-      <Teleport to="#league-sync-diagnostics"><section v-show="diagnostics" class="league-context">
+      <Teleport to="#league-sync-diagnostics"><section v-if="isAdmin && diagnostics" class="league-context">
         <h2>{{ selected.name }}</h2><p>{{ t('historyCount', { count: selected.transactions }) }}</p>
         <p>{{ t('range') }} {{ date(selected.oldest_at, displayTimezone) }} — {{ date(selected.newest_at, displayTimezone) }} {{ displayTimezone }}</p>
         <p>{{ t('historyCompleteness', { status: selected.history_complete === null ? t('unconfirmed') : selected.history_complete ? t('confirmed') : t('incomplete') }) }}</p>
@@ -72,7 +73,7 @@ const dataSection = computed(() => !['settings', 'archives'].includes(section.va
           </QuantityPanel>
           <HistoryTable v-show="section === 'history'" :query="query" :result="result" :loading-rows="loadingRows" :row-error="rowError" :timezone="displayTimezone" @set-page="setPage" @set-page-size="setPageSize" @sort-by="sortBy" />
           <ClientSettings v-show="section === 'settings'" />
-          <QuantitySettings v-show="section === 'settings'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" :display-hash="selected.display_settings_hash" @saved="settingsSaved" />
+          <QuantitySettings v-if="isAdmin" v-show="section === 'settings'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" :display-hash="selected.display_settings_hash" @saved="settingsSaved" />
           <ArchiveReports v-show="section === 'archives'" :selected="selected" />
           </div>
         </div>

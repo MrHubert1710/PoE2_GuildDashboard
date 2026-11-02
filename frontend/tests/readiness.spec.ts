@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 
 test.use({ locale: 'pl-PL' })
 import databaseFixture from '../../tests/fixtures/browser-database.json' with { type: 'json' }

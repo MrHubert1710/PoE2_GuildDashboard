@@ -9,7 +9,7 @@ import sqlite3
 import unittest
 from unittest.mock import patch
 
-from backend.app import create_app
+from tests.auth_helpers import create_app
 from backend.archive_import import canonical, normalize
 from backend.database import connect, migrate
 from backend.jobs import Queue, LeaseLost

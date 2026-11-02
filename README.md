@@ -150,3 +150,6 @@ Vite w development proxy'uje `/api` do portu 9002. W produkcji Nginx usuwa
 prefiks `/poe2guild/`, a Flask obsługuje API i statyczny build. `/health` służy
 launcherowi; `/api/health` sprawdza połączenie strony z właściwą usługą.
 Nieznane adresy API i zasobów zwracają 404, a nie dokument HTML.
+
+Administracja i konto lokalne: [faza 5b](docs/phase-5b.md).
+HTTPS nginx: [instalacja i odnowienie](docs/https.md).

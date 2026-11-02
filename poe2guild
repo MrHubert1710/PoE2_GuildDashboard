@@ -23,6 +23,7 @@ Usage: ./poe2guild COMMAND [--dry-run]
   logs/log   Follow web and worker logs (Ctrl+C closes the viewer)
   install    Add/update this route in nginx services (sudo/root)
   uninstall  Remove this route from nginx services (sudo/root)
+  admin      Create/reset an administrator interactively (revokes sessions)
   help       Show this help
 
 Settings: service.ini beside this script. No systemd user units or linger.
@@ -39,7 +40,7 @@ while (($#)); do
 done
 case "$ACTION" in
     help|-h|--help) usage; exit 0 ;;
-    build|start|stop|restart|status|logs|install|uninstall) ;;
+    build|start|stop|restart|status|logs|admin|install|uninstall) ;;
     *) usage >&2; exit 2 ;;
 esac
 if "$DRY_RUN" && [[ "$ACTION" != install && "$ACTION" != uninstall ]]; then
@@ -331,6 +332,7 @@ stop_worker() {
     die 'Worker did not stop within 35 seconds; leaving process records for inspection'
 }
 case "$ACTION" in
+    admin) resolve_venv; exec "$VENV/bin/python" "$ROOT_DIR/scripts/admin.py" ;;
     build)
         resolve_venv; require python3
         if [[ ! -x "$VENV/bin/python" ]]; then python3 -m venv "$VENV"; fi

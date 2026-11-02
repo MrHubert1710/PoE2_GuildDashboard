@@ -3,6 +3,7 @@ import sqlite3
 from flask import Blueprint, current_app, jsonify, request
 from .database import DatabaseError
 from .jobs import Queue, JobRejected
+from .auth import is_admin
 
 refresh = Blueprint('refresh', __name__)
 
@@ -32,7 +33,14 @@ def unavailable(_error):
 
 @refresh.get('/api/leagues/<league_id>/refresh')
 def status(league_id):
-    return jsonify(queue().status(league_id))
+    result = queue().status(league_id)
+    if not is_admin():
+        # Public polling needs revision and availability, never verification details.
+        result['worker'] = 'unavailable'
+        result['local_verify'] = dict(available=False, reason='admin_required', last_success_at=None,
+                                      cooldown_until=None, automatic_retry_at=None, job=None, last_result=None)
+        result['history']['last_result'] = None
+    return jsonify(result)
 
 
 @refresh.post('/api/leagues/<league_id>/refresh')

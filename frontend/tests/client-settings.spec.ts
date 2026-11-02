@@ -1,16 +1,16 @@
-import {test,expect} from '@playwright/test'
+import {test,expect} from './fixtures'
 import {goSection} from './workspace-helpers'
 const key='path-of-accounting.preferences.v1'
 const base='/poe2guild/?lang=en'
 
-test('display preferences are local, leave server settings and projection unchanged, and preserve UTC filters across clients',async({browser})=>{
+test('display preferences are local, leave server settings and projection unchanged, and preserve UTC filters across clients',async({browser,request})=>{
   const first=await browser.newContext({locale:'en-US'}),second=await browser.newContext({locale:'en-US'})
   try{
     const a=await first.newPage(),b=await second.newPage()
     const url='http://127.0.0.1:19003'+base+'&section=history&from=2026-01-01T12%3A00%3A00.000Z&to=2026-01-02T12%3A00%3A00.000Z'
     await a.goto(url);await expect(a.locator('.result-count')).toContainText('Results: 30')
     const league=new URL(a.url()).searchParams.get('league'),endpoint='/poe2guild/api/leagues/'+league
-    const before=await(await a.request.get(endpoint+'/quantity-settings')).json()
+    const before=await(await request.get(endpoint+'/quantity-settings')).json()
     await expect.poll(async()=>(await(await a.request.get(endpoint+'/quantities')).json()).projection.state).toBe('ready')
     const original=await(await a.request.get(endpoint+'/quantities')).json()
     const writes:string[]=[];a.on('request',request=>{if(request.method()==='PUT'||request.url().endsWith('/refresh')&&request.method()==='POST')writes.push(request.url())})
@@ -21,7 +21,7 @@ test('display preferences are local, leave server settings and projection unchan
     await settings.getByRole('button',{name:'Save preferences',exact:true}).click()
     await expect(settings).toContainText('Preferences saved for this browser.')
     expect(writes).toEqual([])
-    expect(await(await a.request.get(endpoint+'/quantity-settings')).json()).toEqual(before)
+    expect(await(await request.get(endpoint+'/quantity-settings')).json()).toEqual(before)
     expect((await(await a.request.get(endpoint+'/quantities')).json()).projection.id).toBe(original.projection.id)
     await goSection(a,'History')
     await expect(a.locator('.result-count')).toContainText('Results: 30')

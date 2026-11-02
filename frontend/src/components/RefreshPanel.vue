@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { authFetch, isAdmin } from '../auth'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { t, date, displayTimezone } from '../i18n'
 interface Job { state: string; attempts: number; error_code: string | null; available_at: string }
@@ -25,7 +26,7 @@ async function request(options?: RequestInit) {
   controllers.add(controller)
   const timeout = setTimeout(() => controller.abort(), 8000)
   try {
-    const response = await fetch(url, { ...options, cache: 'no-store', signal: controller.signal })
+    const response = await authFetch(url, { ...options, cache: 'no-store', signal: controller.signal })
     if (!response.ok) throw new Error('Refresh unavailable')
     return await response.json()
   } finally { clearTimeout(timeout); controllers.delete(controller) }
@@ -83,7 +84,7 @@ onUnmounted(() => { stopped = true; clearTimeout(timer); controllers.forEach(con
   </div></Teleport>
   <Teleport to="#league-sync-diagnostics">
 
-  <section v-show="diagnostics" class="refresh-panel" :aria-label="t('refresh.title')" data-testid="refresh-panel">
+  <section v-if="isAdmin" v-show="diagnostics" class="refresh-panel" :aria-label="t('refresh.title')" data-testid="refresh-panel">
     <div class="section-heading"><h2>{{ t('refresh.title') }}</h2><span>{{ t(!status ? 'refresh.loading' : status.worker === 'online' ? 'refresh.workerOnline' : 'refresh.workerOffline') }}</span></div>
     <p v-if="error" role="alert">{{ t('refresh.statusError') }}</p>
     <p v-if="requestError" role="alert">{{ t('refresh.requestError') }}</p>

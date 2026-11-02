@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { authFetch } from '../auth'
 import { displayTimezone, t, number, date } from '../i18n'
 import { computed, onMounted, ref } from 'vue'
 import type { Readiness } from '../readiness'
@@ -15,7 +16,7 @@ async function loadReference() {
   if (state.value === 'loading' && snapshot.value) return
   state.value = 'loading'
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}api/rework-readiness`, {
+    const response = await authFetch(`${import.meta.env.BASE_URL}api/rework-readiness`, {
       cache: 'no-store', signal: AbortSignal.timeout(8000),
     })
     if (!response.ok) throw new Error('Reference unavailable')
@@ -33,7 +34,7 @@ async function loadReference() {
 async function loadDatabase() {
   databaseState.value = 'loading'
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}api/database-status`, {
+    const response = await authFetch(`${import.meta.env.BASE_URL}api/database-status`, {
       cache: 'no-store', signal: AbortSignal.timeout(8000),
     })
     if (!response.ok) throw new Error('Database unavailable')

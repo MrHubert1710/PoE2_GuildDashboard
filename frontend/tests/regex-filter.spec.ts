@@ -1,5 +1,5 @@
 import { gotoHistory, goSection } from './workspace-helpers'
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 
 test.use({ locale: 'en-US' })
 const url='/poe2guild/?lang=en'

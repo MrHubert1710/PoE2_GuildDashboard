@@ -1,6 +1,6 @@
 import { gotoHistory } from './workspace-helpers'
-import { test, expect } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import { test, expect } from './fixtures'
+import type { Page } from './fixtures'
 import { readFileSync, readdirSync } from 'node:fs'
 import databaseFixture from '../../tests/fixtures/browser-database.json' with { type: 'json' }
 

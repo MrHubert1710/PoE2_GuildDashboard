@@ -1,9 +1,9 @@
 # Plan implementacji poe2guild
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: fazy 0–5 odebrane przez użytkownika; faza 5a zaimplementowana,
-oczekuje weryfikacji manualnej. Fazy 5b, 5c, 6 i dalsze nie są rozpoczęte.
-Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md), [phase-5a.md](phase-5a.md).
+Status: fazy 0–5a odebrane przez użytkownika. Faza 5b zaimplementowana
+i wdrożona, oczekuje odbioru manualnego. Fazy 5c, 6 i dalsze nie są rozpoczęte.
+Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md), [phase-5a.md](phase-5a.md), [phase-5b.md](phase-5b.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -336,8 +336,8 @@ Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
-Faza 5a (lokalne preferencje prezentacji) oczekuje odbioru. Po jej akceptacji
-i osobnym poleceniu następuje faza 5b: administracja i logowanie. Następnie 5c
+Faza 5a została odebrana; faza 5b (administracja i logowanie) została wdrożona
+i oczekuje odbioru. Następnie 5c
 (symulacja stasha po uzgodnieniu designu) oraz 6 (wycena).
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.
@@ -353,7 +353,7 @@ historyczne/aktualne jest w nim zablokowany, z wybraną opcją historyczną.
 Faza 6 uruchomi wycenę i zmieni domyślny tryb na wartościowy. Kliknięcie koloru
 w legendzie otwiera picker, a kolory są zapisywane po stronie klienta.
 
-### Etap 5a — lokalne preferencje prezentacji (oczekuje odbioru)
+### Etap 5a — lokalne preferencje prezentacji (odebrana)
 
 - Język, strefa czasu, 12/24 h, kolory, zwinięte panele i domyślny widok są
   preferencjami klienta, w wersjonowanym magazynie przeglądarki. Migracja
@@ -373,7 +373,7 @@ Odbiór: dwie przeglądarki z różnymi preferencjami prezentują te same rekord
 z tego samego URL UTC, bez zapisu ustawień serwera i bez przeliczania projekcji.
 Działają reload, Wstecz/Dalej, migracja kolorów oraz zablokowany localStorage.
 
-### Etap 5b — administracja i logowanie (do realizacji)
+### Etap 5b — administracja i logowanie (oczekuje odbioru)
 
 - Widoczny status Player / Admin; kliknięcie otwiera popup logowania lub
   wylogowania. Konto administracyjne i sesja są weryfikowane na backendzie.
@@ -389,8 +389,8 @@ Działają reload, Wstecz/Dalej, migracja kolorów oraz zablokowany localStorage
   limity prób i wygasanie sesji. Nie utożsamiać logowania Admin z autoryzacją GGG.
 
 Odbiór: gracz nie może odczytać diagnostyki ani zmieniać konfiguracji także
-bezpośrednio przez API; administrator może zalogować się, skonfigurować źródło
-oraz wylogować. Sekrety nie trafiają do odpowiedzi ani frontendu.
+bezpośrednio przez API; administrator może zalogować się, skonfigurować skrytki
+oraz wylogować. Konfiguracja połączenia GGG nastąpi z adapterem w 7B. Sekrety nie trafiają do odpowiedzi ani frontendu.
 
 ### Etap 5c — symulacja Stash state (do realizacji po ustaleniu designu)
 
@@ -411,4 +411,4 @@ w tooltipach, płynna zmiana czasu i izolacja lig oraz ukrytych skrytek.
 
 Proponowana kolejność po odbiorze fazy 5a: 5b → 5c → 6 → 7 / 8.
 Każdy etap wymaga osobnego polecenia rozpoczęcia i kończy się zatrzymaniem do
-odbioru. Powyższe dopisanie planu nie oznacza rozpoczęcia faz 5b–5c ani wyceny.
+odbioru. Faza 5b jest wdrożona; faza 5c i wycena nie zostały rozpoczęte.

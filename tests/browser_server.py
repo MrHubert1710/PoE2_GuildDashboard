@@ -25,7 +25,8 @@ if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='poe2guild-browser-data-') as temporary:
         database = build_browsing_fixture(temporary)
         app = create_app({'REFERENCE_FILE': ROOT / 'tests/fixtures/browser-reference.json',
-                          'DATABASE_FILE': database, 'DATA_DIRECTORY': temporary})
+                          'DATABASE_FILE': database, 'DATA_DIRECTORY': temporary, 'AUTH_REQUIRE_HTTPS': False})
+        app.extensions['auth_store'].set_password('test-admin', 'test-only-password-123')
         mounted = DispatcherMiddleware(Response('Not found', status=404), {'/poe2guild': app})
         # Deterministic initial projections keep existing UI tests independent of background timing.
         from backend.database import connect

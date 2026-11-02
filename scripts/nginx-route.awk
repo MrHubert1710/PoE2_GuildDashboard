@@ -78,6 +78,7 @@ END {
             if(kind[b]=="server" && t[first]=="server_name")
                 for(k=first+1;k<i;k++) names[b]=names[b] " " t[k] " "
             if(kind[b]=="location" && t[first]=="proxy_pass") upstream[b]=t[first+1]
+            if(kind[b]=="location" && t[first]=="proxy_set_header" && t[first+1]=="X-Forwarded-Proto") proto[b]=t[first+2]
             if(kind[b]=="location" && t[first]=="return") {
                 code[b]=t[first+1]; redirect[b]=t[first+2]
             }
@@ -87,6 +88,11 @@ END {
     if(depth) fail("Unbalanced nginx braces")
     for(b=1;b<=blocks;b++) if(kind[b]=="server" &&
         (server_name=="" || index(names[b]," " server_name " "))) { selected=b; matches++ }
+    # Certbot may add a second, redirect-only server for the same name.
+    if(matches>1) {
+        matches=0
+        for(b=1;b<=blocks;b++) if(kind[b]=="location" && path[b]==prefix "/" && upstream[b]=="http://" bind "/" && index(names[parent[b]]," " server_name " ")) { selected=parent[b]; matches++ }
+    }
     if(matches!=1) fail("Select exactly one server block with nginx_server in service.ini")
 
     marker_start="# BEGIN poe2guild " prefix
@@ -119,7 +125,11 @@ END {
             # Existing slash redirect belonging to this route.
         } else fail("Conflicting nginx location; configuration unchanged")
         if(action=="install") {
-            if(path[b]==prefix "/") have_proxy=1; else have_redirect=1
+            if(path[b]==prefix "/") {
+                have_proxy=1
+                if(proto[b]!="" && proto[b]!="$scheme") fail("X-Forwarded-Proto must use $scheme")
+                if(proto[b]=="") proto_insert=ending[b]
+            } else have_redirect=1
         } else range(begin[b],ending[b])
     }
     if(action=="install" && (!have_proxy || !have_redirect)) {
@@ -127,6 +137,7 @@ END {
         if(!have_proxy) addition=addition "    location " prefix "/ {\n" \
             "        proxy_pass http://" bind "/;\n" \
             "        proxy_set_header Host $host;\n" \
+            "        proxy_set_header X-Forwarded-Proto $scheme;\n" \
             "        proxy_set_header X-Real-IP $remote_addr;\n" \
             "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n" \
             "    }\n"
@@ -139,6 +150,7 @@ END {
     output=""; insert_at=ending[selected]
     for(i=1;i<=length(document);i++) {
         if(i==insert_at && addition!="") output=output addition
+        if(i==proto_insert) output=output "    proxy_set_header X-Forwarded-Proto $scheme;\n    "
         skip=0
         for(j=1;j<=removed;j++) if(i>=rs[j] && i<=re[j]) { i=re[j]; skip=1; break }
         if(!skip) output=output substr(document,i,1)

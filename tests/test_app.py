@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 
-from backend.app import create_app
+from tests.auth_helpers import create_app
 
 
 class AppTests(unittest.TestCase):

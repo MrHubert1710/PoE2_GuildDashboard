@@ -123,6 +123,7 @@ server {
     location /poe2-guild/ {
         proxy_pass http://127.0.0.1:9001/;
         proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
         auth_basic "Private {area}";
     }
     location = /poe2-guild { return 301 /poe2-guild/; }

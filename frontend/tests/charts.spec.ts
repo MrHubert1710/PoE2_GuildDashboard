@@ -1,5 +1,5 @@
-import {test,expect} from '@playwright/test'
-import type {Locator} from '@playwright/test'
+import {test,expect} from './fixtures'
+import type {Locator} from './fixtures'
 import {goSection,zoomTime,zoomValues,resetTime,resetValues} from './workspace-helpers'
 test.use({locale:'en-US'})
 const path='/poe2guild/?lang=en'

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from backend.app import create_app
+from tests.auth_helpers import create_app
 from backend.archive_import import import_bundle, ImportRejected, normalize
 from backend.database import connect, migrate, verify, maintenance_lock, DatabaseError, SCHEMA_VERSION
 from backend.database_lifecycle import rebuild, snapshot_legacy

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 import { goSection } from './workspace-helpers'
 
 test.use({ locale: 'en-US' })

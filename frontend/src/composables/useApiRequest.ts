@@ -1,3 +1,4 @@
+import { authFetch } from '../auth'
 import { onUnmounted } from 'vue'
 
 class ApiError extends Error {}
@@ -10,7 +11,7 @@ export function useApiRequest(base: string, timeoutMs = 15000) {
     controllers.add(controller)
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const response = await fetch(base + path, { ...options, cache: 'no-store', signal: controller.signal })
+      const response = await authFetch(base + path, { ...options, cache: 'no-store', signal: controller.signal })
       const payload = await response.json()
       if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new ApiError('report_unavailable')
       if (!response.ok) throw new ApiError(typeof payload.error === 'string' ? payload.error : 'report_unavailable')

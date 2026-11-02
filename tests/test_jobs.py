@@ -10,7 +10,7 @@ import fcntl
 import sqlite3
 from backend.database import MIGRATIONS, SCHEMA_VERSION
 
-from backend.app import create_app
+from tests.auth_helpers import create_app
 from backend.archive_import import canonical, normalize
 from backend.browsing import revision
 from backend.database import connect, migrate

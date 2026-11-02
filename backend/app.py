@@ -6,6 +6,7 @@ import sqlite3
 from datetime import datetime
 
 from flask import Flask, jsonify, send_from_directory
+from .auth import init_auth
 from .reference import public_reference
 from .repositories import database_status
 from .database import DatabaseError
@@ -26,6 +27,7 @@ def create_app(config=None):
                             HISTORY_SCOPE=('ggg', os.environ.get('POE2GUILD_GUILD_REFERENCE', 'unconfigured'), 'guild_history'))
     if config:
         app.config.update(config)
+    init_auth(app)
     app.register_blueprint(browser)
     app.register_blueprint(refresh)
     app.register_blueprint(quantities)
