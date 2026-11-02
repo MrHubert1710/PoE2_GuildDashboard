@@ -322,11 +322,14 @@ Problem do sprawdzenia:
   przedmiot. Trzeba oddzielić niepełność źródła od błędnej interpretacji,
   niewłaściwego klucza slotu i problemów naszego fetchera.
 - Przypadek referencyjny: Runes of Aldur, Abyss/Expedition, Verisium.
-  Bilans operacji 7776, suma znanych stanów slotów 21776; różnica 14000.
+  Pomiar na quantities-v3: bilans operacji 7776, suma znanych stanów slotów 21776; różnica 14000.
   W modelu 21 usunięć Verisium bez pasującego stanu zmniejsza bilans o 21000,
   a 7 usunięć innych przedmiotów zeruje 7000 Verisium bez odpowiadającej
   zmiany jego bilansu. Żadna z tych końcowych liczb nie jest potwierdzonym
   stanem w grze. Zachować ten przypadek jako regresję do analizy.
+  Tymczasowo quantities-v4 stosuje uzgodnione opróżnianie slotów i osobne
+  korekty rekonstrukcji; to przyjęta polityka księgowania, a nie dowód
+  rzeczywistej semantyki GGG. Szczegóły: [phase-4.md](phase-4.md).
 
 Zakres eksperymentów:
 - Uzgodnić z użytkownikiem sekwencję ręcznie wykonywanych działań w grze.

@@ -495,3 +495,25 @@ test('real extrema have labelled reference lines, negative player minima are kep
   const texts=await graph.locator('svg text').allTextContents()
   expect(texts).not.toContain(String(min));expect(texts).not.toContain(String(max))
 })
+
+test('technical corrections use a localized separate legend and table label',async({page})=>{
+  await page.route('**/quantity-series?*',async route=>{
+    const response=await route.fetch(),data=await response.json()
+    if(data.view==='players'){
+      for(const group of [data.series,data.navigator?.series])if(group?.length){group[0].name='__poa_reconstruction__';group[0].reconstruction=true}
+    }
+    await route.fulfill({json:data})
+  })
+  await page.route('**/quantities?*',async route=>{
+    const response=await route.fetch(),data=await response.json()
+    if(new URL(route.request().url()).searchParams.get('view')==='players'&&data.rows?.length){data.rows[0].account='__poa_reconstruction__';data.rows[0].reconstruction=true}
+    await route.fulfill({json:data})
+  })
+  await page.goto(path+'&section=players')
+  await expect(chart(page).getByRole('checkbox',{name:'Reconstruction corrections',exact:true})).toBeVisible()
+  await expect(page.getByTestId('quantity-panel').locator('.quantity-table')).toContainText('Reconstruction corrections')
+  await expect(page.getByTestId('quantity-panel')).not.toContainText('__poa_reconstruction__')
+  await page.getByRole('combobox',{name:'Language',exact:true}).selectOption('pl')
+  await expect(chart(page).getByRole('checkbox',{name:'Korekty rekonstrukcji',exact:true})).toBeVisible()
+  await expect(page.getByTestId('quantity-panel').locator('.quantity-table')).toContainText('Korekty rekonstrukcji')
+})

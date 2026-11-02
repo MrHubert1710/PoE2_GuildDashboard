@@ -4,7 +4,7 @@ import type { HistoryQuery } from '../browsing'
 import { currentUrl, updateUrl } from '../navigation'
 import { useApiRequest } from './useApiRequest'
 interface Settings { target_stashes: string[] | null; stash_aliases: Record<string, string>; timezone: string }
-interface Row { item_name: string; account?: string; stash?: string; source_id?: number; x?: number; y?: number; quantity?: number | null; occurred_at?: string; added?: number; removed?: number; net?: number; inferred_quantity?: number; movements?: number }
+interface Row { reconstruction?: boolean; item_name: string; account?: string; stash?: string; source_id?: number; x?: number; y?: number; quantity?: number | null; occurred_at?: string; added?: number; removed?: number; net?: number; inferred_quantity?: number; movements?: number }
 interface Report { league_id: string; projection: { state: string; id: string | null; input_revision: string; algorithm_version: string; generated_at: string | null }; settings: Settings; rows: Row[]; page: number; pages: number; total: number; stats: {events: number; unknown: number; inferred: number; excluded: number; warnings: number} | null }
 export function useQuantityReport(props: { leagueId: string; revision: string; settingsHash?: string; query: HistoryQuery; view: string; refreshToken: number }, onGenerated: () => void) {
   const view = computed(() => props.view)

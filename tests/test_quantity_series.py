@@ -16,6 +16,24 @@ class SeriesTests(unittest.TestCase):
         self.assertEqual(response.status_code,200,response.json)
         return response.json
 
+    def test_corrections_have_their_own_player_series_and_no_artificial_stash_spike(self):
+        self.insert(event(40,'added',1000,'Stock',x=8,account='Depositor'),'A')
+        self.insert(event(41,'removed',4,'Reported',x=8,account='Collector'),'A')
+        self.build()
+        players=self.series(view='players',series_item='Reported')
+        balances={row['name']:row['closing_balance'] for row in players['series']}
+        self.assertEqual(balances,{'__poa_reconstruction__':4,'Collector':-4})
+        self.assertTrue(next(row for row in players['series'] if row['name']=='__poa_reconstruction__')['reconstruction'])
+        stash=self.series(view='stashes',series_item='Reported')
+        for container in [stash['series'][0],stash['total_series'],stash['navigator']['series'][0],stash['navigator']['total_series']]:
+            self.assertTrue(all(point['balance']==0 for point in container['points']))
+        cursor=self.series(view='players',series_item='Reported',at=1798761600000)
+        self.assertEqual({row['name']:row['balance'] for row in cursor['balances']},
+                         {'__poa_reconstruction__':4,'Collector':-4,'Combined balance':0})
+        only_player=self.series(view='players',series_item='Reported',account='Collector')
+        self.assertEqual([row['name'] for row in only_player['series']],['Collector'])
+        self.assertEqual(only_player['series'][0]['closing_balance'],-4)
+
     def test_balances_carry_previous_history_into_filtered_days_and_viewports(self):
         self.build()
         data=self.series(series_item='Token',**{'from':'2026-01-02','to':'2026-01-02'})

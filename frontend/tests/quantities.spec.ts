@@ -287,3 +287,30 @@ test('12/24 hour setting applies to history, chart and diagnostics without rebui
     await expect(page.getByLabel('Time format',{exact:true})).toHaveValue('12')
   }finally{await restore(request)}
 })
+
+test('Removed explanations show both attributed items, ignored empty withdrawals and a known stack with invalid source quantity',async({page})=>{
+  await page.route('**/transactions?*',async route=>{
+    const response=await route.fetch(),data=await response.json()
+    const quantity={item_name:"Olroth's Saga",before_item:'Verisium',quantity_before:1000,quantity_after:0,
+      quantity_delta:null,effective_action:'mixed',confidence:'inferred',resolution_reason:'removed_state_conflict',
+      movements:[{item_name:"Olroth's Saga",quantity_delta:4,confidence:'inferred',entry_kind:'reconstruction'},{item_name:'Verisium',quantity_delta:-1000,confidence:'inferred',entry_kind:'operation'},{item_name:"Olroth's Saga",quantity_delta:-4,confidence:'source',entry_kind:'operation'}]}
+    data.rows[0]={...data.rows[0],action:'removed',account:'Collector',item:"4× Olroth's Saga",quantity}
+    data.rows[1]={...data.rows[1],action:'removed',quantity:{...quantity,before_item:null,quantity_before:0,quantity_delta:0,effective_action:'unchanged',resolution_reason:'removed_empty_ignored',movements:[]}}
+    data.rows[2]={...data.rows[2],action:'removed',quantity:{...quantity,effective_action:'removed',resolution_reason:'invalid_quantity',movements:[{item_name:'Verisium',quantity_delta:-1000,confidence:'inferred'}]}}
+    await route.fulfill({json:data})
+  })
+  await gotoHistory(page,path)
+  const rows=page.locator('.history-transactions tbody tr')
+  await expect(rows.nth(0)).toContainText('Collector')
+  await expect(rows.nth(0).locator('.quantity-delta')).toContainText("Reconstruction corrections: +4 Olroth's Saga")
+  await expect(rows.nth(0).locator('.quantity-delta')).toContainText('-1,000 Verisium')
+  await expect(rows.nth(0).locator('.quantity-delta')).toContainText("-4 Olroth's Saga")
+  await rows.nth(0).getByText('Calculation basis',{exact:true}).click()
+  await expect(rows.nth(0)).toContainText('Temporary rule: clear the entire tracked stack')
+  await expect(rows.nth(1).locator('.quantity-delta')).toHaveText('0')
+  await rows.nth(1).getByText('Calculation basis',{exact:true}).click()
+  await expect(rows.nth(1)).toContainText('slot is already empty')
+  await expect(rows.nth(2).locator('.quantity-delta')).toHaveText('-1,000 Verisium')
+  await page.getByRole('combobox',{name:'Language',exact:true}).selectOption('pl')
+  await expect(rows.nth(1)).toContainText('slot jest już pusty')
+})

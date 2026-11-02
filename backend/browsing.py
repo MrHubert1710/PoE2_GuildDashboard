@@ -212,7 +212,7 @@ def transactions(league_id):
             annotations = {r['transaction_id']: dict(r) for r in connection.execute(
                 f'SELECT * FROM event_quantities WHERE run_id=? AND transaction_id IN ({placeholders})', [run['id'], *ids])}
             movements = {}
-            for movement in connection.execute(f'SELECT transaction_id,item_name,quantity_delta,confidence FROM quantity_movements WHERE run_id=? AND transaction_id IN ({placeholders}) ORDER BY transaction_id,sequence', [run['id'], *ids]):
+            for movement in connection.execute(f'SELECT transaction_id,item_name,quantity_delta,confidence,entry_kind FROM quantity_ledger WHERE run_id=? AND transaction_id IN ({placeholders}) ORDER BY transaction_id,sequence', [run['id'], *ids]):
                 movements.setdefault(movement['transaction_id'], []).append(dict(movement))
             for row in result_rows:
                 annotation = annotations.get(row['id'])

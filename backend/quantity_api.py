@@ -141,11 +141,11 @@ def report(league_id):
         if item:
             event_predicate, event_arguments = filters.predicate('item', 'q.item_name')
             movement_predicate, movement_arguments = filters.predicate('item', 'mm.item_name')
-            event_item = f' AND ({event_predicate} OR EXISTS(SELECT 1 FROM quantity_movements mm WHERE mm.run_id=q.run_id AND mm.transaction_id=q.transaction_id AND {movement_predicate}))'
+            event_item = f' AND ({event_predicate} OR EXISTS(SELECT 1 FROM quantity_ledger mm WHERE mm.run_id=q.run_id AND mm.transaction_id=q.transaction_id AND {movement_predicate}))'
             event_values += event_arguments + movement_arguments
         stats = dict(c.execute('SELECT COUNT(*) AS events,COALESCE(SUM(q.effective_action=\'unknown\'),0) AS unknown,'
                                'COALESCE(SUM(q.confidence=\'inferred\'),0) AS inferred,COALESCE(SUM(q.effective_action=\'excluded\'),0) AS excluded,'
-                               "COALESCE(SUM(q.resolution_reason IN ('state_conflict','removed_state_conflict','invalid_quantity','ambiguous_order')),0) AS warnings "
+                               "COALESCE(SUM(q.resolution_reason IN ('state_conflict','removed_state_conflict','removed_empty_ignored','removed_unknown_before','invalid_quantity','ambiguous_order')),0) AS warnings "
                                'FROM event_quantities q JOIN transactions t ON t.id=q.transaction_id WHERE ' + common + event_item, event_values).fetchone())
         if view == 'state':
             where, args = ['s.run_id=?', '(s.quantity>0 OR s.quantity IS NULL)'], [run['id']]
@@ -158,22 +158,25 @@ def report(league_id):
                    'FROM quantity_state s JOIN transactions t ON t.id=s.transaction_id WHERE ' + ' AND '.join(where))
             order = 'stash,source_id,y,x'
         else:
-            groups = {'summary': 'm.item_name', 'players': 't.account,m.item_name', 'stashes': 'q.stash,m.item_name'}[view]
-            selected = 'm.item_name' + (',t.account' if view == 'players' else ',q.stash' if view == 'stashes' else '')
-            where, args = common, list(values)
+            groups = {'summary': 'm.item_name', 'players': 'COALESCE(m.account,t.account),m.item_name', 'stashes': 'q.stash,m.item_name'}[view]
+            selected = 'm.item_name' + (',COALESCE(m.account,t.account) AS account' if view == 'players' else ',q.stash' if view == 'stashes' else '')
+            where, args = common.replace('t.account', 'COALESCE(m.account,t.account)'), list(values)
             if item:
                 predicate, arguments = filters.predicate('item', 'm.item_name')
                 where += ' AND ' + predicate; args.extend(arguments)
             sql = (f'SELECT {selected},SUM(CASE WHEN m.quantity_delta>0 THEN m.quantity_delta ELSE 0 END) AS added,'
                    'SUM(CASE WHEN m.quantity_delta<0 THEN -m.quantity_delta ELSE 0 END) AS removed,SUM(m.quantity_delta) AS net,'
                    "SUM(CASE WHEN m.confidence='inferred' THEN ABS(m.quantity_delta) ELSE 0 END) AS inferred_quantity,"
-                   'COUNT(*) AS movements FROM quantity_movements m JOIN event_quantities q ON q.run_id=m.run_id AND q.transaction_id=m.transaction_id '
+                   'COUNT(*) AS movements FROM quantity_ledger m JOIN event_quantities q ON q.run_id=m.run_id AND q.transaction_id=m.transaction_id '
                    'JOIN transactions t ON t.id=q.transaction_id WHERE ' + where + ' GROUP BY ' + groups)
             order = 'casefold(account),item_name' if view == 'players' else 'stash,item_name' if view == 'stashes' else 'item_name'
         total = c.execute('SELECT COUNT(*) FROM (' + sql + ')', args).fetchone()[0]
         pages = max(1, (total + size - 1) // size)
         page = min(page, pages)
         rows = [dict(row) for row in c.execute('SELECT * FROM (' + sql + ') ORDER BY ' + order + ' LIMIT ? OFFSET ?', args + [size, (page-1)*size])]
+        if view == 'players':
+            for row in rows:
+                row['reconstruction'] = row['account'] == '__poa_reconstruction__'
         return jsonify(league_id=league_id, projection=meta, settings=settings, rows=rows, total=total, pages=pages, page=page, stats=stats,
                        history_complete=bool(league['history_complete']))
 

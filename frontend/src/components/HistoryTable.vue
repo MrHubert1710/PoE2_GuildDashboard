@@ -36,7 +36,7 @@ const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
                 <td><span class="action" :class="row.action">{{ actionNames[row.action] ? t(actionNames[row.action]!) : row.action }}</span></td>
                 <td>{{ row.stash }}</td><td class="item-cell">{{ row.item }}</td>
                 <td class="quantity-delta">
-                  <template v-if="row.quantity?.movements.length && row.quantity.movements.length > 1"><div v-for="(movement, index) in row.quantity.movements" :key="index">{{ signed(movement.quantity_delta) }} {{ movement.item_name }}</div></template>
+                  <template v-if="row.quantity?.movements.length && (row.quantity.movements.length > 1 || row.quantity.quantity_delta === null)"><div v-for="(movement, index) in row.quantity.movements" :key="index"><span v-if="movement.entry_kind === 'reconstruction'" class="reconstruction-label">{{ t('quantity.reconstruction') }}: </span>{{ signed(movement.quantity_delta) }} {{ movement.item_name }}</div></template>
                   <template v-else>{{ row.quantity?.quantity_delta !== null && row.quantity?.quantity_delta !== undefined ? signed(row.quantity.quantity_delta) : t('quantity.unknown') }}</template>
                 </td>
                 <td><template v-if="row.quantity"><span class="action" :class="row.quantity.effective_action">{{ t(`quantity.action.${row.quantity.effective_action}`) }}</span>

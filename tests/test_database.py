@@ -47,7 +47,9 @@ class DatabaseTests(unittest.TestCase):
             c.executescript('ALTER TABLE archive_files RENAME TO current_files;'+definition+
                             'INSERT INTO archive_files SELECT * FROM current_files; DROP TABLE current_files;')
             c.execute("INSERT INTO archive_files SELECT id+1000,source_id,league_id,archive_key||'.retired',relative_path||'.retired','report',sha256,bytes,provenance_json,import_id FROM archive_files WHERE kind='history'")
-            c.execute('DELETE FROM schema_migrations WHERE version=4')
+            c.execute('DROP VIEW quantity_ledger')
+            c.execute('DROP TABLE quantity_reconciliations')
+            c.execute('DELETE FROM schema_migrations WHERE version>=4')
             c.execute('PRAGMA user_version=3')
         migrate(self.database)
         migrate(self.database)

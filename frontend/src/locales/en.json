@@ -254,7 +254,7 @@
     "quantity.reason.stack_difference": "Quantity change calculated from the previous known state.",
     "quantity.reason.replacement": "A different item appeared at these coordinates. Removal of the old item and addition of the new item are inferred; different items are not combined into one delta.",
     "quantity.reason.explicit_added": "The source Added entry describes the added quantity. Every slot starts at 0.",
-    "quantity.reason.explicit_removed": "The source Removed entry empties the slot. The resulting quantity is 0, even when the preceding state is unknown.",
+    "quantity.reason.explicit_removed": "The entire tracked stack is removed once and the slot becomes empty (0).",
     "quantity.reason.explicit_zero": "The entry has quantity zero; it creates no movement.",
     "quantity.reason.state_conflict": "Quantity or item conflicts with the reconstructed state. The resulting state remains unknown.",
     "quantity.reason.ambiguous_order": "Multiple entries share a timestamp and coordinates without unambiguous ID ordering. Their order is not guessed.",
@@ -332,7 +332,7 @@
     "quantity.update.pending": "Updating analysis — please wait.",
     "quantity.update.ready": "Analysis is up to date.",
     "quantity.update.failed": "Analysis could not be updated. Open Summary to retry.",
-    "quantity.reason.removed_state_conflict": "The removed quantity or item differs from the preceding record. The source removal is preserved and the slot is empty (0).",
+    "quantity.reason.removed_state_conflict": "Temporary rule: clear the entire tracked stack. If the log names a different item, its reported removal is also attributed to this event’s player. The discrepancy is inferred.",
     "chart.valueMode": "Value mode",
     "chart.quantityMode": "Quantity mode",
     "chart.all": "All",
@@ -424,6 +424,10 @@
     "auth.errors.invalid_password": "The new password must contain 12–1024 characters.",
     "auth.errors.password_mismatch": "The new passwords do not match.",
     "workspace.section.configuration": "System settings",
-    "auth.loginButton": "Login"
+    "auth.loginButton": "Login",
+    "quantity.reason.removed_empty_ignored": "Temporary rule: the slot is already empty. The source Removed entry is retained, but it creates no accounting movement.",
+    "quantity.reason.removed_unknown_before": "The preceding quantity is unknown. The reported removal is attributed to the player and the slot becomes empty; the unknown tracked quantity is not invented.",
+    "quantity.reconstruction": "Reconstruction corrections",
+    "quantity.reconstructionNote": "Reconstruction corrections balance the accounting with the known reconstructed slot contents. They are technical assumptions, not GGG entries or player contributions. Full balances agree with known inventory when all players and corrections are included."
   }
 }

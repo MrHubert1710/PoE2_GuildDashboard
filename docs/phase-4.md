@@ -123,7 +123,7 @@ Publiczny smoke test przez nginx potwierdził połączenie Aa + całe słowa +
 regex na rzeczywistych danych, zgodne liczniki historii/analizy, reload,
 komunikat błędnego wzorca oraz układ desktop/mobile bez błędów JavaScript.
 
-## Reguły algorytmu quantities-v3
+## Reguły algorytmu quantities-v3 (historyczne)
 
 - Parser obsługuje liczbę i x / × oraz zastany zapis Ă—; bez prefiksu ilość
   wynosi 1. Nazwa zaczynająca się od liczby, np. 7 League Boots, pozostaje
@@ -332,3 +332,57 @@ quantity_after=0 dla Removed 4 Vaal Siphoner (ID 3192208954) oraz brak pozycji
 34,0 w API i widoku stanu. W bazie slot ma item_name='' i quantity=0.
 Skrót wszystkich kolumn 104 534 źródłowych transakcji przed i po wdrożeniu
 pozostał identyczny. Ustawienia lig i gildii nie były modyfikowane.
+
+## Tymczasowe uzgadnianie stanów — quantities-v4
+
+Reguła użytkownika do czasu eksperymentów z API w fazie 7C:
+
+- Removed opróżnia cały śledzony slot. Przy tym samym przedmiocie odejmujemy
+  całą śledzoną ilość jeden raz. Przy różnych nazwach księgujemy usunięcie
+  śledzonego stosu oraz raportowanego przedmiotu; oba przypisujemy autorowi
+  tego wpisu. Różnice względem logu są oznaczone jako wywnioskowane.
+- Removed ze znanego pustego slota nie tworzy ruchów. Wpis źródłowy pozostaje
+  w historii z deltą 0 i wyjaśnieniem removed_empty_ignored.
+- Nieznana ilość nie oznacza pustego slota. Przy niepoprawnym zapisie ilości
+  opróżniamy znaną zawartość, a nieznanej ilości nie zgadujemy.
+- Osobne **Korekty rekonstrukcji** rozliczają różnicę pomiędzy operacjami
+  przypisanymi graczowi a zmianą znanej zawartości slota. Dotyczy to każdego
+  przejścia, również ustalenia stanu po wcześniejszym błędzie lub konflikcie.
+  Nie są to wpisy GGG ani wkład rzeczywistego gracza.
+
+Przykład: w slocie 1000 Verisium, log Removed 4 Olroth's Saga. Autor ma
+−1000 Verisium i −4 Olroth's Saga. Osobna korekta ma +4 Olroth's Saga.
+Po operacji znany stan obu przedmiotów wynosi 0, a pełne księgowanie też 0.
+
+Migracja 005 dodaje quantity_reconciliations i widok quantity_ledger,
+łączący techniczne korekty z quantity_movements. Korekty są powiązane
+z konkretnym wpisem i projekcją; surowe transactions/raw_json pozostają
+niezmienione. Stare projekcje pozostają do audytu; aktywne obliczenia mają
+nową wersję quantities-v4. Schemat bazy: 5.
+
+Tabele, wykresy i tooltip w dowolnym czasie korzystają z tego samego ledgeru.
+Widok graczy ma osobną, lokalizowaną serię korekt, uwzględnianą także w sumie.
+Historia oznacza każdą korektę osobno, aby nie przypisać jej do gracza.
+Wykres skrytek i sumy traktuje wszystkie pozycje jednego zdarzenia atomowo:
+nie rysuje sztucznego wzrostu pomiędzy techniczną korektą a usunięciem.
+
+Zgodność ze stanem dotyczy pełnej historii wszystkich graczy, łącznie z
+korektami. Filtr gracza pokazuje wybrany bilans, który może być ujemny;
+wyłączenie serii korekt również zmienia interpretację sumy. Korekty nie
+potwierdzają rzeczywistego stanu w grze — uzgadniają model znanego stanu.
+Nieznane ilości pozostają jawnie nieznane, a ich wkład w znaną sumę wynosi 0.
+
+Kontrola archiwów przed wdrożeniem: dla obu lig bilans każdego przedmiotu
+zgadza się ze znanym stanem slotów i pozostaje nieujemny po każdym zdarzeniu.
+Runes of Aldur / Abyss/Expedition / Verisium: minimum 0, stan końcowy 21776.
+Wyniki fazy 7C mają rozstrzygnąć rzeczywistą semantykę logów GGG.
+
+Weryfikacja wdrożenia quantities-v4 (2026-11-03): 167 testów backendu,
+88 scenariuszy Chromium oraz 16 testów tłumaczeń. Obie ligi przeliczone
+przez worker; stare projekcje zachowane. Zgodność sprawdzono dla wszystkich
+par skrytka/przedmiot oraz w publicznym API wykresu i kursora. Dla Verisium
+w Abyss/Expedition: minimum 0, stan końcowy 21776; operacje graczy 11776
+plus korekty 10000. Liczby obejmują pełną historię wszystkich graczy.
+Korekty: 236 pozycji dla Forbidden Rites i 858 dla Runes of Aldur.
+Kontrola sum źródłowych potwierdziła zachowanie wszystkich 104 534 transakcji
+oraz ustawień lig i gildii. Schemat 5 i stan web/workera sprawdzone po restarcie.

@@ -4,7 +4,7 @@ import type { HistoryQuery } from '../browsing'
 import { currentUrl, updateUrl } from '../navigation'
 import { useApiRequest } from './useApiRequest'
 export interface BalancePoint { timestamp:number; balance:number }
-export interface BalanceSeries {aggregate?:boolean;color?:string;id:string;name:string;opening_balance:number;closing_balance:number;event_count:number;point_count:number;points:BalancePoint[];overview:BalancePoint[]}
+export interface BalanceSeries {reconstruction?:boolean;aggregate?:boolean;color?:string;id:string;name:string;opening_balance:number;closing_balance:number;event_count:number;point_count:number;points:BalancePoint[];overview:BalancePoint[]}
 export interface CursorState {timestamp:number;balances:{id:string;name:string;balance:number}[]}
 export interface SeriesData {
   league_id:string;projection:{id:string|null;state:string};timezone:string;view:string;unit:string

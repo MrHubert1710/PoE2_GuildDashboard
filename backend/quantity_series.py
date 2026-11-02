@@ -53,7 +53,7 @@ def navigator_context(rows, view, limit):
     for row in rows:
         name=row['account'] if view=='players' else row['stash'] if view=='stashes' else 'summary'
         groups[name].append(row)
-    ranked=sorted(groups,key=lambda name:(-sum(abs(row['quantity_delta']) for row in groups[name]),name))[:100]
+    ranked=sorted(groups,key=lambda name:(name!='__poa_reconstruction__',-sum(abs(row['quantity_delta']) for row in groups[name]),name))[:100]
     point_limit=min(limit,max(24,6000//max(1,len(ranked))))
     series=[]
     for name in ranked:
@@ -62,7 +62,7 @@ def navigator_context(rows, view, limit):
             balance+=row['quantity_delta'];points.append(dict(timestamp=row['timestamp'],balance=balance))
         points.append(dict(timestamp=bounds['end'],balance=balance))
         overview,_=sample_extrema(points,point_limit)
-        series.append(dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,
+        series.append(dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,reconstruction=name=='__poa_reconstruction__',
                            opening_balance=0,closing_balance=balance,event_count=len(points)-2,
                            point_count=len(points),points=overview,overview=overview))
     return dict(bounds=bounds,series=series)
@@ -120,14 +120,14 @@ def read_series(league_id):
                   sampled=False,unresolved_events=0,series_truncated=False,totals=dict(added=0,removed=0,net=0,inferred=0))
         if not run:return jsonify(base)
         conditions,args=["m.run_id=?","q.effective_action!='excluded'"],[run['id']]
-        for field,column in [('account','t.account'),('item','m.item_name')]:
+        for field,column in [('account','COALESCE(m.account,t.account)'),('item','m.item_name')]:
             if filters.values[field]:
                 predicate,values=filters.predicate(field,column);conditions.append(predicate);args.extend(values)
         names=sorted({settings['stash_aliases'].get(name,name) for name in stashes})
         if names:
             conditions.append('q.stash IN ('+','.join('?' for _ in names)+')');args.extend(names)
         # Read preceding movements too: a date/viewport filter must not reset the balance.
-        common=(' FROM quantity_movements m JOIN event_quantities q ON q.run_id=m.run_id AND q.transaction_id=m.transaction_id '
+        common=(' FROM quantity_ledger m JOIN event_quantities q ON q.run_id=m.run_id AND q.transaction_id=m.transaction_id '
                 'JOIN transactions t ON t.id=m.transaction_id WHERE '+' AND '.join(conditions))
         catalog=[row[0] for row in c.execute('SELECT m.item_name'+common+' GROUP BY m.item_name ORDER BY SUM(ABS(m.quantity_delta)) DESC,m.item_name LIMIT 50',args)]
         item=None if all_items else item or (catalog[0] if catalog else None);base.update(items=catalog,item=item,all_items=all_items)
@@ -135,23 +135,36 @@ def read_series(league_id):
         if at is not None:
             try:cutoff=(datetime(1970,1,1,tzinfo=timezone.utc)+timedelta(milliseconds=at+1)).isoformat(timespec='microseconds').replace('+00:00','Z')
             except (OverflowError,ValueError):raise ReadError('invalid_viewport')
-            column='t.account' if view=='players' else 'q.stash' if view=='stashes' else "'summary'"
-            cursor_rows=c.execute('SELECT '+column+' AS name,SUM(CASE WHEN t.occurred_at<? THEN m.quantity_delta ELSE 0 END) AS balance'+common+item_sql+' GROUP BY '+column+' ORDER BY SUM(ABS(m.quantity_delta)) DESC,name',[cutoff,*args,*item_args]).fetchall()
+            column='COALESCE(m.account,t.account)' if view=='players' else 'q.stash' if view=='stashes' else "'summary'"
+            cursor_rows=c.execute('SELECT '+column+' AS name,SUM(CASE WHEN t.occurred_at<? THEN m.quantity_delta ELSE 0 END) AS balance'+common+item_sql+' GROUP BY '+column+" ORDER BY (name='__poa_reconstruction__') DESC,SUM(ABS(m.quantity_delta)) DESC,name",[cutoff,*args,*item_args]).fetchall()
             total=sum(row['balance'] for row in cursor_rows)
-            balances=[dict(id=hashlib.sha256((view+'\0'+row['name']).encode()).hexdigest()[:16],name=row['name'],balance=row['balance']) for row in cursor_rows[:100]]
+            balances=[dict(id=hashlib.sha256((view+'\0'+row['name']).encode()).hexdigest()[:16],name=row['name'],reconstruction=row['name']=='__poa_reconstruction__',balance=row['balance']) for row in cursor_rows[:100]]
             if view!='summary':balances.append(dict(id='combined',name='Combined balance',balance=total))
             return jsonify(league_id=league_id,projection=meta,timezone=settings['timezone'],timestamp=at,balances=balances)
         if not item and not all_items:return jsonify(base)
-        event_conditions=[value.replace('m.run_id','q.run_id').replace('m.item_name','q.item_name') for value in conditions]
+        event_conditions=[value.replace('COALESCE(m.account,t.account)','t.account').replace('m.run_id','q.run_id').replace('m.item_name','q.item_name') for value in conditions]
         extra,extra_args='',[]
         if start:extra+=' AND t.occurred_at>=?';extra_args.append(start)
         if end:extra+=' AND t.occurred_at<?';extra_args.append(end)
         unknown_sql=('SELECT COUNT(*) FROM event_quantities q JOIN transactions t ON t.id=q.transaction_id WHERE '+' AND '.join(event_conditions)+
                      (" AND q.item_name=?" if not all_items else "")+" AND (q.effective_action='unknown' OR q.resolution_reason='invalid_quantity')"+extra)
         base['unresolved_events']=c.execute(unknown_sql,[*args,*([] if all_items else [item]),*extra_args]).fetchone()[0]
-        rows=[dict(row) for row in c.execute('SELECT t.id,t.external_id,t.occurred_at,t.account,q.stash,m.sequence,m.quantity_delta,m.confidence'+common+item_sql,[*args,*item_args])]
+        rows=[dict(row) for row in c.execute('SELECT t.id,t.external_id,t.occurred_at,COALESCE(m.account,t.account) AS account,q.stash,m.sequence,m.quantity_delta,m.confidence'+common+item_sql,[*args,*item_args])]
         if not rows:return jsonify(base)
         rows.sort(key=event_order)
+        for row in rows:row['timestamp']=stamp(row['occurred_at'])
+        ledger_rows=rows
+        if view != 'players':
+            # Technical entries and player movements form one atomic event per stash.
+            # Do not draw a fictitious stock spike between a correction and removal.
+            atomic = {}
+            for row in rows:
+                if row['id'] not in atomic:
+                    atomic[row['id']] = dict(row)
+                else:
+                    atomic[row['id']]['quantity_delta'] += row['quantity_delta']
+                    if row['confidence'] == 'inferred': atomic[row['id']]['confidence'] = 'inferred'
+            rows = list(atomic.values())
         for row in rows:row['timestamp']=stamp(row['occurred_at'])
         base['navigator']=navigator_context(rows,view,limit)
         first=stamp(start) if start else rows[0]['timestamp']-1
@@ -165,11 +178,12 @@ def read_series(league_id):
         for row in rows:
             group=row['account'] if view=='players' else row['stash'] if view=='stashes' else 'summary'
             grouped[group].append(row)
+        for row in ledger_rows:
             if low<=row['timestamp']<high:
                 amount=row['quantity_delta'];base['totals']['added' if amount>0 else 'removed']+=abs(amount)
                 base['totals']['net']+=amount
                 if row['confidence']=='inferred':base['totals']['inferred']+=abs(amount)
-        ranked=sorted(grouped,key=lambda group:(-sum(abs(row['quantity_delta']) for row in grouped[group]),group))
+        ranked=sorted(grouped,key=lambda group:(group!='__poa_reconstruction__',-sum(abs(row['quantity_delta']) for row in grouped[group]),group))
         base['series_truncated']=len(ranked)>100
         ranked=ranked[:100]
         point_limit=min(limit,max(24,6000//max(1,len(ranked))))
@@ -192,7 +206,7 @@ def read_series(league_id):
             overview,_=sample_extrema(full_points,point_limit)
             selected,step=sample_extrema(points,point_limit)
             if step:sampled=True;resolution=max(resolution or 0,step)
-            output.append(dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,opening_balance=opening,
+            output.append(dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,reconstruction=name=='__poa_reconstruction__',opening_balance=opening,
                                closing_balance=balance,event_count=len(points)-2,point_count=len(points),points=selected,overview=overview))
         base['navigator']['total_series']=None
         if view!='summary':

@@ -28,7 +28,7 @@ class ReplayTests(unittest.TestCase):
     def test_signed_changes_zero_baseline_unchanged_and_empty_anchor(self):
         data = replay([event(1,'modified',20), event(2,'modified',15), event(3,'added',2), event(4,'removed',3),
                        event(5,'modified',14), event(6,'modified',0), event(7,'added',5)], DEFAULTS)
-        self.assertEqual([r['quantity_delta'] for r in data['events']], [20,-5,2,-3,14,-14,5])
+        self.assertEqual([r['quantity_delta'] for r in data['events']], [20,-5,2,-17,14,-14,5])
         self.assertEqual([r['effective_action'] for r in data['events']], ['added','removed','added','removed','added','removed','added'])
         self.assertEqual(data['states'][0]['quantity'],5)
 
@@ -60,7 +60,7 @@ class ReplayTests(unittest.TestCase):
         data = replay(rows,DEFAULTS)
         self.assertEqual(data['events'][1]['resolution_reason'],'removed_state_conflict')
         self.assertEqual(data['events'][1]['quantity_after'],0)
-        self.assertEqual([r['quantity_delta'] for r in data['events']], [3,-5,4,-1])
+        self.assertEqual([r['quantity_delta'] for r in data['events']], [3,-3,4,-1])
         rows[1]['item']='-5x Token'
         self.assertEqual(replay(rows,DEFAULTS)['events'][1]['resolution_reason'],'invalid_quantity')
 
@@ -87,8 +87,53 @@ class ReplayTests(unittest.TestCase):
         data=replay([dict(event(1,'removed',1),item='-3x Token'),event(2,'added',2)],DEFAULTS)
         self.assertEqual(data['events'][0]['resolution_reason'],'invalid_quantity')
         self.assertEqual(data['events'][0]['quantity_after'],0)
-        self.assertIsNone(data['events'][0]['quantity_delta'])
+        self.assertEqual(data['events'][0]['quantity_delta'],0)
         self.assertEqual(data['states'][0]['quantity'],2)
+
+    def test_removed_empty_slot_and_repeated_removal_do_not_create_withdrawals(self):
+        data=replay([event(1,'removed',9),event(2,'added',10),event(3,'removed',3),event(4,'removed',10)],DEFAULTS)
+        self.assertEqual([row['quantity_delta'] for row in data['events']],[0,10,-10,0])
+        self.assertEqual([row['quantity_after'] for row in data['events']],[0,10,0,0])
+        self.assertEqual(data['events'][0]['resolution_reason'],'removed_empty_ignored')
+        self.assertEqual(data['events'][3]['resolution_reason'],'removed_empty_ignored')
+        self.assertEqual(sum(m['quantity_delta'] for m in data['movements']),0)
+
+    def test_removed_mismatch_attributes_tracked_and_reported_items_to_one_event(self):
+        data=replay([event(1,'added',1000,'Verisium',account='Depositor'),
+                     event(2,'removed',4,"Olroth's Saga",account='Collector')],DEFAULTS)
+        self.assertEqual([(m['transaction_id'],m['item_name'],m['quantity_delta']) for m in data['movements']],
+                         [(1,'Verisium',1000),(2,'Verisium',-1000),(2,"Olroth's Saga",-4)])
+        self.assertEqual(data['events'][1]['effective_action'],'mixed')
+        self.assertIsNone(data['events'][1]['quantity_delta'])
+        self.assertEqual(data['states'][0]['quantity'],0)
+        self.assertEqual(data['states'][0]['item_name'],'')
+
+    def test_invalid_removed_quantity_still_accounts_for_known_tracked_stack(self):
+        data=replay([event(1,'added',8),dict(event(2,'removed',1),item='-3x Other')],DEFAULTS)
+        self.assertEqual([(m['item_name'],m['quantity_delta']) for m in data['movements']],[('Token',8),('Token',-8)])
+        self.assertEqual(data['states'][0]['quantity'],0)
+        self.assertEqual(data['events'][1]['resolution_reason'],'invalid_quantity')
+
+    def test_reconstruction_ledger_balances_reported_extra_removal_without_charging_correction_to_player(self):
+        data=replay([event(1,'added',1000,'Verisium'),event(2,'removed',4,"Olroth's Saga")],DEFAULTS)
+        self.assertEqual([(m['item_name'],m['quantity_delta']) for m in data['corrections']],[("Olroth's Saga",4)])
+        totals=defaultdict(int)
+        for movement in data['movements']+data['corrections']:totals[movement['item_name']]+=movement['quantity_delta']
+        self.assertEqual(dict(totals),{'Verisium':0,"Olroth's Saga":0})
+
+    def test_ledger_conservation_at_every_prefix_including_unknown_states_and_different_slots(self):
+        rows=[event(1,'removed',1000,'A'),event(2,'added',10,'A'),event(3,'removed',4,'B'),
+              event(4,'removed',2,'B'),event(5,'added',6,'C'),dict(event(6,'modified',1),item='-2x invalid'),
+              event(7,'added',5,'D'),event(8,'modified',7,'D'),event(9,'modified',4,'E',x=2),
+              event(10,'removed',1,'F',x=2)]
+        for length in range(1,len(rows)+1):
+            with self.subTest(length=length):
+                data=replay(rows[:length],DEFAULTS);totals=defaultdict(int);known=defaultdict(int)
+                for movement in data['movements']+data['corrections']:totals[movement['item_name']]+=movement['quantity_delta']
+                for slot in data['states']:
+                    if slot['quantity'] is not None and slot['item_name']:known[slot['item_name']]+=slot['quantity']
+                self.assertEqual({k:v for k,v in totals.items() if v},{k:v for k,v in known.items() if v})
+                self.assertTrue(all(value>=0 for value in totals.values()))
 
     def test_quantity_parser_handles_legacy_notations_and_rejects_unsafe_numbers(self):
         for text in ['67x Orb','67× Orb','67Ă— Orb','67X Orb']:
@@ -111,7 +156,7 @@ class ReplayTests(unittest.TestCase):
         self.assertEqual(data['events'][0]['quantity_before'],0)
 
     def test_empty_history_and_zero_movements_stay_zero(self):
-        self.assertEqual(replay([],DEFAULTS),dict(events=[],movements=[],states=[]))
+        self.assertEqual(replay([],DEFAULTS),dict(events=[],movements=[],states=[],corrections=[]))
         for action in ('added','removed','modified'):
             data=replay([event(1,action,0)],DEFAULTS)
             row=data['events'][0]
@@ -207,6 +252,35 @@ class QuantityApiTests(unittest.TestCase):
             latest=c.execute('SELECT quantity,item_name FROM quantity_state WHERE run_id=? AND x=34',
                              (state['projection']['id'],)).fetchone()
             self.assertEqual(tuple(latest),(0,''))
+
+    def test_temporary_removed_rule_attributes_both_items_and_ignores_empty_in_all_views(self):
+        self.insert(event(40,'added',1000,'Verisium',x=8,account='Depositor'),'A')
+        self.insert(event(41,'removed',4,"Olroth's Saga",x=8,account='Collector'),'A')
+        self.insert(event(42,'removed',1000,'Verisium',x=8,account='Collector'),'A')
+        with connect(self.path) as c:
+            original=[tuple(row) for row in c.execute('SELECT * FROM transactions ORDER BY id')]
+        self.build()
+        url='/api/leagues/A'
+        players=self.client.get(url+'/quantities?view=players&account=Collector').json['rows']
+        self.assertEqual({row['item_name']:row['net'] for row in players},{'Verisium':-1000,"Olroth's Saga":-4})
+        stash=self.client.get(url+'/quantities?view=stashes&item=Verisium').json['rows']
+        self.assertEqual(stash[0]['net'],0)
+        history=self.client.get(url+'/transactions?account=Collector&direction=asc').json['rows']
+        self.assertEqual([row['action'] for row in history],['removed','removed'])
+        self.assertEqual([(m['item_name'],m['quantity_delta']) for m in history[0]['quantity']['movements'] if m['entry_kind']=='operation'],
+                         [('Verisium',-1000),("Olroth's Saga",-4)])
+        self.assertEqual(history[1]['quantity']['quantity_delta'],0)
+        for mode in ['players','stashes']:
+            data=self.client.get(url+'/quantity-series',query_string={'view':mode,'series_item':'Verisium'}).json
+            self.assertEqual(data['projection']['state'],'ready')
+            if mode=='players':
+                self.assertEqual({row['name']:row['closing_balance'] for row in data['series']}['Collector'],-1000)
+            else:
+                series=next(row for row in data['series'] if row['name']=='Main')
+                self.assertEqual(series['closing_balance'],0)
+                self.assertEqual(min(point['balance'] for point in series['points']),0)
+        with connect(self.path) as c:
+            self.assertEqual([tuple(row) for row in c.execute('SELECT * FROM transactions ORDER BY id')],original)
 
     def test_hour_format_is_validated_and_does_not_invalidate_quantity_projection(self):
         first=self.build()['projection']['id']
@@ -366,7 +440,7 @@ class QuantityApiTests(unittest.TestCase):
         with patch('backend.quantities.ALGORITHM', 'quantities-v1'):
             first=self.build()['projection']['id']
         self.assertEqual(self.client.get('/api/leagues/A/quantities').json['projection']['state'],'stale')
-        self.assertEqual(self.build()['projection']['algorithm_version'],'quantities-v3')
+        self.assertEqual(self.build()['projection']['algorithm_version'],'quantities-v4')
         with connect(self.path) as c:self.assertEqual(c.execute('SELECT algorithm_version FROM quantity_runs WHERE id=?',(first,)).fetchone()[0],'quantities-v1')
 
     def test_database_rejects_cross_league_projection_links(self):

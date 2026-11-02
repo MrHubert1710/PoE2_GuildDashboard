@@ -3,7 +3,7 @@
 Status: faza 1 odebrana przez użytkownika na podstawie testów i walidacji.
 Dalszy zakres: [phase-2.md](phase-2.md).
 
-Obecny schemat 4 obejmuje migracje workera, ilości oraz rejestru plików danych; opis poniżej
+Obecny schemat 5 obejmuje migracje workera, ilości, rejestru plików danych i korekt rekonstrukcji; opis poniżej
 dokumentuje pierwotny import. Dane historyczne pozostają zachowane.
 
 ## Wynik
@@ -160,7 +160,7 @@ Migracja 004 ogranicza `archive_files` do `history` i `price_cache`, zachowując
 identyfikatory oraz sumy kontrolne tych wpisów. Nie zmienia transakcji,
 ustawień lig ani projekcji ilościowych. Import i audyt obejmują historie CSV
 oraz źródłowy cache cen. Aktualne dane obu lig to 104 534 transakcje i 30
-zarejestrowanych plików wejściowych. Schemat SQLite: 4.
+zarejestrowanych plików wejściowych. Schemat SQLite: 5; księgowanie korekt opisuje [phase-4.md](phase-4.md).
 
 Weryfikacja po uporządkowaniu zakresu: 160 testów backendu, 86 scenariuszy
 Chromium i 16 testów tłumaczeń. Potwierdzono identyczne transakcje, ustawienia

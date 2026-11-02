@@ -32,7 +32,7 @@ const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
           <template v-if="view === 'state'"><th>{{ t('quantity.observedQuantity') }}</th><th>{{ t('quantity.lastEvent') }}</th></template>
           <template v-else><th>{{ t('added') }}</th><th>{{ t('removed') }}</th><th>{{ t('quantity.balance') }}</th><th>{{ t('quantity.inferredUnits') }}</th></template>
         </tr></thead><tbody><tr v-for="(row, index) in report.rows" :key="index">
-          <td v-if="view === 'players'">{{ row.account }}</td><td v-if="view === 'stashes' || view === 'state'">{{ row.stash }}</td><td v-if="view === 'state'">{{ row.x }}, {{ row.y }}</td><td>{{ row.item_name }}</td>
+          <td v-if="view === 'players'">{{ row.reconstruction ? t('quantity.reconstruction') : row.account }}</td><td v-if="view === 'stashes' || view === 'state'">{{ row.stash }}</td><td v-if="view === 'state'">{{ row.x }}, {{ row.y }}</td><td>{{ row.item_name }}</td>
           <template v-if="view === 'state'"><td>{{ row.quantity === null ? t('quantity.unknown') : number(row.quantity!) }}</td><td>{{ date(row.occurred_at!, report.settings.timezone) }}</td></template>
           <template v-else><td>+{{ number(row.added!) }}</td><td>−{{ number(row.removed!) }}</td><td>{{ signed(row.net!) }}</td><td>{{ number(row.inferred_quantity!) }}</td></template>
         </tr></tbody></table>
@@ -49,7 +49,8 @@ const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
       <p class="footnote">{{ t('quantity.generated', { date: date(report.projection.generated_at, report.settings.timezone), zone: report.settings.timezone, version: report.projection.algorithm_version }) }}</p>
       <p v-if="report.stats && view !== 'state'" class="footnote" data-testid="quantity-stats">{{ t('quantity.stats', { events: report.stats.events, unknown: report.stats.unknown, inferred: report.stats.inferred, excluded: report.stats.excluded, warnings: report.stats.warnings }) }}</p>
       <p v-if="view === 'state'" class="footnote">{{ t('quantity.stateNote') }}</p>
-      <p v-else class="footnote">{{ t('quantity.filtersNote',{zone:report.settings.timezone}) }}</p>
+      <p v-if="view !== 'state'" class="footnote">{{ t('quantity.reconstructionNote') }}</p>
+      <p v-if="view !== 'state'" class="footnote">{{ t('quantity.filtersNote',{zone:report.settings.timezone}) }}</p>
         <button type="button" :disabled="busy || jobState === 'running' || jobState === 'queued'" @click="enqueue('manual')">{{ t('quantity.rebuild') }}</button>
       </CollapsiblePanel>
     </template>

@@ -15,7 +15,7 @@ const {data,error,loading,selectedItem,chooseItem,valuation,chooseMode,stateAt,r
 const colors=computed(()=>clientPreferences.value.colors),picker=ref<{id:string;name:string;color:string;left:number;top:number}|null>(null)
 function colorId(series:{id:string;aggregate?:boolean}){return series.aggregate?'combined':props.view+':'+series.id}
 function colored<T extends {id:string;aggregate?:boolean}>(series:T){return {...series,color:colors.value[colorId(series)]}}
-function openColor(series:{id:string;name:string;aggregate?:boolean},event:MouseEvent){
+function openColor(series:{id:string;name:string;aggregate?:boolean;reconstruction?:boolean},event:MouseEvent){
   const box=(event.currentTarget as HTMLElement).getBoundingClientRect()
   picker.value={id:colorId(series),name:seriesLabel(series),color:balanceColor(colored(series),navigator.value.series.findIndex(value=>value.id===series.id)),left:Math.max(8,Math.min(innerWidth-270,box.left)),top:Math.max(8,Math.min(innerHeight-470,box.bottom+6))}
 }
@@ -26,7 +26,7 @@ const navigator=computed(()=>{
   const context=data.value?.navigator??{bounds:null,series:[],total_series:null}
   return {...context,series:(props.view==='summary'?context.series.map(series=>({...series,aggregate:true})):[...context.series,...(context.total_series?[context.total_series]:[])]).map(colored)}
 })
-const seriesLabel=(series:{name:string;aggregate?:boolean})=>props.view==='summary'?t('chart.total'):series.aggregate?t('chart.combined'):series.name
+const seriesLabel=(series:{name:string;aggregate?:boolean;reconstruction?:boolean})=>props.view==='summary'?t('chart.total'):series.aggregate?t('chart.combined'):series.reconstruction?t('quantity.reconstruction'):series.name
 
 const enabled=computed(()=>{
   const all=navigator.value.series.map(series=>series.id),value=new URL(currentUrl.value).searchParams.get('chart_series')

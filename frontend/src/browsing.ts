@@ -60,7 +60,7 @@ export interface TransactionPage {
     quantity?: {
       item_name: string; before_item: string | null; quantity_before: number | null; quantity_after: number | null
       quantity_delta: number | null; effective_action: string; confidence: string; resolution_reason: string
-      movements: Array<{ item_name: string; quantity_delta: number; confidence: string }>
+      movements: Array<{ item_name: string; quantity_delta: number; confidence: string; entry_kind?: 'operation' | 'reconstruction' }>
     } | null
   }>
 }

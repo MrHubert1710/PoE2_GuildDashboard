@@ -10,7 +10,7 @@ from .timezones import normalize_timezone
 from .browsing import revision
 from .database import connect, require_schema, utc_now
 
-ALGORITHM = 'quantities-v3'
+ALGORITHM = 'quantities-v4'
 MAX_QUANTITY = 10**9  # Bounded integer arithmetic, safely representable by browser clients.
 DEFAULTS = {'target_stashes': None, 'stash_aliases': {}, 'timezone': 'UTC', 'hour_format': 'auto'}
 
@@ -106,7 +106,24 @@ def replay(events, settings, stop=None):
         ids = [e['external_id'] for e in group]
         if len(group) > 1 and (not all(i.isascii() and i.isdigit() for i in ids) or len(set(map(int, ids))) != len(ids)):
             ambiguous.update(e['id'] for e in group)
-    states, annotations, movements = {}, [], []
+    states, annotations, movements, corrections = {}, [], [], []
+
+    def record_changes(event, key, previous, changes):
+        # Reconcile every transition, including unknown-state anchors, not only Removed.
+        # Unknown quantities contribute zero to the *known* reconstructed inventory.
+        expected = defaultdict(int)
+        for sign, state in [(-1, previous), (1, states.get(key))]:
+            if state and state['item_name'] and state['quantity'] is not None:
+                expected[state['item_name']] += sign * state['quantity']
+        for sequence, (name, delta, confidence) in enumerate(changes):
+            movements.append({'transaction_id': event['id'], 'sequence': sequence, 'item_name': name,
+                              'quantity_delta': delta, 'confidence': confidence})
+            expected[name] -= delta
+        entries = [(name, delta) for name, delta in sorted(expected.items()) if delta]
+        for sequence, (name, delta) in enumerate(entries):
+            corrections.append({'transaction_id': event['id'], 'sequence': sequence, 'item_name': name,
+                                'quantity_delta': delta, 'confidence': 'inferred'})
+        return bool(entries)
     for event in ordered:
         if stop and stop.is_set():
             raise InterruptedError()
@@ -129,10 +146,16 @@ def replay(events, settings, stop=None):
         except ValueError:
             row['resolution_reason'] = 'invalid_quantity'
             if event['action'] == 'removed' and event['id'] not in ambiguous:
-                row.update(quantity_after=0, effective_action='removed', confidence='source')
+                row.update(quantity_after=0, effective_action='removed', confidence='inferred')
+                if before_item and before is not None and before > 0:
+                    changes = [(before_item, -before, 'inferred')]
+                elif before == 0:
+                    row.update(quantity_delta=0, effective_action='unchanged')
                 states[key] = {'item_name': '', 'quantity': 0, 'transaction_id': event['id']}
             else:
                 states[key] = {'item_name': event['item'], 'quantity': None, 'transaction_id': event['id']}
+            if record_changes(event, key, current, changes):
+                row['confidence'] = 'inferred'
             annotations.append(row)
             continue
         after = None
@@ -170,13 +193,31 @@ def replay(events, settings, stop=None):
                     changes = [(before_item, -before, 'inferred'), (item, quantity, 'inferred')]
                     after = quantity
         elif action == 'removed':
-            row.update(quantity_delta=-quantity, effective_action='removed' if quantity else 'unchanged',
-                       confidence='source', resolution_reason='explicit_removed')
-            if quantity:
-                changes = [(item, -quantity, 'source')]
             after = 0
-            if before is not None and before > 0 and (before_item != item or before != quantity):
-                row['resolution_reason'] = 'removed_state_conflict'
+            if before == 0:
+                # Temporary policy: an empty slot cannot produce another withdrawal.
+                row.update(quantity_delta=0, effective_action='unchanged', confidence='inferred',
+                           resolution_reason='removed_empty_ignored' if quantity else 'explicit_zero')
+            elif before_item == item and before is not None:
+                # One item type: clear its entire tracked stack once, not twice.
+                exact = before == quantity
+                row.update(quantity_delta=-before, effective_action='removed',
+                           confidence='source' if exact else 'inferred',
+                           resolution_reason='explicit_removed' if exact else 'removed_state_conflict')
+                changes = [(item, -before, 'source' if exact else 'inferred')]
+            elif before_item and before is not None:
+                # Both positions belong to this transaction, hence to its actor.
+                row.update(quantity_delta=None, effective_action='mixed', confidence='inferred',
+                           resolution_reason='removed_state_conflict')
+                changes = [(before_item, -before, 'inferred')]
+                if quantity:
+                    changes.append((item, -quantity, 'source'))
+            else:
+                # Unknown is not empty: retain the parseable source withdrawal.
+                row.update(quantity_delta=-quantity, effective_action='removed' if quantity else 'unchanged',
+                           confidence='inferred', resolution_reason='removed_unknown_before')
+                if quantity:
+                    changes = [(item, -quantity, 'source')]
         else:
             row['resolution_reason'] = 'unknown_action'
         if after is not None and after > MAX_QUANTITY:
@@ -189,11 +230,11 @@ def replay(events, settings, stop=None):
         elif action == 'added' and quantity == 0 and before_item:
             state_item = before_item
         states[key] = {'item_name': state_item, 'quantity': after, 'transaction_id': event['id']}
-        for sequence, (name, delta, confidence) in enumerate(changes):
-            movements.append({'transaction_id': event['id'], 'sequence': sequence, 'item_name': name,
-                              'quantity_delta': delta, 'confidence': confidence})
+        if record_changes(event, key, current, changes):
+            row['confidence'] = 'inferred'
         annotations.append(row)
     return {'events': annotations, 'movements': movements,
+            'corrections': corrections,
             'states': [dict(source_id=key[0], stash=key[1], x=key[2], y=key[3], **value) for key, value in states.items()]}
 
 
@@ -234,7 +275,7 @@ class QuantityAdapter:
                 excluded = sum(e['effective_action'] == 'excluded' for e in data['events'])
                 c.execute('INSERT INTO quantity_runs VALUES (?,?,?,?,?,?,?,?,?,?,?)',
                           (identity, league['id'], expected, digest, canonical(dict(settings, initial_empty=True)), ALGORITHM, utc_now(), len(events), unknown, inferred, excluded))
-                for table, rows in [('event_quantities', data['events']), ('quantity_movements', data['movements']), ('quantity_state', data['states'])]:
+                for table, rows in [('event_quantities', data['events']), ('quantity_movements', data['movements']), ('quantity_state', data['states']), ('quantity_reconciliations', data['corrections'])]:
                     if rows:
                         if table in {'event_quantities', 'quantity_state'}:
                             rows = [dict(league_id=league['id'], **row) for row in rows]
