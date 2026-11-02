@@ -121,12 +121,9 @@ zachowuje ostatni poprawny zestaw. Ręczny fetch nie obchodzi cache dostawcy.
 
 ## Kolejność portowania
 
-1. SQLite, import obu lig, kontrakty adapterów i metadane możliwości.
-2. Lista lig, API odczytu i stronicowana tabela transakcji.
-3. Obliczenia ilościowe i wykresy oparte na danych API.
-4. Katalog i snapshoty cen, wycena z zapisaną metodą.
-5. Worker i auto/manual refresh po potwierdzeniu dostępu do historii GGG.
-6. Automatyczna synchronizacja katalogów i OAuth dla dostępnych zasobów.
-7. Eksport raportów i porównanie wyników ze starą aplikacją.
+Szczegółowa kolejność, zależności i kryteria odbioru są utrzymywane w
+[implementation-plan.md](implementation-plan.md). Worker i kontrakt
+odświeżania powstają przed integracją GGG i są testowane na adapterze lokalnym;
+ich wdrożenie nie wymaga dostępu do zewnętrznego źródła historii.
 
 Nie uzależniać implementacji odczytu archiwów od uzyskania dostępu OAuth.
