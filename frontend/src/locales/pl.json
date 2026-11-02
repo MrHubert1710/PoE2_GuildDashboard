@@ -292,6 +292,8 @@
     "quantity.scopeLeague": "Tylko ta liga",
     "quantity.scopeGuild": "Domyślne ustawienia gildii",
     "quantity.restoreInheritance": "Przywróć dziedziczenie z gildii",
-    "quantity.error.ambiguous_guild": "Nie można jednoznacznie ustalić gildii dla tej ligi. Zapisz ustawienia tylko dla ligi."
+    "quantity.error.ambiguous_guild": "Nie można jednoznacznie ustalić gildii dla tej ligi. Zapisz ustawienia tylko dla ligi.",
+    "stashFilterTitle": "Skrytki",
+    "stashFilterCount": "Wybrane: {count}"
   }
 }

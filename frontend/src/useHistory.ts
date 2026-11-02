@@ -37,6 +37,10 @@ export function useHistory() {
     try {
       const params = new URLSearchParams()
       for (const [key, value] of Object.entries(requested)) {
+        if (key === 'stash') {
+          for (const stash of requested.stash) params.append('stash', stash)
+          continue
+        }
         if (key !== 'league' && String(value)) params.set(key, String(value))
       }
       params.set('revision', league.revision)
@@ -111,7 +115,7 @@ export function useHistory() {
       formError.value = 'invalid_date_range'
       return
     }
-    change({ ...query.value, account: draft.account.trim(), stash: draft.stash, item: draft.item.trim(),
+    change({ ...query.value, account: draft.account.trim(), stash: [...draft.stash].sort(), item: draft.item.trim(),
       from: draft.from, to: draft.to, page: 1 })
   }
   function clearFilters() { change({ ...defaults, league: query.value.league, page_size: query.value.page_size }) }

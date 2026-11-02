@@ -241,3 +241,24 @@ class QuantityApiTests(unittest.TestCase):
             transaction=c.execute("SELECT id FROM transactions WHERE league_id='B' LIMIT 1").fetchone()[0]
             with self.assertRaises(sqlite3.IntegrityError):
                 c.execute("INSERT INTO event_quantities(league_id,run_id,transaction_id,item_name,stash,effective_action,confidence,resolution_reason) VALUES ('A',?,?,'Token','Main','unknown','unknown','unknown_before')",(run,transaction))
+
+    def test_multiselect_stash_filter_is_shared_by_summary_and_reconstructed_state(self):
+        self.insert(event(99,'added',2,'Comma',stash='Tab, %_',x=2,occurred_at='2026-01-02T12:00:00.000000Z'),'A')
+        self.build()
+        for view in ('summary','players','stashes','state'):
+            selected = self.client.get('/api/leagues/A/quantities',query_string=[('view',view),('stash','Main'),('stash','Tab, %_')])
+            self.assertEqual(selected.status_code,200)
+            if view != 'state':self.assertEqual(selected.json['stats']['events'],5)
+        single = self.client.get('/api/leagues/A/quantities',query_string=[('stash','Tab, %_')]).json
+        repeated = self.client.get('/api/leagues/A/quantities',query_string=[('stash','Tab, %_'),('stash','Tab, %_')]).json
+        self.assertEqual(single['stats']['events'],1)
+        self.assertEqual(single['rows'],repeated['rows'])
+        self.assertEqual(self.client.get('/api/leagues/A/quantities',query_string=[('stash','Main')]*101).status_code,400)
+
+    def test_aliases_in_multiselect_do_not_double_count_movements(self):
+        self.save(dict(DEFAULTS,stash_aliases={'Main':'Shared'}))
+        self.build()
+        one=self.client.get('/api/leagues/A/quantities?stash=Main').json
+        both=self.client.get('/api/leagues/A/quantities?stash=Main&stash=Shared').json
+        self.assertEqual(one['rows'],both['rows'])
+        self.assertEqual(one['stats'],both['stats'])

@@ -96,6 +96,15 @@ def one_argument(name, default=''):
     return value
 
 
+def stash_arguments():
+    values = request.args.getlist('stash')
+    if len(values) > 100:
+        raise ReadError('too_many_stashes')
+    if any(len(value) > 200 for value in values):
+        raise ReadError('parameter_too_long')
+    return sorted({value.strip() for value in values if value.strip()})
+
+
 def number_argument(name, default, minimum, maximum):
     value = one_argument(name, str(default))
     if not re.fullmatch(r'[0-9]+', value):
@@ -137,10 +146,14 @@ def transactions(league_id):
     if start and end and start >= end:
         raise ReadError('invalid_date_range')
     conditions, values = ['t.league_id=?'], [league_id]
-    for field in ('account', 'stash', 'item'):
+    stashes = stash_arguments()
+    if stashes:
+        conditions.append('t.stash IN (' + ','.join('?' for _ in stashes) + ')')
+        values.extend(stashes)
+    for field in ('account', 'item'):
         value = one_argument(field).strip()
         if value:
-            conditions.append(f't.{field}=?' if field == 'stash' else f'instr(casefold(t.{field}),casefold(?))>0')
+            conditions.append(f'instr(casefold(t.{field}),casefold(?))>0')
             values.append(value)
     if start:
         conditions.append('t.occurred_at>=?')

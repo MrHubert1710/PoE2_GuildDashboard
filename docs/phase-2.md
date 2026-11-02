@@ -13,7 +13,8 @@ audytu, integralności/importu i możliwości źródeł pozostają w Diagnostyce
 - Lista lig z nazwą, zakresem danych, liczbą zdarzeń i stanem kompletności.
 - Filtry konta, skrytki, przedmiotu i dat UTC; przycisk Zastosuj filtry.
 - Gracz i przedmiot: wyszukiwanie fragmentu, Unicode casefold, literalne %/_.
-  Skrytka: dokładny wybór z zakładek obecnych w historii danej ligi.
+  Skrytki: wielokrotny wybór checkboxami z zakładek obecnych w historii ligi;
+  powtarzany parametr stash łączy dokładne nazwy przez OR, pusty wybór to wszystkie.
 - Zakres dat obejmuje całe dni UTC, łącznie z dniem końcowym.
 - Sortowanie po dacie, graczu, akcji, skrytce i przedmiocie; kierunek asc/desc.
 - Paginacja serwerowa 25/50/100, domyślnie 50 rekordów. Każde sortowanie ma
@@ -63,7 +64,7 @@ page_size, total, pages, sort, direction i rows. Każdy wiersz zawiera tylko
 id, external_id, occurred_at, account, action, stash, item, x, y.
 
 Walidacja obejmuje kierunek i listę kolumn sortowania, ograniczenia paginacji,
-długość tekstów, format i kolejność dat. Nieznane/zduplikowane parametry są
+długość tekstów, format i kolejność dat. Nieznane/zduplikowane parametry (poza listą stash) są
 odrzucane. Filtry używają parametrów SQL; nazwy kolumn pochodzą z allowlisty.
 Nie ma dowolnego SQL, wyszukiwania wildcard ani dostępu do raw_json/sekretów.
 

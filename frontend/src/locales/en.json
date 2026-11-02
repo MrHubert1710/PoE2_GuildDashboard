@@ -282,6 +282,8 @@
     "quantity.scopeLeague": "This league only",
     "quantity.scopeGuild": "Guild defaults",
     "quantity.restoreInheritance": "Restore guild inheritance",
-    "quantity.error.ambiguous_guild": "This league cannot be associated with a single guild source. Save league settings instead."
+    "quantity.error.ambiguous_guild": "This league cannot be associated with a single guild source. Save league settings instead.",
+    "stashFilterTitle": "Stashes",
+    "stashFilterCount": "Selected: {count}"
   }
 }

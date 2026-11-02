@@ -4,6 +4,7 @@ import { useHistory } from '../useHistory'
 import LeaguePicker from './LeaguePicker.vue'
 import RefreshPanel from './RefreshPanel.vue'
 import QuantityPanel from './QuantityPanel.vue'
+import StashFilter from './StashFilter.vue'
 
 const { leagues, query, draft, result, loadingLeagues, loadingRows, leagueError, rowError, formError,
   selected, loadLeagues, refreshRevision, selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy } = useHistory()
@@ -46,7 +47,7 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
 
         <form class="filters" @submit.prevent="applyFilters">
           <label>{{ t('player') }}<input v-model="draft.account" name="account" type="search" maxlength="200" :placeholder="t('accountPlaceholder')" /></label>
-          <label>{{ t('stash') }}<select v-model="draft.stash" name="stash" :aria-label="t('stash')"><option value="">{{ t('allStashes') }}</option><option v-for="stash in selected.stashes" :key="stash" :value="stash">{{ stash }}</option></select></label>
+          <StashFilter v-model="draft.stash" :options="selected.stashes" />
           <label>{{ t('item') }}<input v-model="draft.item" name="item" type="search" maxlength="200" :placeholder="t('itemPlaceholder')" /></label>
           <label>{{ t('fromDay') }}<input v-model="draft.from" name="from" type="date" /></label>
           <label>{{ t('toDay') }}<input v-model="draft.to" name="to" type="date" /></label>

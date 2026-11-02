@@ -19,7 +19,16 @@ wymiar grupowania. Pokazujemy dodane/zabrane sztuki, bilans oraz osobno
 liczbę sztuk wywnioskowanych, już wliczonych do sumy. Nieustalone ruchy
 nie są traktowane jako zero ani doliczane do sum.
 
-Filtry historii konta, zakładki, przedmiotu i dni UTC działają również na sumy.
+Filtry historii konta, listy zakładek, przedmiotu i dni UTC działają również na sumy.
+Zakładki wybiera się niezależnymi checkboxami; wybrane nazwy tworzą sumę
+zbiorów (OR). Brak wyboru oraz przycisk Wszystkie skrytki oznaczają brak
+ograniczenia. Wybór zatwierdza Zastosuj filtry; formularz można edytować bez
+zmiany bieżącego wyniku. Lista jest zachowywana po reloadzie i Back/Forward.
+URL/API używa powtarzanego parametru, np. stash=Main&stash=Special.
+Pojedynczy stash jest nadal obsługiwany. Zmianę listy checkboxów sprawdzono
+również na publicznej stronie: dwie nazwy, zgodne sumy historii/analizy,
+reload i układ mobilny PL/EN. Nazwy z przecinkami nie są dzielone;
+API deduplikuje nazwy i aliasy, akceptuje do 100 parametrów po 200 znaków.
 Obliczenia zawsze odtwarzają całą historię przed zastosowaniem filtrów:
 zmiana gracza/dnia nie kasuje poprzedniego stanu stosu. Stan końcowy obejmuje
 całą zapisaną historię i respektuje filtr zakładki/przedmiotu; nie ograniczamy
@@ -161,8 +170,8 @@ npm --prefix frontend run build
 npm --prefix frontend run test:browser
 ```
 
-Wyniki: 96 testów backendu (23 nowe testy fazy 4), 37 testów Chromium
-(5 nowych scenariuszy), 16 testów tłumaczeń oraz testy launchera/nginx —
+Wyniki: 100 testów backendu (27 nowych testów fazy 4), 39 testów Chromium
+(7 nowych scenariuszy), 16 testów tłumaczeń oraz testy launchera/nginx —
 wszystkie zakończone powodzeniem. TypeScript i produkcyjny build przechodzą.
 
 Testy obejmują parser, granice historii, znane stany, zamianę przedmiotu,

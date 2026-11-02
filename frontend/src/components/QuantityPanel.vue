@@ -61,7 +61,9 @@ async function load() {
   try {
     const params = new URLSearchParams({ view: view.value, page: String(page.value), page_size: '25', revision: props.revision })
     for (const key of (view.value === 'state' ? ['stash', 'item'] : ['account', 'stash', 'item', 'from', 'to']) as Array<keyof HistoryQuery>) {
-      if (props.query[key]) params.set(key, String(props.query[key]))
+      if (key === 'stash') {
+        for (const stash of props.query.stash) params.append('stash', stash)
+      } else if (props.query[key]) params.set(key, String(props.query[key]))
     }
     const payload: Report = await request('/quantities?' + params)
     if (stopped || current !== sequence) return

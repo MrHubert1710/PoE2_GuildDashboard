@@ -159,3 +159,20 @@ class BrowsingTests(unittest.TestCase):
         with connect(self.database) as connection:
             connection.execute('UPDATE archive_files SET relative_path=? WHERE id=?', ('../' + outside.name, archive_id))
         self.assertEqual(self.client.get(f'/archives/{archive_id}').status_code, 404)
+
+    def test_multiple_stashes_use_union_without_duplicate_rows(self):
+        result = self.client.get(self.url, query_string=[('stash', 'Main'), ('stash', 'Tab %_'), ('page_size', '100')])
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json['total'], 60)
+        self.assertEqual(len({row['id'] for row in result.json['rows']}), 60)
+        duplicate = self.client.get(self.url, query_string=[('stash', 'Tab %_'), ('stash', 'Tab %_')])
+        self.assertEqual(duplicate.json['total'], 1)
+        combined = self.client.get(self.url, query_string=[('stash', 'Main'), ('stash', 'Tab %_'), ('account', 'Alice')])
+        self.assertEqual(combined.json['total'], 30)
+        self.assertEqual(self.client.get(self.url + '?stash=&stash=').json['total'], 60)
+
+    def test_stash_list_limits_are_validated(self):
+        response = self.client.get(self.url, query_string=[('stash', 'Main')] * 101)
+        self.assertEqual((response.status_code, response.json['error']), (400, 'too_many_stashes'))
+        response = self.client.get(self.url, query_string=[('stash', 'Main'), ('stash', 'x' * 201)])
+        self.assertEqual((response.status_code, response.json['error']), (400, 'parameter_too_long'))

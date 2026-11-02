@@ -152,3 +152,12 @@ header { flex-wrap: wrap; }
 .action.unknown, .action.mixed { color: #edc58c; }
 .history-transactions { min-width: 1100px; }
 .quantity-table { min-width: 650px; }
+
+.stash-filter { min-width: 0; margin: 0; padding: 10px; border: 1px solid #414c54; border-radius: 6px; color: #b1bcc2; font-size: 12px; }
+.stash-filter legend { padding: 0 5px; }
+.stash-filter-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; min-height: 26px; margin-bottom: 8px; }
+.stash-filter-heading button { padding: 4px 6px; min-height: 26px; font-size: 11px; }
+.stash-filter-options { max-height: 150px; overflow-y: auto; display: grid; gap: 3px; }
+.stash-filter-options label { flex-direction: row; align-items: center; gap: 8px; padding: 7px; border-radius: 4px; cursor: pointer; overflow-wrap: anywhere; }
+.stash-filter-options label.selected { background: #293e32; color: #d8ebdc; }
+.stash-filter-options input { flex: 0 0 16px; width: 16px; height: 16px; min-height: 16px; padding: 0; margin: 0; accent-color: #b6d7bd; }

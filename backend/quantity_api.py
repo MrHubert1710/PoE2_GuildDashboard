@@ -2,7 +2,7 @@
 import json
 import sqlite3
 from flask import Blueprint, current_app, jsonify, request
-from .browsing import ReadError, read_error, database_error, one_argument, number_argument, date_argument, revision
+from .browsing import ReadError, read_error, database_error, one_argument, number_argument, date_argument, revision, stash_arguments
 from .database import connect, require_schema, DatabaseError, utc_now
 from .quantities import current_run, effective_settings, settings_hash, validate_settings, ALGORITHM, guild_defaults, projection_hash
 from .refresh_api import queue
@@ -102,7 +102,8 @@ def report(league_id):
     start, end = date_argument('from'), date_argument('to', end=True)
     if start and end and start >= end:
         raise ReadError('invalid_date_range')
-    account, stash, item = (one_argument(key).strip() for key in ('account', 'stash', 'item'))
+    account, item = (one_argument(key).strip() for key in ('account', 'item'))
+    stashes = stash_arguments()
     if view == 'state' and (start or end or account):
         raise ReadError('state_filter_not_supported')
     with connect(current_app.config['DATABASE_FILE'], readonly=True) as c:
@@ -122,8 +123,9 @@ def report(league_id):
         conditions, values = ['q.run_id=?'], [run['id']]
         if account:
             conditions.append('instr(casefold(t.account),casefold(?))>0'); values.append(account)
-        if stash:
-            conditions.append('q.stash=?'); values.append(settings['stash_aliases'].get(stash, stash))
+        canonical_stashes = sorted({settings['stash_aliases'].get(stash, stash) for stash in stashes})
+        if canonical_stashes:
+            conditions.append('q.stash IN (' + ','.join('?' for _ in canonical_stashes) + ')'); values.extend(canonical_stashes)
         if start:
             conditions.append('t.occurred_at>=?'); values.append(start)
         if end:
@@ -140,8 +142,8 @@ def report(league_id):
                                'FROM event_quantities q JOIN transactions t ON t.id=q.transaction_id WHERE ' + common + event_item, event_values).fetchone())
         if view == 'state':
             where, args = ['s.run_id=?', '(s.quantity>0 OR s.quantity IS NULL)'], [run['id']]
-            if stash:
-                where.append('s.stash=?'); args.append(settings['stash_aliases'].get(stash, stash))
+            if canonical_stashes:
+                where.append('s.stash IN (' + ','.join('?' for _ in canonical_stashes) + ')'); args.extend(canonical_stashes)
             if item:
                 where.append('instr(casefold(s.item_name),casefold(?))>0'); args.append(item)
             sql = ('SELECT s.source_id,s.stash,s.x,s.y,s.item_name,s.quantity,t.occurred_at,t.account '
