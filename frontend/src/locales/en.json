@@ -259,7 +259,7 @@
     "quantity.reason.stack_difference": "Quantity change calculated from the previous known state.",
     "quantity.reason.replacement": "A different item appeared at these coordinates. Removal of the old item and addition of the new item are inferred; different items are not combined into one delta.",
     "quantity.reason.explicit_added": "The source Added entry describes the added quantity. Every slot starts at 0.",
-    "quantity.reason.explicit_removed": "The source Removed entry describes a removed quantity.",
+    "quantity.reason.explicit_removed": "The source Removed entry empties the slot. The resulting quantity is 0, even when the preceding state is unknown.",
     "quantity.reason.explicit_zero": "The entry has quantity zero; it creates no movement.",
     "quantity.reason.state_conflict": "Quantity or item conflicts with the reconstructed state. The resulting state remains unknown.",
     "quantity.reason.ambiguous_order": "Multiple entries share a timestamp and coordinates without unambiguous ID ordering. Their order is not guessed.",
@@ -337,6 +337,7 @@
     "quantity.update.saving": "Saving settings…",
     "quantity.update.pending": "Updating analysis — please wait.",
     "quantity.update.ready": "Analysis is up to date.",
-    "quantity.update.failed": "Analysis could not be updated. Open Summary to retry."
+    "quantity.update.failed": "Analysis could not be updated. Open Summary to retry.",
+    "quantity.reason.removed_state_conflict": "The removed quantity or item differs from the preceding record. The source removal is preserved and the slot is empty (0)."
   }
 }

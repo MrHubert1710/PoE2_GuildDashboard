@@ -10,7 +10,7 @@ from .timezones import normalize_timezone
 from .browsing import revision
 from .database import connect, require_schema, utc_now
 
-ALGORITHM = 'quantities-v2'
+ALGORITHM = 'quantities-v3'
 MAX_QUANTITY = 10**9  # Bounded integer arithmetic, safely representable by browser clients.
 DEFAULTS = {'target_stashes': None, 'stash_aliases': {}, 'timezone': 'UTC'}
 
@@ -89,7 +89,7 @@ def event_order(event):
 def replay(events, settings, stop=None):
     """Pure full-history replay, isolated by source + canonical stash + coordinate.
 
-    Added/Removed are signed movements. Modified describes the resulting stack.
+    Added is a signed movement; Removed empties the slot. Modified describes the resulting stack.
     Every unseen coordinate starts at zero, independently for each league.
     """
     ordered = sorted(events, key=event_order)
@@ -110,7 +110,7 @@ def replay(events, settings, stop=None):
         stash = aliases.get(event['stash'], event['stash'])
         key = (event['source_id'], stash, event['x'], event['y'])
         current = states.get(key)
-        before_item = current['item_name'] if current else None
+        before_item = (current['item_name'] or None) if current else None
         before = current['quantity'] if current else 0
         row = {'transaction_id': event['id'], 'item_name': event['item'], 'stash': stash,
                'before_item': before_item, 'quantity_before': before, 'quantity_after': None,
@@ -125,7 +125,11 @@ def replay(events, settings, stop=None):
             row['item_name'] = item
         except ValueError:
             row['resolution_reason'] = 'invalid_quantity'
-            states[key] = {'item_name': event['item'], 'quantity': None, 'transaction_id': event['id']}
+            if event['action'] == 'removed' and event['id'] not in ambiguous:
+                row.update(quantity_after=0, effective_action='removed', confidence='source')
+                states[key] = {'item_name': '', 'quantity': 0, 'transaction_id': event['id']}
+            else:
+                states[key] = {'item_name': event['item'], 'quantity': None, 'transaction_id': event['id']}
             annotations.append(row)
             continue
         after = None
@@ -167,17 +171,20 @@ def replay(events, settings, stop=None):
                        confidence='source', resolution_reason='explicit_removed')
             if quantity:
                 changes = [(item, -quantity, 'source')]
-            if before is not None and quantity <= before and (before_item == item or quantity == 0):
-                after = before - quantity
-            elif before is not None:
-                row['resolution_reason'] = 'state_conflict'
+            after = 0
+            if before is not None and before > 0 and (before_item != item or before != quantity):
+                row['resolution_reason'] = 'removed_state_conflict'
         else:
             row['resolution_reason'] = 'unknown_action'
         if after is not None and after > MAX_QUANTITY:
             after = None
             row['resolution_reason'] = 'state_conflict'
         row['quantity_after'] = after
-        state_item = before_item if action == 'added' and quantity == 0 and before_item else item
+        state_item = item
+        if action == 'removed' and after == 0:
+            state_item = ''
+        elif action == 'added' and quantity == 0 and before_item:
+            state_item = before_item
         states[key] = {'item_name': state_item, 'quantity': after, 'transaction_id': event['id']}
         for sequence, (name, delta, confidence) in enumerate(changes):
             movements.append({'transaction_id': event['id'], 'sequence': sequence, 'item_name': name,

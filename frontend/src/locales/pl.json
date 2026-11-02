@@ -269,7 +269,7 @@
     "quantity.reason.stack_difference": "Zmiana ilości obliczona względem wcześniejszego znanego stanu.",
     "quantity.reason.replacement": "W tych samych współrzędnych pojawił się inny przedmiot. Usunięcie poprzedniego i dodanie nowego są wywnioskowane; nie sumujemy różnych przedmiotów w jedną deltę.",
     "quantity.reason.explicit_added": "Źródłowy wpis Added opisuje dodaną ilość. Stan początkowy każdego pola wynosi 0.",
-    "quantity.reason.explicit_removed": "Źródłowy wpis Removed opisuje zabraną ilość.",
+    "quantity.reason.explicit_removed": "Źródłowy wpis Removed opróżnia slot. Ilość po operacji wynosi 0, również przy nieznanym wcześniejszym stanie.",
     "quantity.reason.explicit_zero": "Wpis ma ilość zero; nie tworzy ruchu.",
     "quantity.reason.state_conflict": "Ilość lub przedmiot nie zgadzają się z odtworzonym stanem. Stan końcowy pozostaje nieznany.",
     "quantity.reason.ambiguous_order": "Kilka wpisów ma ten sam czas i współrzędne bez jednoznacznej kolejności ID. Nie zgadujemy kolejności.",
@@ -347,6 +347,7 @@
     "quantity.update.saving": "Zapisywanie ustawień…",
     "quantity.update.pending": "Trwa aktualizacja analizy — poczekaj.",
     "quantity.update.ready": "Analiza jest aktualna.",
-    "quantity.update.failed": "Nie udało się zaktualizować analizy. Otwórz Podsumowanie, aby ponowić."
+    "quantity.update.failed": "Nie udało się zaktualizować analizy. Otwórz Podsumowanie, aby ponowić.",
+    "quantity.reason.removed_state_conflict": "Usuwana ilość lub przedmiot różni się od wcześniejszego zapisu. Zachowujemy źródłowe usunięcie; slot po operacji jest pusty (0)."
   }
 }

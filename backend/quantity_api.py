@@ -144,7 +144,7 @@ def report(league_id):
             event_values += event_arguments + movement_arguments
         stats = dict(c.execute('SELECT COUNT(*) AS events,COALESCE(SUM(q.effective_action=\'unknown\'),0) AS unknown,'
                                'COALESCE(SUM(q.confidence=\'inferred\'),0) AS inferred,COALESCE(SUM(q.effective_action=\'excluded\'),0) AS excluded,'
-                               "COALESCE(SUM(q.resolution_reason IN ('state_conflict','invalid_quantity','ambiguous_order')),0) AS warnings "
+                               "COALESCE(SUM(q.resolution_reason IN ('state_conflict','removed_state_conflict','invalid_quantity','ambiguous_order')),0) AS warnings "
                                'FROM event_quantities q JOIN transactions t ON t.id=q.transaction_id WHERE ' + common + event_item, event_values).fetchone())
         if view == 'state':
             where, args = ['s.run_id=?', '(s.quantity>0 OR s.quantity IS NULL)'], [run['id']]

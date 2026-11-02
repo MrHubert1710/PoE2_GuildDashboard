@@ -123,7 +123,7 @@ Publiczny smoke test przez nginx potwierdził połączenie Aa + całe słowa +
 regex na rzeczywistych danych, zgodne liczniki historii/analizy, reload,
 komunikat błędnego wzorca oraz układ desktop/mobile bez błędów JavaScript.
 
-## Reguły algorytmu quantities-v2
+## Reguły algorytmu quantities-v3
 
 - Parser obsługuje liczbę i x / × oraz zastany zapis Ă—; bez prefiksu ilość
   wynosi 1. Nazwa zaczynająca się od liczby, np. 7 League Boots, pozostaje
@@ -133,8 +133,10 @@ komunikat błędnego wzorca oraz układ desktop/mobile bez błędów JavaScript.
 - Kolejność: czas UTC i numeryczne zewnętrzne ID jako legacy tie-breaker.
   Kilka wpisów z tym samym czasem/współrzędnymi bez jednoznacznej kolejności
   numerycznych ID daje ambiguous_order i nieznany stan, zamiast zgadywania.
-- Added / Removed oznaczają jawny ruch +q / −q, zgodnie z modelem starego kodu.
-  Pierwszy Added: 10 daje stan 10 od początkowego zera.
+- Added oznacza jawny ruch +q. Pierwszy Added: 10 daje stan 10 od zera.
+- Źródłowy Removed oznacza całkowite opróżnienie slotu: ilość po operacji
+  zawsze wynosi 0, a slot nie ma przedmiotu. Ruch −q zachowuje ilość ze źródła.
+  Reguła dotyczy źródłowego Removed; ujemna delta Modified pozostawia nowy stos.
 - Modified opisuje stan po zdarzeniu. Ten sam przedmiot, znana poprzednia
   ilość 20, nowa 15: delta −5 / Removed. Równe ilości: delta 0 / unchanged.
 - Pierwszy Modified: 20 daje deltę +20 i Added, od początkowego zera.
@@ -144,8 +146,11 @@ komunikat błędnego wzorca oraz układ desktop/mobile bez błędów JavaScript.
 - Inny przedmiot w zajętych współrzędnych: inferred −stary / +nowy. Nie jest
   to twierdzenie, że użytkownik aktualnego wpisu na pewno wykonał pominiętą
   operację usunięcia; w podsumowaniach te ruchy są jawnie wywnioskowane.
-- Usunięcie większej ilości niż znana lub konflikt przedmiotu daje ostrzeżenie
-  state_conflict i nieznany stan. Jawny ruch źródłowy pozostaje zapisany.
+- Removed przy innej znanej ilości lub innym przedmiocie daje ostrzeżenie
+  removed_state_conflict, ale nadal opróżnia slot i ustala 0. Nie przenosi
+  nieznanego stanu na późniejsze dodania. Niepoprawna ilość w Removed daje
+  ostrzeżenie invalid_quantity bez wyliczonego ruchu, ale slot także jest pusty.
+- Niejednoznaczna kolejność nadal nie pozwala określić stanu po całej grupie.
 
 Nie wszystkie luki są wykrywalne z logów. quantity_before / quantity_after
 mogą być null niezależnie od znanej delty. Rozróżniamy pewność source, derived,
@@ -303,3 +308,27 @@ Końcowa walidacja obu poprawek po fazie 4b: 113 testów backendu,
 54 przeglądarkowe i 16 tłumaczeń zakończone powodzeniem, build TypeScript/Vite
 poprawny. Publiczny HTTP nginx potwierdza nową wersję, początek 0 w obu ligach
 oraz wspólny formularz włączania/wyłączania i zmiany nazw skrytek w PL/EN/mobile.
+
+
+## Korekta Removed — quantities-v3
+
+Użytkownik doprecyzował semantykę GGG: Removed usuwa cały przedmiot ze slotu,
+a częściową zmianę stosu opisuje Modified. Poprzednie odejmowanie ilości ze
+stanu slotu było błędne. Po Removed zapisujemy ilość 0 i pustą nazwę w projekcji
+quantity_state (schemat 3 wymaga tekstu), a kolejne zdarzenie ma before_item=null.
+Oryginalny przedmiot i ilość pozostają w transakcji, adnotacji i ruchu −q.
+Puste sloty są pomijane w tabeli aktualnego stanu.
+
+Regresja odtwarza wskazaną sekwencję pozycji 34,0: Removed 3 Orb of Extraction,
+Added/Removed Core Destabiliser, Added/Removed 4 Vaal Siphoner. Końcowy stan
+jest pusty (0), a Vaal Siphoner nie występuje w tabeli niepustych slotów.
+Zmiana wersji algorytmu wymusza nowe projekcje obu lig bez usuwania poprzednich.
+
+
+Walidacja quantities-v3: 120 testów backendu, 57 przeglądarkowych,
+16 tłumaczeń i build TypeScript/Vite zakończone powodzeniem. Obie produkcyjne
+projekcje zostały przeliczone przez workera. Publiczny nginx potwierdził
+quantity_after=0 dla Removed 4 Vaal Siphoner (ID 3192208954) oraz brak pozycji
+34,0 w API i widoku stanu. W bazie slot ma item_name='' i quantity=0.
+Skrót wszystkich kolumn 104 534 źródłowych transakcji przed i po wdrożeniu
+pozostał identyczny. Ustawienia lig i gildii nie były modyfikowane.

@@ -187,5 +187,8 @@ i odbioru: [phase-4b.md](phase-4b.md).
 
 
 Stan początkowy ilości (korekta po fazie 4b): każde pole każdej ligi zaczyna
-od 0; brak transakcji oznacza 0. quantities-v2 stosuje tę regułę niezależnie
+od 0; brak transakcji oznacza 0. quantities-v3 stosuje tę regułę niezależnie
 od history_complete, zachowując ostrzeżenia dla konfliktów i błędnych danych.
+
+Źródłowy Removed zawsze opróżnia slot (ilość 0, bez przedmiotu); częściowy
+ubytek stosu opisuje Modified. Korekta i test regresji: docs/phase-4.md.

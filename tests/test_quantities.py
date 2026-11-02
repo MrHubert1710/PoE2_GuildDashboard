@@ -28,8 +28,8 @@ class ReplayTests(unittest.TestCase):
     def test_signed_changes_zero_baseline_unchanged_and_empty_anchor(self):
         data = replay([event(1,'modified',20), event(2,'modified',15), event(3,'added',2), event(4,'removed',3),
                        event(5,'modified',14), event(6,'modified',0), event(7,'added',5)], DEFAULTS)
-        self.assertEqual([r['quantity_delta'] for r in data['events']], [20,-5,2,-3,0,-14,5])
-        self.assertEqual([r['effective_action'] for r in data['events']], ['added','removed','added','removed','unchanged','removed','added'])
+        self.assertEqual([r['quantity_delta'] for r in data['events']], [20,-5,2,-3,14,-14,5])
+        self.assertEqual([r['effective_action'] for r in data['events']], ['added','removed','added','removed','added','removed','added'])
         self.assertEqual(data['states'][0]['quantity'],5)
 
     def test_first_added_and_following_modified_use_zero_baseline(self):
@@ -58,11 +58,37 @@ class ReplayTests(unittest.TestCase):
     def test_underflow_invalid_quantity_and_reanchoring(self):
         rows = [event(1,'modified',3),event(2,'removed',5),event(3,'modified',4),event(4,'modified',3)]
         data = replay(rows,DEFAULTS)
-        self.assertEqual(data['events'][1]['resolution_reason'],'state_conflict')
-        self.assertIsNone(data['events'][1]['quantity_after'])
-        self.assertEqual([r['quantity_delta'] for r in data['events']], [3,-5,None,-1])
+        self.assertEqual(data['events'][1]['resolution_reason'],'removed_state_conflict')
+        self.assertEqual(data['events'][1]['quantity_after'],0)
+        self.assertEqual([r['quantity_delta'] for r in data['events']], [3,-5,4,-1])
         rows[1]['item']='-5x Token'
         self.assertEqual(replay(rows,DEFAULTS)['events'][1]['resolution_reason'],'invalid_quantity')
+
+    def test_removed_empties_the_slot_and_new_item_does_not_inherit_unknown_state(self):
+        rows=[event(1,'removed',3,'Orb of Extraction'),event(2,'added',1,'Core Destabiliser'),
+              event(3,'removed',1,'Core Destabiliser'),event(4,'added',4,'Vaal Siphoner'),
+              event(5,'removed',4,'Vaal Siphoner')]
+        data=replay(rows,DEFAULTS)
+        self.assertEqual([row['quantity_after'] for row in data['events']],[0,1,0,4,0])
+        self.assertEqual([row['quantity_before'] for row in data['events']],[0,0,1,0,4])
+        self.assertEqual(data['states'][0]['quantity'],0)
+        self.assertEqual(data['states'][0]['item_name'],'')
+        self.assertIsNone(data['events'][3]['before_item'])
+
+    def test_removed_clears_known_unknown_mismatched_and_invalid_states(self):
+        for first in (event(1,'modified',10),dict(event(1,'modified',1),item='-5x Token')):
+            for name,amount in (('Token',3),('Other',20),('Token',0)):
+                with self.subTest(first=first['item'],removed=name,amount=amount):
+                    data=replay([first,event(2,'removed',amount,name),event(3,'added',2,'New')],DEFAULTS)
+                    self.assertEqual(data['events'][1]['quantity_after'],0)
+                    self.assertEqual(data['events'][2]['quantity_before'],0)
+                    self.assertIsNone(data['events'][2]['before_item'])
+                    self.assertEqual(data['states'][0]['quantity'],2)
+        data=replay([dict(event(1,'removed',1),item='-3x Token'),event(2,'added',2)],DEFAULTS)
+        self.assertEqual(data['events'][0]['resolution_reason'],'invalid_quantity')
+        self.assertEqual(data['events'][0]['quantity_after'],0)
+        self.assertIsNone(data['events'][0]['quantity_delta'])
+        self.assertEqual(data['states'][0]['quantity'],2)
 
     def test_quantity_parser_handles_legacy_notations_and_rejects_unsafe_numbers(self):
         for text in ['67x Orb','67× Orb','67Ă— Orb','67X Orb']:
@@ -108,7 +134,7 @@ class ReplayTests(unittest.TestCase):
                    'stash_summary':defaultdict(lambda:defaultdict(lambda:defaultdict(lambda:dict(added=0,removed=0)))),
                    'coordinate_state':{},'final_stash_state':{}}
         exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in names],type_ignores=[]),str(legacy),'exec'),namespace)
-        rows=[event(1,'modified',0),event(2,'added',10),event(3,'modified',15),event(4,'removed',3),event(5,'modified',7),event(6,'modified',2,'Other')]
+        rows=[event(1,'modified',0),event(2,'added',10),event(3,'modified',15),event(4,'removed',15),event(5,'modified',7),event(6,'modified',2,'Other')]
         namespace['log_events']=[dict(r,quantity=parse_quantity(r['item'])[0],item_name=parse_quantity(r['item'])[1],parsed_date=r['occurred_at'],parsed_id=int(r['external_id']),date=r['occurred_at']) for r in rows]
         namespace['calculate_operation_summaries']();namespace['calculate_final_stash_state']()
         data=replay(rows,DEFAULTS)
@@ -164,6 +190,23 @@ class QuantityApiTests(unittest.TestCase):
         self.assertEqual(events[0]['quantity']['quantity_delta'],20)
         with connect(self.path) as c:self.assertEqual(before,[tuple(r) for r in c.execute('SELECT * FROM transactions')])
         self.assertEqual(self.queue.enqueue('A','quantities','automatic')['outcome'],'fresh')
+
+    def test_removed_regression_is_zero_in_source_annotation_and_absent_from_nonempty_state(self):
+        rows=[event(31,'removed',3,'Orb of Extraction',x=34),event(32,'added',1,'Core Destabiliser',x=34),
+              event(33,'removed',1,'Core Destabiliser',x=34),event(34,'added',4,'Vaal Siphoner',x=34),
+              event(35,'removed',4,'Vaal Siphoner',x=34)]
+        for row in rows:self.insert(row,'A')
+        self.build()
+        state=self.client.get('/api/leagues/A/quantities?view=state&item=Vaal%20Siphoner').json
+        self.assertEqual(state['rows'],[])
+        self.assertEqual(state['total'],0)
+        records=self.client.get('/api/leagues/A/transactions?item=Vaal%20Siphoner&direction=asc').json['rows']
+        self.assertEqual([row['action'] for row in records],['added','removed'])
+        self.assertEqual([row['quantity']['quantity_after'] for row in records],[4,0])
+        with connect(self.path) as c:
+            latest=c.execute('SELECT quantity,item_name FROM quantity_state WHERE run_id=? AND x=34',
+                             (state['projection']['id'],)).fetchone()
+            self.assertEqual(tuple(latest),(0,''))
 
     def test_filter_replays_prior_days_and_accounts_before_applying_filters(self):
         self.build()
@@ -294,7 +337,7 @@ class QuantityApiTests(unittest.TestCase):
         with patch('backend.quantities.ALGORITHM', 'quantities-v1'):
             first=self.build()['projection']['id']
         self.assertEqual(self.client.get('/api/leagues/A/quantities').json['projection']['state'],'stale')
-        self.assertEqual(self.build()['projection']['algorithm_version'],'quantities-v2')
+        self.assertEqual(self.build()['projection']['algorithm_version'],'quantities-v3')
         with connect(self.path) as c:self.assertEqual(c.execute('SELECT algorithm_version FROM quantity_runs WHERE id=?',(first,)).fetchone()[0],'quantities-v1')
 
     def test_database_rejects_cross_league_projection_links(self):
