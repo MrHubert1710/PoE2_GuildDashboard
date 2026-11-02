@@ -13,7 +13,7 @@ test('archive entry checks freshness but cannot fetch, and local verification ru
   await expect(panel(page)).toContainText('Worker online')
   await expect(panel(page).getByRole('button', { name: 'Fetch history', exact: true })).toBeDisabled()
   await expect(panel(page)).toContainText('Last synchronization: none')
-  await expect(panel(page)).toContainText('Last report generation: none')
+  await expect(panel(page)).not.toContainText('Last report generation: none')
   const url = new URL(page.url())
   const response = await page.request.post(`/poe2guild/api/leagues/${url.searchParams.get('league')}/refresh`, { data: { trigger: 'manual' } })
   expect((await response.json()).reason).toBe('archived')
@@ -21,9 +21,9 @@ test('archive entry checks freshness but cannot fetch, and local verification ru
   await expect(panel(page)).toContainText('Verified local records: 60', { timeout: 10000 })
   await expect(panel(page)).toContainText('Local verification: Job completed.')
   await expect(panel(page)).toContainText('Last synchronization: none')
-  await expect(panel(page)).toContainText('Last report generation: none')
+  await expect(panel(page)).not.toContainText('Last report generation: none')
   expect(new URL(page.url()).searchParams.get('league')).toBe(url.searchParams.get('league'))
-  await expect(page.locator('tbody tr')).toHaveCount(50)
+  await expect(page.locator('.history-transactions tbody tr')).toHaveCount(50)
 })
 
 test('status failure keeps the current data visible and later polling recovers', async ({ page }) => {
@@ -33,7 +33,7 @@ test('status failure keeps the current data visible and later polling recovers',
   await page.goto(path)
   await ready(page)
   await expect(panel(page).getByRole('alert')).toContainText('Unable to read refresh status')
-  await expect(page.locator('tbody tr')).toHaveCount(50)
+  await expect(page.locator('.history-transactions tbody tr')).toHaveCount(50)
   fail = false
   await expect(panel(page)).toContainText('Archived league', { timeout: 10000 })
   await expect(panel(page).getByRole('alert')).toHaveCount(0)
@@ -68,7 +68,7 @@ test('polling detects a new revision and refreshes rows while retaining URL and 
   const url = page.url()
   await page.getByLabel('Player', { exact: true }).fill('Unsaved filter')
   changed = true
-  await expect(page.locator('tbody')).toContainText('Updated after publication', { timeout: 12000 })
+  await expect(page.locator('.history-transactions tbody')).toContainText('Updated after publication', { timeout: 12000 })
   expect(page.url()).toBe(url)
   await expect(page.getByLabel('Player', { exact: true })).toHaveValue('Unsaved filter')
   await expect(page.locator('.result-count')).toContainText('page 2')
@@ -129,7 +129,7 @@ test('failed job submission stays visible even when status is available, and ret
   await expect(panel(page)).toContainText('Archived league')
   await panel(page).getByRole('button', { name: 'Verify local data' }).click()
   await expect(panel(page).getByRole('alert')).toContainText('Unable to submit the job')
-  await expect(page.locator('tbody tr')).toHaveCount(50)
+  await expect(page.locator('.history-transactions tbody tr')).toHaveCount(50)
   fail = false
   await panel(page).getByRole('button', { name: 'Verify local data' }).click()
   await expect(panel(page).getByRole('alert')).toHaveCount(0)

@@ -86,3 +86,11 @@ politykę ligi; klient nie podaje ownera. complete publikuje przygotowane dane
 i kursor w tej samej transakcji co wynik zadania, pod warunkiem ważnego lease.
 `backend/contracts.py:JobQueue` odzwierciedla tę sygnaturę. Szczegóły, polityki
 czasowe i API: [phase-3.md](phase-3.md).
+
+## Ilości i niezależne ligi — faza 4
+
+quantity_runs jest wersjonowanym wynikiem dla jednej ligi i rewizji wejścia.
+Źródłowe transakcje pozostają niezmienne; event_quantities i quantity_movements
+przechowują delty, akcje zastępcze i ich podstawę. Złożone FK blokują połączenie
+projekcji ze zdarzeniem innej ligi. Dziedziczenie konfiguracji gildii nie
+dziedziczy historii ani stanu przedmiotów. Szczegóły: [phase-4.md](phase-4.md).

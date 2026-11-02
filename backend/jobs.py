@@ -51,7 +51,7 @@ class Queue:
                 raise
 
     def scope(self, league_id, kind):
-        return scope_key(self.history_scope if kind == 'history' else ('local', str(league_id), 'verify'))
+        return scope_key(self.history_scope if kind == 'history' else ('local', str(league_id), 'verify' if kind == 'local_verify' else kind))
 
     @staticmethod
     def league(connection, league_id):
@@ -82,7 +82,7 @@ class Queue:
                            "WHERE state='running' AND CAST(lease_until AS REAL)<=?", (now, stamp(now), now))
 
     def enqueue(self, league_id, kind='history', trigger='automatic'):
-        if kind not in {'history', 'local_verify'} or trigger not in {'automatic', 'manual'}:
+        if kind not in {'history', 'local_verify', 'quantities'} or trigger not in {'automatic', 'manual'}:
             raise JobRejected('invalid_refresh_request')
         if kind == 'local_verify' and trigger != 'manual':
             raise JobRejected('invalid_refresh_request')
@@ -92,6 +92,10 @@ class Queue:
             reason = self.restriction(league, kind)
             if reason:
                 return {'outcome': 'unavailable', 'reason': reason, 'job_id': None}
+            if kind == 'quantities':
+                from .quantities import current_run
+                if current_run(connection, league):
+                    return {'outcome': 'fresh', 'reason': 'fresh', 'job_id': None}
             self.recover(connection, now)
             current = connection.execute("SELECT * FROM jobs WHERE scope_key=? AND state IN ('queued','running')", (key,)).fetchone()
             if current:
@@ -103,7 +107,7 @@ class Queue:
                     connection.execute("UPDATE jobs SET trigger_kind='manual',available_at=?,error_code=CASE WHEN error_code='automatic_limit' THEN NULL ELSE error_code END WHERE id=?",
                                        (max(now, cooldown), current['id']))
                 return {'outcome': 'coalesced', 'reason': None, 'job_id': current['id']}
-            if trigger == 'automatic':
+            if trigger == 'automatic' and kind == 'history':
                 scope = connection.execute('SELECT last_success_at FROM refresh_scopes WHERE scope_key=?', (key,)).fetchone()
                 if scope and scope['last_success_at']:
                     fresh_until = datetime.fromisoformat(scope['last_success_at'].replace('Z', '+00:00')).timestamp() + self.fresh_seconds
@@ -116,9 +120,9 @@ class Queue:
             cooldown = connection.execute('SELECT not_before FROM refresh_scopes WHERE scope_key=?', (key,)).fetchone()[0]
             job = str(uuid.uuid4())
             connection.execute('INSERT INTO jobs(id,resource,state,trigger_kind,created_at,scope_key,kind,league_id,available_at) '
-                               "VALUES (?,?,'queued',?,?,?,?,?,?)", (job, 'guild_history' if kind == 'history' else 'local_verify',
+                               "VALUES (?,?,'queued',?,?,?,?,?,?)", (job, 'guild_history' if kind == 'history' else kind,
                                trigger, stamp(now), key, kind, league_id, max(now, cooldown)))
-            if trigger == 'automatic':
+            if trigger == 'automatic' and kind == 'history':
                 connection.execute('INSERT INTO automatic_attempts(scope_key,job_id,attempted_at) VALUES (?,?,?)', (key, job, now))
             return {'outcome': 'queued', 'reason': 'cooldown' if cooldown > now else None, 'job_id': job,
                     'retry_at': stamp(max(now, cooldown))}
@@ -136,7 +140,7 @@ class Queue:
                 if cooldown > now:
                     connection.execute('UPDATE jobs SET available_at=? WHERE id=?', (cooldown, row['id']))
                     continue
-                if row['trigger_kind'] == 'automatic':
+                if row['trigger_kind'] == 'automatic' and row['kind'] == 'history':
                     if not row['attempts']:
                         connection.execute('DELETE FROM automatic_attempts WHERE job_id=?', (row['id'],))
                     limited_until = self.budget(connection, row['scope_key'], now)
@@ -209,7 +213,7 @@ class Queue:
             worker_online = bool(worker and worker['state'] == 'running' and worker['heartbeat_at'] > now - 15)
             result = {'league_id': league_id, 'revision': revision(connection, league_id),
                       'worker': 'online' if worker_online else 'offline', 'history': {}, 'local_verify': {}}
-            for kind in ('history', 'local_verify'):
+            for kind in ('history', 'local_verify', 'quantities'):
                 key = self.scope(league_id, kind)
                 job = connection.execute('SELECT id,state,trigger_kind,attempts,error_code,available_at,finished_at FROM jobs '
                                          'WHERE scope_key=? ORDER BY rowid DESC LIMIT 1', (key,)).fetchone()
@@ -225,5 +229,8 @@ class Queue:
                 if job:
                     result[kind]['job']['available_at'] = stamp(job['available_at'])
             generated = connection.execute("SELECT MAX(created_at) FROM revisions WHERE league_id=? AND kind='report'", (league_id,)).fetchone()[0]
-            result['last_generated_at'] = generated
+            quantity_date = connection.execute('SELECT MAX(created_at) FROM quantity_runs WHERE league_id=?', (league_id,)).fetchone()[0]
+            from .quantities import effective_settings, projection_hash
+            result['quantity_settings_hash'] = projection_hash(league, connection)
+            result['last_generated_at'] = max(filter(None, (generated, quantity_date)), default=None)
             return result

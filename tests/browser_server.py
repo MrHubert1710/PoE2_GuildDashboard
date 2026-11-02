@@ -27,6 +27,16 @@ if __name__ == '__main__':
         app = create_app({'REFERENCE_FILE': ROOT / 'tests/fixtures/browser-reference.json',
                           'DATABASE_FILE': database, 'DATA_DIRECTORY': temporary})
         mounted = DispatcherMiddleware(Response('Not found', status=404), {'/poe2guild': app})
+        # Deterministic initial projections keep existing UI tests independent of background timing.
+        from backend.database import connect
+        with connect(database, readonly=True) as c:
+            league_ids = [row[0] for row in c.execute('SELECT id FROM leagues')]
+        projection_queue = Queue(database, cooldown=0)
+        for league_id in league_ids:
+            projection_queue.enqueue(league_id, 'quantities', 'automatic')
+        worker_once = Worker(projection_queue)
+        while worker_once.run_once():
+            pass
         stop = multiprocessing.Event()
         worker = multiprocessing.Process(target=run_worker, args=(database, stop))
         worker.start()

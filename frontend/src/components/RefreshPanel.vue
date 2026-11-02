@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { t, date } from '../i18n'
 interface Job { state: string; attempts: number; error_code: string | null; available_at: string }
 interface ScopeStatus { available: boolean; reason: string | null; last_success_at: string | null; cooldown_until: string | null; automatic_retry_at: string | null; job: Job | null; last_result: { transactions: number; revision: string } | null }
-interface Status { league_id: string; revision: string; worker: string; history: ScopeStatus; local_verify: ScopeStatus; last_generated_at: string | null }
+interface Status { quantity_settings_hash?: string; league_id: string; revision: string; worker: string; history: ScopeStatus; local_verify: ScopeStatus; last_generated_at: string | null }
 const props = defineProps<{ leagueId: string; revision: string }>()
 const emit = defineEmits<{ revisionChanged: [] }>()
 const status = ref<Status | null>(null)
@@ -15,6 +15,7 @@ const notice = ref('')
 let timer: ReturnType<typeof setTimeout> | undefined
 let stopped = false
 let sequence = 0
+let previousSettings: string | undefined
 const controllers = new Set<AbortController>()
 const url = `${import.meta.env.BASE_URL}api/leagues/${encodeURIComponent(props.leagueId)}/refresh`
 const active = (scope: ScopeStatus | undefined) => !!scope?.job && ['queued', 'running'].includes(scope.job.state)
@@ -38,7 +39,8 @@ async function load() {
     if (['refresh.queued', 'refresh.coalesced', 'refresh.cooldown'].includes(notice.value) && !active(payload[noticeKind])) notice.value = ''
     status.value = payload
     error.value = false
-    if (payload.revision !== props.revision) emit('revisionChanged')
+    if (payload.revision !== props.revision || (previousSettings && previousSettings !== payload.quantity_settings_hash)) emit('revisionChanged')
+    previousSettings = payload.quantity_settings_hash
   } catch { if (!stopped && current === sequence) error.value = true }
 }
 async function submit(kind: 'history' | 'local_verify', trigger: 'manual' | 'automatic' = 'manual') {

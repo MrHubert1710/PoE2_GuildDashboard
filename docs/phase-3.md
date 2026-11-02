@@ -1,7 +1,8 @@
 # Faza 3 — worker i kontrakt odświeżania
 
-Status: implementacja zakończona, oczekuje odbioru manualnego.
-Faza 2a została odebrana poleceniem przejścia dalej. Faza 4 nie jest rozpoczęta.
+Status: odebrana przez użytkownika poleceniem przejścia do fazy 4.
+Faza 2a została odebrana poleceniem przejścia dalej.
+Dalszy zakres opisuje [phase-4.md](phase-4.md).
 
 ## Widok do odbioru
 

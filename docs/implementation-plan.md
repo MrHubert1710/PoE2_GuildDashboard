@@ -1,9 +1,9 @@
 # Plan implementacji poe2guild
 
 Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: fazy 0–2a odebrane przez użytkownika; faza 3 zaimplementowana,
-oczekuje weryfikacji manualnej. Faza 4 i dalsze nie są rozpoczęte.
-Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md).
+Status: fazy 0–3 odebrane przez użytkownika; faza 4 zaimplementowana,
+oczekuje weryfikacji manualnej. Faza 5 i dalsze nie są rozpoczęte.
+Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -156,8 +156,7 @@ Odbiór:
 
 ## Etap 3 — worker i kontrakt odświeżania
 
-Status: implementacja zakończona, oczekuje weryfikacji manualnej.
-Wyniki i instrukcja odbioru: [phase-3.md](phase-3.md).
+Status: odebrana przez użytkownika; wyniki: [phase-3.md](phase-3.md).
 
 Zależność: etapy 1–2 i warstwa tekstów z 2a. Nie wymaga dostępu do historii GGG.
 
@@ -185,12 +184,18 @@ procesami wyłącznie tego checkoutu.
 
 ## Etap 4 — obliczenia ilościowe
 
+Status: implementacja zakończona, oczekuje weryfikacji manualnej.
+Wyniki i instrukcja odbioru: [phase-4.md](phase-4.md).
+
 Zależność: etapy 1–3.
 
 Zakres:
 - Przenieść parser ilości i normalizację zdarzeń jako czyste funkcje.
 - Podsumowania graczy/skrytek, przepływy i odtwarzanie stanu współrzędnych.
-- Ustawienia wybranych skrytek, aliasów i strefy czasu per liga.
+- Wyliczona delta ze znakiem i akcja zastępcza dla zdarzeń; źródłowy wpis pozostaje niezmienny.
+- Osobna historia, ruchy i stan każdej ligi. Wspólna konfiguracja gildii
+  (wybór skrytek, aliasy, strefa czasu), dziedziczona z nadpisaniem per liga.
+  Wspólne nazwy nigdy nie łączą stanów przedmiotów między ligami.
 - Projekcje wyników z wersją algorytmu i rewizją wejścia, bez globalnych
   słowników. Nieznane przypadki i luki danych mają jawne oznaczenia.
 - Widoki podsumowań, graczy, skrytek oraz stanu końcowego w Vue.
@@ -302,7 +307,7 @@ Część 7A można wdrożyć po 3, przed zakończeniem obliczeń i wykresów.
 
 Praca odbywa się po jednej fazie. Po zakończeniu każdej fazy wymagany jest
 odbiór manualny i osobne polecenie użytkownika do przejścia dalej.
-Faza 3 (worker i odświeżanie) oczekuje odbioru. Po jej akceptacji i osobnym
-poleceniu następuje faza 4: obliczenia ilościowe.
+Faza 4 (obliczenia ilościowe) oczekuje odbioru. Po jej akceptacji i osobnym
+poleceniu następuje faza 5: interaktywne wykresy.
 Łączenie zakresu kilku faz wymaga wcześniejszego przedstawienia propozycji
 i uzyskania opinii użytkownika; nie jest decyzją autonomiczną implementacji.

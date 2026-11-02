@@ -17,6 +17,8 @@ export interface League {
   oldest_at: string | null
   newest_at: string | null
   revision: string
+  quantity_settings_hash?: string
+  timezone?: string
   stashes: string[]
   reports: HistoricalReport[]
 }
@@ -53,6 +55,11 @@ export interface TransactionPage {
     item: string
     x: number
     y: number
+    quantity?: {
+      item_name: string; before_item: string | null; quantity_before: number | null; quantity_after: number | null
+      quantity_delta: number | null; effective_action: string; confidence: string; resolution_reason: string
+      movements: Array<{ item_name: string; quantity_delta: number; confidence: string }>
+    } | null
   }>
 }
 
@@ -80,6 +87,10 @@ export function writeQuery(query: HistoryQuery, replace = false) {
   const params = new URLSearchParams()
   const language = new URLSearchParams(location.search).get('lang')
   if (language) params.set('lang', language)
+  for (const key of ['analysis', 'analysis_page']) {
+    const value = new URLSearchParams(location.search).get(key)
+    if (value) params.set(key, value)
+  }
   for (const [key, value] of Object.entries(query)) {
     if (String(value) && String(value) !== String(defaults[key as keyof HistoryQuery])) params.set(key, String(value))
   }

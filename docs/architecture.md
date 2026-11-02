@@ -163,7 +163,16 @@ Nie uzależniać implementacji odczytu archiwów od uzyskania dostępu OAuth.
 ## Worker i odświeżanie — stan fazy 3
 
 Trwała kolejka SQLite, dzierżawy z fencingiem, wspólny limit zakresu źródła
-i osobny worker są zaimplementowane. Stan oczekuje odbioru; szczegóły:
+i osobny worker są zaimplementowane i odebrane; szczegóły:
 [phase-3.md](phase-3.md). Frontend nie wykonuje zadań w procesie Gunicorna.
 Archiwa są blokowane także po stronie API/kolejki. Adapter lokalnej weryfikacji
 nie jest synchronizacją GGG i nie zapisuje fikcyjnej daty pobrania.
+
+## Izolacja i analiza ilościowa — faza 4
+
+Historia, ruchy i stany każdej ligi są niezależnymi zbiorami w SQLite,
+powiązanymi przez league_id i klucze obce. Nie przenosimy inwentarza między
+ligami. Dziedziczenie z gildii dotyczy konfiguracji nazw/aliasów, wyboru
+zakładek i strefy czasu, z jawnym nadpisaniem per liga. Zastępcza akcja i delta
+są wersjonowaną projekcją, a surowy wpis pozostaje niezmienny.
+Szczegóły i reguły niepewności: [phase-4.md](phase-4.md).

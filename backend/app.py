@@ -11,6 +11,7 @@ from .repositories import database_status
 from .database import DatabaseError
 from .browsing import browser
 from .refresh_api import refresh
+from .quantity_api import quantities
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +28,7 @@ def create_app(config=None):
         app.config.update(config)
     app.register_blueprint(browser)
     app.register_blueprint(refresh)
+    app.register_blueprint(quantities)
 
     @app.get('/health')
     def health():

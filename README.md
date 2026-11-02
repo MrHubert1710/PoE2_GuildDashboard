@@ -23,6 +23,10 @@ kontekst ligi i filtrów; języki wynikają z frontend/src/locales/*.json.
 Faza 3: [worker, kolejka i odświeżanie](docs/phase-3.md). Panel Historii pozwala
 zweryfikować lokalne dane; archiwa nie pobierają historii GGG.
 
+Faza 4: [wyliczone ruchy, podsumowania i ustawienia gildii/ligi](docs/phase-4.md).
+Historia pokazuje źródłową akcję oraz własną deltę i akcję zastępczą; archiwalne
+dane pozostają niezmienione. Każda liga ma niezależną historię i stan.
+
 ## Instalacja i uruchamianie
 
 Wymagane: Linux, Python 3.10+ z venv/pip, Node.js 22.12+ (zalecany aktualny
@@ -100,7 +104,7 @@ Odtworzenie danych ze starego katalogu:
 
 Importer kopiuje pliki i weryfikuje SHA-256. Powtórzenie z tymi samymi danymi
 jest bezpieczne; przy różnej zawartości istniejącego archiwum przerywa pracę.
-Baza SQLite (obecnie schemat 2) jest tworzona z tych danych lub z niezależnej kopii starego
+Baza SQLite (obecnie schemat 3) jest tworzona z tych danych lub z niezależnej kopii starego
 katalogu. Komendy fazy 1:
 
 ```sh

@@ -136,3 +136,19 @@ header { flex-wrap: wrap; }
 .refresh-panel h2 { font-size: 16px; }
 .refresh-facts { display: flex; flex-wrap: wrap; gap: 0 24px; color: #a9b0b6; }
 .refresh-job p { margin: 12px 0 4px; }
+
+.quantity-panel { margin: 32px 0; border-top: 1px solid #333d45; padding-top: 12px; }
+.quantity-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+.quantity-tabs button[aria-current="page"] { color: #16201a; background: #b6d7bd; }
+.quantity-settings form { display: grid; gap: 16px; margin: 18px 0; }
+.quantity-settings form > label { max-width: 480px; }
+.alias-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.check-label { flex-direction: row; align-items: center; }
+.check-label input { width: 18px; min-height: 18px; margin: 0; }
+.target-stashes { display: flex; flex-wrap: wrap; gap: 16px; }
+.quantity-delta { white-space: nowrap; }
+.quantity-explanation { min-width: 150px; max-width: 250px; border-top: 0; padding-top: 8px; font-size: 11px; }
+.quantity-explanation p { line-height: 1.6; }
+.action.unknown, .action.mixed { color: #edc58c; }
+.history-transactions { min-width: 1100px; }
+.quantity-table { min-width: 650px; }

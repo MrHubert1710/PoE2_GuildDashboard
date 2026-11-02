@@ -66,13 +66,18 @@ def leagues():
         require_schema(connection)
         connection.execute('BEGIN')
         result = []
-        for row in connection.execute('SELECT l.id,l.name,l.game,l.realm,l.lifecycle,l.archived,l.history_complete,'
+        for row in connection.execute('SELECT l.id,l.name,l.game,l.realm,l.lifecycle,l.archived,l.history_complete,l.settings_json,'
                                       'COUNT(t.id) AS transactions,MIN(t.occurred_at) AS oldest_at,'
                                       'MAX(t.occurred_at) AS newest_at FROM leagues l '
                                       'LEFT JOIN transactions t ON t.league_id=l.id GROUP BY l.id ORDER BY l.name,l.id'):
             league = dict(row)
             league['archived'] = bool(league['archived'])
             league['history_complete'] = None if row['history_complete'] is None else bool(row['history_complete'])
+            from .quantities import effective_settings, projection_hash
+            configured = effective_settings(row, connection)
+            league['timezone'] = configured['timezone']
+            league['quantity_settings_hash'] = projection_hash(row, connection)
+            league.pop('settings_json', None)
             league['revision'] = revision(connection, row['id'])
             league['reports'] = reports(connection, row['id'])
             league['stashes'] = [stash[0] for stash in connection.execute(
@@ -161,9 +166,29 @@ def transactions(league_id):
             'SELECT t.id,t.external_id,t.occurred_at,t.account,t.action,t.stash,t.item,t.x,t.y '
             'FROM transactions t WHERE ' + where + ' ORDER BY ' + order + ' LIMIT ? OFFSET ?',
             values + [page_size, (page - 1) * page_size]).fetchall()
-        return jsonify(league_id=league_id, revision=current_revision, page=page, page_size=page_size,
+        from .quantity_api import metadata
+        from .quantities import current_run
+        league = connection.execute('SELECT * FROM leagues WHERE id=?', (league_id,)).fetchone()
+        meta, run = metadata(connection, league)
+        result_rows = [dict(row) for row in rows]
+        if run and rows:
+            ids = [row['id'] for row in rows]
+            placeholders = ','.join('?' for _ in ids)
+            annotations = {r['transaction_id']: dict(r) for r in connection.execute(
+                f'SELECT * FROM event_quantities WHERE run_id=? AND transaction_id IN ({placeholders})', [run['id'], *ids])}
+            movements = {}
+            for movement in connection.execute(f'SELECT transaction_id,item_name,quantity_delta,confidence FROM quantity_movements WHERE run_id=? AND transaction_id IN ({placeholders}) ORDER BY transaction_id,sequence', [run['id'], *ids]):
+                movements.setdefault(movement['transaction_id'], []).append(dict(movement))
+            for row in result_rows:
+                annotation = annotations.get(row['id'])
+                if annotation:
+                    annotation.pop('run_id', None)
+                    annotation.pop('transaction_id', None)
+                    annotation['movements'] = movements.get(row['id'], [])
+                row['quantity'] = annotation
+        return jsonify(league_id=league_id, revision=current_revision, projection=meta, page=page, page_size=page_size,
                        total=total, pages=pages, sort=sort, direction=direction,
-                       rows=[dict(row) for row in rows])
+                       rows=result_rows)
 
 
 @browser.get('/archives/<int:archive_id>')

@@ -35,8 +35,8 @@ export function t(key: string, parameters: Record<string, string | number> = {})
   return formatMessage(catalogs, locale.value, key, parameters)
 }
 
-export function date(value: string | null) {
-  return value ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(value)) : t('noData')
+export function date(value: string | null, timeZone = 'UTC') {
+  return value ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(new Date(value)) : t('noData')
 }
 watchEffect(() => {
   document.documentElement.lang = locale.value

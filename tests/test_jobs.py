@@ -8,7 +8,7 @@ import time
 import unittest
 import fcntl
 import sqlite3
-from backend.database import MIGRATIONS
+from backend.database import MIGRATIONS, SCHEMA_VERSION
 
 from backend.app import create_app
 from backend.archive_import import canonical, normalize
@@ -291,7 +291,7 @@ class JobTests(unittest.TestCase):
         with connect(path) as c:
             self.assertEqual(c.execute("SELECT value FROM metadata WHERE key='instance_id'").fetchone()[0], 'preserved')
             self.assertEqual(c.execute('SELECT state,error_code FROM jobs').fetchone()[:], ('failed', 'legacy_job'))
-            self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0], 2)
+            self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0], SCHEMA_VERSION)
 
     def test_singleton_worker_lock_rejects_second_loop(self):
         lock = self.path.with_suffix('.worker.lock')

@@ -64,7 +64,8 @@ class UnavailableHistory:
 class Worker:
     def __init__(self, queue, *, adapters=None, stop=None):
         self.queue = queue
-        self.adapters = adapters or {'local_verify': LocalVerification(), 'history': UnavailableHistory()}
+        from .quantities import QuantityAdapter
+        self.adapters = adapters or {'local_verify': LocalVerification(), 'history': UnavailableHistory(), 'quantities': QuantityAdapter()}
         self.stop = stop or threading.Event()
         self.id = str(uuid.uuid4())
 

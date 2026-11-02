@@ -3,14 +3,17 @@ import { t, number, date } from '../i18n'
 import { useHistory } from '../useHistory'
 import LeaguePicker from './LeaguePicker.vue'
 import RefreshPanel from './RefreshPanel.vue'
+import QuantityPanel from './QuantityPanel.vue'
 
 const { leagues, query, draft, result, loadingLeagues, loadingRows, leagueError, rowError, formError,
   selected, loadLeagues, refreshRevision, selectLeague, applyFilters, clearFilters, setPage, setPageSize, sortBy } = useHistory()
 const actionNames: Record<string, string> = { added: 'added', removed: 'removed', modified: 'modified' }
 const columns = [
   { key: 'date', label: 'dateColumn' }, { key: 'account', label: 'player' },
-  { key: 'action', label: 'action' }, { key: 'stash', label: 'stash' }, { key: 'item', label: 'item' },
+  { key: 'action', label: 'quantity.sourceAction' }, { key: 'stash', label: 'stash' }, { key: 'item', label: 'item' },
 ]
+const leagueDate = (value: string | null) => date(value, selected.value?.timezone ?? 'UTC')
+const signed = (value: number) => (value > 0 ? '+' : '') + number(value)
 const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
 </script>
 
@@ -37,7 +40,7 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
         <RefreshPanel :key="selected.id" :league-id="selected.id" :revision="selected.revision" @revision-changed="refreshRevision" />
         <div class="league-summary">
           <p>{{ t('historyCount', { count: selected.transactions }) }}</p>
-          <p>{{ t('range') }} <strong>{{ date(selected.oldest_at) }}</strong> — <strong>{{ date(selected.newest_at) }}</strong> UTC</p>
+          <p>{{ t('range') }} <strong>{{ leagueDate(selected.oldest_at) }}</strong> — <strong>{{ leagueDate(selected.newest_at) }}</strong> {{ selected.timezone ?? 'UTC' }}</p>
           <p>{{ t('historyCompleteness', { status: selected.history_complete === null ? t('unconfirmed') : selected.history_complete ? t('confirmed') : t('incomplete') }) }}</p>
         </div>
 
@@ -51,6 +54,8 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
         </form>
         <p v-if="formError" role="alert" class="alert">{{ t(formError) }}</p>
 
+        <QuantityPanel :key="selected.id" :league-id="selected.id" :revision="selected.revision" :settings-hash="selected.quantity_settings_hash" :query="query" @generated="refreshRevision" @settings-changed="refreshRevision" />
+
         <div class="results-heading">
           <h2>{{ t('transactions') }}</h2>
           <label>{{ t('pageSize') }}<select :aria-label="t('pageSize')" :value="query.page_size" @change="setPageSize(Number(($event.target as HTMLSelectElement).value))"><option :value="25">25</option><option :value="50">50</option><option :value="100">100</option></select></label>
@@ -61,17 +66,28 @@ const archiveUrl = (id: number) => `${import.meta.env.BASE_URL}archives/${id}`
           <p class="result-count" role="status">{{ t('resultCount', { count: result.total, page: result.page, pages: result.pages }) }}</p>
           <p v-if="!result.rows.length" class="empty-state">{{ t('noTransactions') }}</p>
           <div v-else class="transactions-scroll" tabindex="0" role="region" :aria-label="t('tableRegion')">
-            <table class="transactions">
+            <table class="transactions history-transactions">
               <thead><tr>
                 <th v-for="column in columns" :key="column.key" scope="col" :aria-sort="query.sort === column.key ? (query.direction === 'asc' ? 'ascending' : 'descending') : 'none'">
-                  <button type="button" @click="sortBy(column.key)">{{ t(column.label) }} <span v-if="query.sort === column.key" aria-hidden="true">{{ query.direction === 'asc' ? '↑' : '↓' }}</span></button>
+                  <button type="button" @click="sortBy(column.key)">{{ column.key === 'date' ? t('quantity.dateZone', { zone: selected.timezone ?? 'UTC' }) : t(column.label) }} <span v-if="query.sort === column.key" aria-hidden="true">{{ query.direction === 'asc' ? '↑' : '↓' }}</span></button>
                 </th>
+                <th scope="col">{{ t('quantity.delta') }}</th><th scope="col">{{ t('quantity.effectiveAction') }}</th>
                 <th scope="col">{{ t('position') }}</th>
               </tr></thead>
               <tbody><tr v-for="row in result.rows" :key="row.id" :data-event-id="row.external_id">
-                <td class="date-cell">{{ date(row.occurred_at) }}</td><td>{{ row.account }}</td>
+                <td class="date-cell">{{ leagueDate(row.occurred_at) }}</td><td>{{ row.account }}</td>
                 <td><span class="action" :class="row.action">{{ actionNames[row.action] ? t(actionNames[row.action]!) : row.action }}</span></td>
-                <td>{{ row.stash }}</td><td class="item-cell">{{ row.item }}</td><td>{{ row.x }}, {{ row.y }}</td>
+                <td>{{ row.stash }}</td><td class="item-cell">{{ row.item }}</td>
+                <td class="quantity-delta">
+                  <template v-if="row.quantity?.movements.length && row.quantity.movements.length > 1"><div v-for="(movement, index) in row.quantity.movements" :key="index">{{ signed(movement.quantity_delta) }} {{ movement.item_name }}</div></template>
+                  <template v-else>{{ row.quantity?.quantity_delta !== null && row.quantity?.quantity_delta !== undefined ? signed(row.quantity.quantity_delta) : t('quantity.unknown') }}</template>
+                </td>
+                <td><template v-if="row.quantity"><span class="action" :class="row.quantity.effective_action">{{ t(`quantity.action.${row.quantity.effective_action}`) }}</span>
+                  <details class="quantity-explanation"><summary>{{ t('quantity.explanation') }}</summary><p>{{ t(`quantity.reason.${row.quantity.resolution_reason}`) }}</p>
+                    <p>{{ t('quantity.beforeAfter', { before: row.quantity.quantity_before === null ? t('quantity.unknown') : number(row.quantity.quantity_before), after: row.quantity.quantity_after === null ? t('quantity.unknown') : number(row.quantity.quantity_after) }) }}</p>
+                    <p>{{ t(`quantity.confidence.${row.quantity.confidence}`) }}</p>
+                  </details></template><span v-else>{{ t('quantity.pendingShort') }}</span></td>
+                <td>{{ row.x }}, {{ row.y }}</td>
               </tr></tbody>
             </table>
           </div>
