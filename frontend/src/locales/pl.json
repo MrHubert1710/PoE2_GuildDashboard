@@ -282,7 +282,7 @@
     "quantity.error.projection_changed": "Projekcja zmieniła się. Odśwież analizę.",
     "quantity.error.settings_changed": "Ustawienia zmieniono w innej karcie. Odśwież stronę przed ponownym zapisem.",
     "quantity.error.invalid_settings": "Sprawdź nazwy zakładek i ustawienia.",
-    "quantity.error.invalid_timezone": "Nieprawidłowa strefa czasu. Użyj nazwy IANA, np. Europe/Warsaw.",
+    "quantity.error.invalid_timezone": "Nieprawidłowa strefa czasu. Użyj nazwy IANA, przesunięcia UTC w zakresie ±14 godzin (np. UTC+2 lub UTC+05:30) albo obsługiwanego skrótu, np. PST.",
     "quantity.error.alias_chain": "Aliasy nie mogą tworzyć łańcuchów ani cykli. Wskaż bezpośrednio nazwę docelową.",
     "quantity.error.invalid_date_range": "Początek zakresu nie może być późniejszy niż koniec.",
     "quantity.error.invalid_date": "Sprawdź daty filtrów.",
@@ -342,6 +342,7 @@
     "quantity.stashEnabled": "Uwzględniana",
     "quantity.stashDisabled": "Pomijana",
     "quantity.displayName": "Nazwa w analizie",
-    "quantity.stashSelectionNote": "Odznacz skrytkę, aby pominąć ją w analizie. Jej historia źródłowa i nazwa zostaną zachowane. Skrytki o wspólnej nazwie w analizie mają wspólne ustawienie uwzględniania."
+    "quantity.stashSelectionNote": "Odznacz skrytkę, aby pominąć ją w analizie. Jej historia źródłowa i nazwa zostaną zachowane. Skrytki o wspólnej nazwie w analizie mają wspólne ustawienie uwzględniania.",
+    "quantity.timezoneHelp": "Obsługiwane są nazwy IANA (Europe/Warsaw), UTC+2, UTC-8, UTC+05:30 i UTC+5.5. Skróty oznaczają stałe przesunięcia: PST = UTC-08:00, PDT = UTC-07:00, CST = UTC-06:00 (Ameryka Północna). America/Los_Angeles automatycznie uwzględnia czas letni. Podpowiedzi pokazują przesunięcia skrótów."
   }
 }

@@ -4,9 +4,9 @@ from datetime import datetime
 import hashlib
 import json
 import re
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .archive_import import canonical
+from .timezones import normalize_timezone
 from .browsing import revision
 from .database import connect, require_schema, utc_now
 
@@ -52,12 +52,7 @@ def validate_settings(value):
         raise ValueError('invalid_settings')
     if any(target in aliases and aliases[target] != target for target in aliases.values()):
         raise ValueError('alias_chain')
-    if not isinstance(zone, str) or len(zone) > 100:
-        raise ValueError('invalid_timezone')
-    try:
-        ZoneInfo(zone)
-    except (ZoneInfoNotFoundError, ValueError):
-        raise ValueError('invalid_timezone') from None
+    zone = normalize_timezone(zone)
     return {'target_stashes': sorted(set(targets)) if targets is not None else None,
             'stash_aliases': dict(sorted(aliases.items())), 'timezone': zone}
 

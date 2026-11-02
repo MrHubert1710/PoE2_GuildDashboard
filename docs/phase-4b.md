@@ -152,3 +152,32 @@ Test przeglądarkowy sprawdza wyłączenie, zmianę nazwy pomijanej skrytki,
 zachowanie 60 źródłowych zdarzeń, ponowne włączenie i zmianę nazwy aktywnej
 skrytki, zapis/reload oraz szerokość mobilną. Końcowa regresja: 54 testy
 przeglądarkowe, 113 backendu, 16 tłumaczeń i build zakończone powodzeniem.
+
+
+## Strefy czasu — rozszerzenie formularza
+
+Pole strefy czasu przyjmuje nazwy IANA, przesunięcia UTC±X (także z minutami
+lub ułamkiem godziny) oraz skróty z podpowiedzi. Przykłady: UTC+2, UTC-8,
+UTC+05:30, UTC+5.5 i PST. Zapis normalizuje przesunięcia do UTC±HH:MM,
+a zerowe przesunięcie do UTC. Dopuszczalny zakres: od −14 do +14 godzin,
+z dokładnością do pełnej minuty. Podpowiedzi skrótów pokazują ich przesunięcie.
+
+Wspólna tabela shared/timezone-aliases.json definiuje znaczenie skrótów dla
+backendu i frontendu. PST/PDT, MST/MDT, CST/CDT i EST/EDT to odpowiednie
+stałe przesunięcia północnoamerykańskie; dostępne są też GMT, CET/CEST,
+EET/EEST, JST i KST. Niejednoznaczne skróty spoza listy (np. IST) są odrzucane;
+można użyć Asia/Kolkata lub właściwego przesunięcia. Skróty nie przełączają
+czasu letniego: America/Los_Angeles lub Europe/Warsaw stosują reguły IANA.
+
+Formatowanie dat obsługuje stałe przesunięcia również w przeglądarkach bez
+obsługi offsetowych identyfikatorów Intl: przesuwa chwilę i formatuje ją w UTC.
+Filtry dni i przechowywane czasy źródłowe nadal są w UTC. Nie zmieniono schematu
+ani istniejących ustawień. Testy obejmują zapis, normalizację, zmianę dnia,
+skróty, ułamki, reload i odrzucanie nieprawidłowych przesunięć.
+
+
+Walidacja rozszerzenia stref: 115 testów backendu, 55 przeglądarkowych,
+16 tłumaczeń oraz build TypeScript/Vite zakończone powodzeniem. Publiczny
+nginx potwierdził obsługę PST i przesunięć, odrzucenie UTC+25 oraz podpowiedzi
+PL/EN/mobile. Próby walidacji użyły celowo niezgodnego hasha wersji; porównanie
+przed/po potwierdziło brak zmiany produkcyjnych ustawień.

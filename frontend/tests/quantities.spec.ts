@@ -149,3 +149,26 @@ test('stash inclusion sits beside renaming, survives renaming and preserves sour
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   } finally {await restore(request)}
 })
+
+
+test('timezone accepts fixed UTC offsets and abbreviations and formats dates across day boundaries',async({page,request})=>{
+  try {
+    await page.goto(path+'&section=settings')
+    const settings=page.getByTestId('quantity-settings')
+    for(const [input,canonical,time] of [['UTC+13','UTC+13:00','Jan 3, 2026, 1:00 AM'],['PST','UTC-08:00','Jan 2, 2026, 4:00 AM'],['UTC+5.5','UTC+05:30','Jan 2, 2026, 5:30 PM']]) {
+      await settings.getByLabel('Display timezone',{exact:true}).fill(input)
+      await settings.getByRole('button',{name:'Save settings and rebuild'}).click()
+      await expect(settings.getByLabel('Display timezone',{exact:true})).toHaveValue(canonical)
+      await goSection(page,'History')
+      await expect(page.getByRole('button',{name:`Date (${canonical})`,exact:false})).toBeVisible()
+      await expect(page.locator('.history-transactions tbody tr').first()).toContainText(time)
+      await goSection(page,'Settings')
+    }
+    await settings.getByLabel('Display timezone',{exact:true}).fill('UTC+25')
+    await settings.getByRole('button',{name:'Save settings and rebuild'}).click()
+    await expect(settings.getByRole('alert')).toContainText('Invalid timezone')
+    await page.reload()
+    await expect(settings.getByLabel('Display timezone',{exact:true})).toHaveValue('UTC+05:30')
+    await expect(page.locator('#quantity-timezones option[value="PST"]')).toHaveText('PST (UTC-08:00)')
+  } finally {await restore(request)}
+})

@@ -1,4 +1,5 @@
 import { ref, watchEffect } from 'vue'
+import { formatZonedDate } from './timezones'
 import { updateUrl } from './navigation'
 import { formatMessage } from './message-format.mjs'
 import type { Catalog } from '../scripts/locale-catalog.mjs'
@@ -37,7 +38,7 @@ export function t(key: string, parameters: Record<string, string | number> = {})
 }
 
 export function date(value: string | null, timeZone = 'UTC') {
-  return value ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(new Date(value)) : t('noData')
+  return value ? formatZonedDate(value, locale.value, timeZone) : t('noData')
 }
 watchEffect(() => {
   document.documentElement.lang = locale.value

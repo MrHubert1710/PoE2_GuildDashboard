@@ -1,0 +1,18 @@
+{
+  "UTC": "UTC+00:00",
+  "GMT": "UTC+00:00",
+  "PST": "UTC-08:00",
+  "PDT": "UTC-07:00",
+  "MST": "UTC-07:00",
+  "MDT": "UTC-06:00",
+  "CST": "UTC-06:00",
+  "CDT": "UTC-05:00",
+  "EST": "UTC-05:00",
+  "EDT": "UTC-04:00",
+  "CET": "UTC+01:00",
+  "CEST": "UTC+02:00",
+  "EET": "UTC+02:00",
+  "EEST": "UTC+03:00",
+  "JST": "UTC+09:00",
+  "KST": "UTC+09:00"
+}

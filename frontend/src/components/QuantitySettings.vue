@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { timezoneSuggestions } from '../timezones'
 import { t } from '../i18n'
 import { useApiRequest } from '../composables/useApiRequest'
 const props = defineProps<{ leagueId: string; settingsHash?: string; refreshToken: number }>()
@@ -37,7 +38,7 @@ function renameStash(name: string, value: string) {
   }
   dirty.value = true
 }
-const timezones = ['UTC', ...Intl.supportedValuesOf('timeZone')]
+const timezones = timezoneSuggestions()
 async function loadSettings() {
   const result = await request('/quantity-settings')
   if (stopped()) return
@@ -81,7 +82,8 @@ onMounted(() => { void loadSettings().catch(() => { settingsError.value = 'repor
         <label>{{ t('quantity.saveScope') }}<select v-model="scope" :aria-label="t('quantity.saveScope')"><option value="league">{{ t('quantity.scopeLeague') }}</option><option v-if="guildAvailable" value="guild">{{ t('quantity.scopeGuild') }}</option></select></label>
         <label class="check-label"><input v-model="allStashes" type="checkbox" />{{ t('quantity.allStashes') }}</label>
 
-        <label>{{ t('quantity.timezone') }}<input v-model="timezone" list="quantity-timezones" required maxlength="100" /><datalist id="quantity-timezones"><option v-for="zone in timezones" :key="zone" :value="zone" /></datalist></label>
+        <label>{{ t('quantity.timezone') }}<input v-model="timezone" list="quantity-timezones" required maxlength="100" aria-describedby="timezone-help" /></label><datalist id="quantity-timezones"><option v-for="zone in timezones" :key="zone.value" :value="zone.value">{{ zone.label }}</option></datalist>
+        <p id="timezone-help" class="footnote">{{ t('quantity.timezoneHelp') }}</p>
         <p class="footnote">{{ t('quantity.aliasNote') }}</p>
         <p class="footnote">{{ t('quantity.stashSelectionNote') }}</p>
         <div class="stash-settings-list">

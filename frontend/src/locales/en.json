@@ -272,7 +272,7 @@
     "quantity.error.projection_changed": "The projection changed. Refresh the analysis.",
     "quantity.error.settings_changed": "Settings changed in another tab. Reload before saving again.",
     "quantity.error.invalid_settings": "Check stash names and settings.",
-    "quantity.error.invalid_timezone": "Invalid timezone. Use an IANA name, such as Europe/Warsaw.",
+    "quantity.error.invalid_timezone": "Invalid timezone. Use an IANA name, UTC offset within ±14 hours (e.g. UTC+2 or UTC+05:30), or a supported abbreviation such as PST.",
     "quantity.error.alias_chain": "Aliases cannot form chains or cycles. Specify the destination name directly.",
     "quantity.error.invalid_date_range": "The start date cannot be later than the end.",
     "quantity.error.invalid_date": "Check the date filters.",
@@ -332,6 +332,7 @@
     "quantity.stashEnabled": "Included",
     "quantity.stashDisabled": "Ignored",
     "quantity.displayName": "Name in analysis",
-    "quantity.stashSelectionNote": "Uncheck a stash to ignore it in analysis. Its source history and name are preserved. Stashes sharing an analysis name share the same inclusion setting."
+    "quantity.stashSelectionNote": "Uncheck a stash to ignore it in analysis. Its source history and name are preserved. Stashes sharing an analysis name share the same inclusion setting.",
+    "quantity.timezoneHelp": "Accepts IANA names (Europe/Warsaw), UTC+2, UTC-8, UTC+05:30 or UTC+5.5. Abbreviations are fixed offsets: PST = UTC-08:00, PDT = UTC-07:00, CST = UTC-06:00 (North America). Use America/Los_Angeles for automatic daylight saving time. Suggestions show abbreviation offsets."
   }
 }
