@@ -50,6 +50,10 @@ def rebuild(database_path, archive_root, *, source_key='legacy-primary', setting
         # Keep them across a history rebuild; refuse to silently orphan a league.
         if database_path.exists():
             with connect(database_path, readonly=True) as old, connect(temporary) as fresh:
+                from .live_data_rebuild import preserve
+                fresh.execute('BEGIN IMMEDIATE')
+                try:preserve(old,fresh);fresh.commit()
+                except BaseException:fresh.rollback();raise
                 if old.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='price_snapshots'").fetchone():
                     known={row[0] for row in fresh.execute('SELECT id FROM leagues')}
                     priced={row[0] for row in old.execute('SELECT DISTINCT league_id FROM price_snapshots')}

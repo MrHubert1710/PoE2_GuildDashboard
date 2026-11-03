@@ -1,10 +1,11 @@
 # Plan implementacji poe2guild
 
-Data: 2026-11-02. Branch: `rework/vue-flask`.
-Status: fazy 0–5b odebrane przez użytkownika. Faza 6 zaimplementowana
-i wdrożona, oczekuje odbioru manualnego. Fazy 7 i dalsze nie są rozpoczęte;
-symulacja stasha pozostaje opcjonalnym etapem 9.
-Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md), [phase-5a.md](phase-5a.md), [phase-5b.md](phase-5b.md), [phase-6.md](phase-6.md).
+Data: 2026-11-03. Branch: `rework/vue-flask`.
+Status: fazy 0–6 odebrane przez użytkownika. Na polecenie użytkownika połączono
+7A i 7B: katalog lig oraz sesyjne pobieranie historii. Implementacja oczekuje
+odbioru manualnego prawdziwymi danymi dostępowymi. Faza 7C i dalsze nie są
+rozpoczęte; symulacja stasha pozostaje opcjonalną fazą 9.
+Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md), [phase-5a.md](phase-5a.md), [phase-5b.md](phase-5b.md), [phase-6.md](phase-6.md), [phase-7.md](phase-7.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
 
 ## Cel i granice
@@ -279,37 +280,37 @@ jest raportowany bez uszkodzenia wyników. Usunięta kategoria zachowuje archiwu
 Wycenę można odtworzyć z określonego zestawu cen i wersji algorytmu.
 Porównania kwot używają tych samych cen, zasad i waluty co wynik referencyjny.
 
-## Etap 7 — katalog lig i oficjalna synchronizacja GGG
+## Etap 7A + 7B — katalog lig i historia gildii
 
-Część A: automatyczny katalog lig. Zależność: etapy 1 i 3.
-- Synchronizować lokalne ligi z katalogiem GGG, jeżeli dostępny, i katalogiem
-  ekonomii poe.ninja. Zachować mapowanie game/realm/wariantów/ID dostawców.
-- Zapisywać źródło, datę obserwacji i dowody statusu. Nie archiwizować ligi
-  z powodu błędu sieci lub braku na liście cen.
-- Odkrycie nowej ligi aktualizuje listę; osobna polityka określa, które ligi
-  gildia monitoruje. Zachować ręczną korektę i lokalne archiwa.
+Połączone na polecenie użytkownika. Implementacja i odbiór:
+[phase-7.md](phase-7.md). Nie rozpoczynać 7C bez odbioru pobierania.
 
-Część B: OAuth i historia gildii. Zależność: etapy 0, 3 i potwierdzony dostęp.
-- Wdrożyć wyłącznie flow/scopes obsługujące potrzebny zasób.
-- HTTPS callback, backendowy magazyn sekretów, stan połączenia i odnowienie
-  tokenu pod blokadą; bez tokenów w Vue/logach. Rotacja refresh tokenu nie
-  może być traktowana jako przedłużenie pierwotnego terminu ważności.
-- Adapter historii z pobieraniem przyrostowym, zakładką, paginacją i limitami.
-  Kursor zatwierdzać razem z poprawnym importem; nie pomijać danych po błędzie.
-- Rozdzielać dane gildii do właściwych lig; pusta odpowiedź nie usuwa historii.
-- Jawnie obsłużyć utratę zgody, wygaśnięcie i brak uprawnień.
+- Automatyczne wykrywanie zasila katalog administratora. Wyłącznie Admin
+  dodaje ligi do aplikacji oraz ustawia ich monitorowanie; sama obecność
+  w katalogu nie uruchamia zbierania ani nie dodaje ligi do publicznej listy.
+- Zachować źródło, datę obserwacji, ID, game/realm i warianty. Błąd, brak ceny
+  albo nieobecność w katalogu nie kończy i nie archiwizuje ligi.
+- Rozdzielić status w grze, lokalne archiwum oraz monitorowanie. Właściciel
+  potwierdził, że Runes of Aldur i Forbidden Rites nadal są aktywne; to dane
+  historyczne, a nie dowód wygaśnięcia lig. Potwierdzenie właściciela ma jawne
+  pochodzenie do czasu odczytu GGG. Ręczna korekta Admina pozostaje dostępna.
+- Oficjalny katalog GGG jest warunkowy (service:leagues). Bez tokenu nie
+  wykonywać żądań bez autoryzacji ani nie deklarować potwierdzenia statusu GGG.
+- Na wyraźne polecenie użytkownika przenieść sesyjny fetcher z poprzedniego
+  projektu; GUILD_ID i SESSION_ID/POESESSID konfiguruje Admin. Bez przycisku
+  logowania/importowania cookies. Wartość sesji pozostaje tylko na serwerze.
+- Paginacja, globalna kolejka gildii, trwałe limity, zakład czasowy i kursor
+  zatwierdzany razem z poprawnym importem. Pusta odpowiedź nie usuwa danych.
+- Zachować odpowiedzi GGG 1:1 do weryfikacji. Nieznane/niemonitorowane ligi
+  zachowują oczekujące wpisy, dopóki Admin nie zdecyduje o ich dodaniu.
+- Odróżnić sesyjny endpoint strony od oficjalnego OAuth. Nie obiecywać
+  automatycznego przedłużania POESESSID ani trwałego dostępu. Oficjalny OAuth
+  do historii pozostaje zależny od dostępności właściwego zasobu/uprawnień.
 
-Odbiór: nowa liga pojawia się bez edycji kodu; awaria katalogu zachowuje znany
-stan. Jeżeli źródło historii jest dostępne, autofetch i manual fetch przechodzą
-pełny test integracyjny, włącznie z limitem i utratą autoryzacji.
-
-Jeżeli dostęp GGG nie zostanie przyznany, część B pozostaje warunkowa.
-Pozostałe etapy dostarczają działającą aplikację z lokalnym importem i cenami.
-Nie zastępować tego automatycznym logowaniem ani nie zakładać, że POESESSID
-jest oficjalnym, trwalszym rozwiązaniem. Nie deklarować fetchowania jako gotowego.
-
-Kamień milowy B: analityka i ceny. Kamień milowy C: pełna synchronizacja,
-o ile wymagane źródła są dostępne.
+Odbiór: zapis sesji jest maskowany i niedostępny publicznie; Admin może dodać
+ligę bez edycji kodu. Rzeczywistą sesją trzeba zweryfikować paginację,
+autofetch/manual fetch, duplikaty i reakcję na wygaśnięcie/brak uprawnień.
+Fixture'y nie stanowią dowodu działania aktualnej sesji GGG.
 
 ## Etap 7C — analiza wiarygodności logów GGG na żywo
 
@@ -489,4 +490,4 @@ oraz wylogować. Konfiguracja połączenia GGG nastąpi z adapterem w 7B. Sekret
 
 Proponowana kolejność po odbiorze fazy 5a: 5b → 6 → 7A/7B → 7C (po 7B) → 8 → opcjonalnie 9.
 Każdy etap wymaga osobnego polecenia rozpoczęcia i kończy się zatrzymaniem do
-odbioru. Fazy 5b i 6 są wdrożone; faza 6 oczekuje odbioru. Opcjonalna symulacja nie została rozpoczęta.
+odbioru. Fazy 5b i 6 są odebrane; połączona faza 7A+7B oczekuje odbioru. Opcjonalna symulacja nie została rozpoczęta.

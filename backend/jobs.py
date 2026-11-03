@@ -33,11 +33,13 @@ def scope_key(scope):
 
 class Queue:
     def __init__(self, path, *, clock=time.time, lease_seconds=30, cooldown=30,
-                 history_scope=('ggg', 'unconfigured', 'guild_history'), history_available=False, fresh_seconds=1800, prices_available=True):
+                 history_scope=('ggg', 'unconfigured', 'guild_history'), history_available=False, fresh_seconds=1800, prices_available=True, catalog_available=False, connection_file=None):
         self.path, self.clock, self.lease_seconds, self.cooldown = path, clock, lease_seconds, cooldown
         self.history_scope, self.history_available = history_scope, history_available
         self.fresh_seconds = fresh_seconds
         self.prices_available = prices_available
+        self.catalog_available = catalog_available
+        self.connection_file = connection_file
 
     @contextmanager
     def transaction(self):
@@ -52,6 +54,11 @@ class Queue:
                 raise
 
     def scope(self, league_id, kind):
+        if kind=='league_catalog':return scope_key(('catalog','poe2','pc'))
+        if kind=='history' and self.connection_file:
+            from .ggg_connection import GGGConnectionStore
+            configuration=GGGConnectionStore(self.connection_file).get()
+            if configuration['guild_id']:return scope_key(('ggg',configuration['guild_id'],'guild_history'))
         return scope_key(self.history_scope if kind == 'history' else ('local', str(league_id), 'verify' if kind == 'local_verify' else kind))
 
     @staticmethod
@@ -62,9 +69,16 @@ class Queue:
         return row
 
     def restriction(self, league, kind):
+        if kind=='league_catalog':return None if self.catalog_available else 'source_unavailable'
+        if kind in {'history','prices'} and not dict(league).get('monitored',1):return 'not_monitored'
+        if kind=='history' and self.connection_file:
+            from .ggg_connection import GGGConnectionStore
+            configuration=GGGConnectionStore(self.connection_file).get()
+            if configuration['enabled'] and configuration['session_id']:
+                return 'history_auth_failed' if configuration['state']=='rejected' else None
         if kind == 'prices' and not self.prices_available:return 'source_unavailable'
         if kind == 'history':
-            if league['archived']:
+            if league['archived'] and dict(league).get('lifecycle','unknown')!='active':
                 return 'archived'
             if not self.history_available or not league['fetch_available']:
                 return 'source_unavailable'
@@ -84,13 +98,13 @@ class Queue:
                            "WHERE state='running' AND CAST(lease_until AS REAL)<=?", (now, stamp(now), now))
 
     def enqueue(self, league_id, kind='history', trigger='automatic'):
-        if kind not in {'history', 'local_verify', 'quantities', 'prices', 'valuations'} or trigger not in {'automatic', 'manual'}:
+        if kind not in {'history', 'local_verify', 'quantities', 'prices', 'valuations', 'league_catalog'} or trigger not in {'automatic', 'manual'}:
             raise JobRejected('invalid_refresh_request')
         if kind == 'local_verify' and trigger != 'manual':
             raise JobRejected('invalid_refresh_request')
         key, now = self.scope(league_id, kind), self.clock()
         with self.transaction() as connection:
-            league = self.league(connection, league_id)
+            league = None if kind=='league_catalog' else self.league(connection, league_id)
             reason = self.restriction(league, kind)
             if reason:
                 return {'outcome': 'unavailable', 'reason': reason, 'job_id': None}
@@ -102,7 +116,7 @@ class Queue:
                 from .valuation import current_valuation
                 if current_valuation(connection, league)[0]:
                     return {'outcome':'fresh','reason':'fresh','job_id':None}
-            if kind == 'prices':
+            if kind in {'prices','league_catalog'}:
                 scope=connection.execute('SELECT last_success_at FROM refresh_scopes WHERE scope_key=?',(key,)).fetchone()
                 if scope and scope[0] and datetime.fromisoformat(scope[0].replace('Z','+00:00')).timestamp()+3600>now:
                     return {'outcome':'fresh','reason':'fresh','job_id':None}
@@ -142,7 +156,7 @@ class Queue:
         with self.transaction() as connection:
             self.recover(connection, now)
             for row in connection.execute("SELECT * FROM jobs WHERE state='queued' AND available_at<=? ORDER BY created_at,id", (now,)).fetchall():
-                reason = self.restriction(self.league(connection, row['league_id']), row['kind'])
+                reason = self.restriction(None if row['kind']=='league_catalog' else self.league(connection, row['league_id']), row['kind'])
                 if reason:
                     connection.execute("UPDATE jobs SET state='failed',error_code=?,finished_at=? WHERE id=?", (reason, stamp(now), row['id']))
                     continue
@@ -179,7 +193,7 @@ class Queue:
         """publish(connection) is a short, transactional callback over already staged data."""
         with self.transaction() as connection:
             row = self.assert_lease(connection, lease)
-            reason = self.restriction(self.league(connection, row['league_id']), row['kind'])
+            reason = self.restriction(None if row['kind']=='league_catalog' else self.league(connection, row['league_id']), row['kind'])
             if reason:
                 connection.execute("UPDATE jobs SET state='failed',error_code=?,finished_at=? WHERE id=?", (reason, stamp(self.clock()), row['id']))
                 return
@@ -192,10 +206,11 @@ class Queue:
                                (payload, stamp(now), row['id']))
             connection.execute('UPDATE refresh_scopes SET last_success_at=?,last_result_json=?,not_before=? WHERE scope_key=?',
                                (stamp(now), payload, now + self.cooldown, row['scope_key']))
+            return result
 
     def fail(self, lease, error_code='adapter_error', *, retryable=True, retry_after=0):
         # Codes are internal constants. Never persist exceptions/requests/credentials.
-        if error_code not in {'adapter_error', 'source_unavailable', 'local_data_invalid', 'interrupted', 'provider_limited', 'data_changed'}:
+        if error_code not in {'adapter_error', 'source_unavailable', 'local_data_invalid', 'interrupted', 'provider_limited', 'data_changed', 'history_auth_failed', 'history_source_failed', 'history_invalid_response', 'history_cursor_repeated', 'history_page_limit', 'history_conflict'}:
             error_code = 'adapter_error'
         with self.transaction() as connection:
             row = self.assert_lease(connection, lease)

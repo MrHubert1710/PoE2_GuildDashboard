@@ -51,6 +51,11 @@ if __name__ == '__main__':
                 save_snapshot(c,snapshot(league_id,'exchange','Currency',payload,effective_at='2026-01-01T00:00:00Z'))
                 later={**payload,'lines':[{'id':'rites','primaryValue':4},{'id':'aldur','primaryValue':6}]}
                 save_snapshot(c,snapshot(league_id,'exchange','Currency',later,effective_at='2026-01-02T00:00:00Z'))
+        from backend.league_catalog import parse_catalog,publish_catalog
+        with connect(database) as c:
+            payload=[dict(id=row['name'],name=row['name']) for row in c.execute('SELECT name FROM leagues')]
+            payload.append(dict(id='Catalog Test League',name='Catalog Test League'))
+            publish_catalog(c,'poe.ninja',parse_catalog('poe.ninja',payload),payload)
         for league_id in league_ids:projection_queue.enqueue(league_id,'valuations','manual')
         while worker_once.run_once():pass
         stop = multiprocessing.Event()

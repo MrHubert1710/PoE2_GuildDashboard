@@ -103,6 +103,15 @@ wykresów i statusów synchronizacji.
 
 ## GGG: zweryfikowane możliwości i ograniczenia
 
+Stan implementacji fazy 7A + 7B: na polecenie użytkownika działa adapter
+historii oparty o SESSION_ID/POESESSID ze starej aplikacji. Nie jest to
+oficjalny adapter OAuth i wymaga ręcznego odnawiania sesji. Dane dostępowe
+konfiguruje wyłącznie Admin w System settings; nie importujemy cookies
+z innej domeny. Osobny katalog GGG wymaga tokenu service:leagues.
+Szczegóły przechowywania surowych stron, kursora oraz odbioru na prawdziwym
+koncie: [phase-7.md](phase-7.md). Poniższe ustalenia dotyczą możliwości
+oficjalnej integracji, nie uprawnień sesyjnego endpointu WWW.
+
 - GGG dokumentuje OAuth 2.1. Dla aplikacji serwerowej preferowany confidential
   client, HTTPS callback i sekrety przechowywane wyłącznie na backendzie.
 - Odnowienie access tokenu nie przedłuża ważności refresh tokenu. Jego wymiana

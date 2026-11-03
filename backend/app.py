@@ -14,6 +14,8 @@ from .browsing import browser
 from .refresh_api import refresh
 from .quantity_api import quantities
 from .pricing_api import pricing
+from .catalog_api import catalog
+from .ggg_connection import GGGConnectionStore
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,11 +31,15 @@ def create_app(config=None):
     if config:
         app.config.update(config)
     app.config.setdefault('PRICE_FETCH_AVAILABLE', not app.testing)
+    app.config.setdefault('CATALOG_FETCH_AVAILABLE',not app.testing and os.environ.get('POA_CATALOG_ENABLED','1')!='0')
+    app.config.setdefault('GGG_CONNECTION_FILE',Path(os.environ.get('POA_GGG_CONNECTION_FILE',str(Path(app.config['DATABASE_FILE']).parent/('test-providers.sqlite' if app.testing else 'auth/providers.sqlite')))))
+    GGGConnectionStore(app.config['GGG_CONNECTION_FILE'])
     init_auth(app)
     app.register_blueprint(browser)
     app.register_blueprint(refresh)
     app.register_blueprint(quantities)
     app.register_blueprint(pricing)
+    app.register_blueprint(catalog)
 
     @app.get('/health')
     def health():

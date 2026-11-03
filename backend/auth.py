@@ -236,7 +236,7 @@ def init_auth(app):
         g.admin = store().identity(request.cookies.get(SESSION)) if secure_transport() else None
         private = request.endpoint in {'rework_readiness', 'database_readiness', 'quantities.get_settings', 'quantities.put_settings'}
         # Match by URL as well to avoid coupling policy to blueprint function names.
-        private = private or request.path.endswith('/quantity-settings')
+        private = private or request.path.endswith('/quantity-settings') or request.path.startswith('/api/league-catalog') or request.path.startswith('/api/ggg-connection')
         if request.endpoint == 'refresh.enqueue':
             body = request.get_json(silent=True)
             private = isinstance(body, dict) and body.get('kind') == 'local_verify'

@@ -475,3 +475,5 @@ html,body,#app {height:100%;overflow:hidden}
  .app-header > .header-actions {grid-column:1 / -1;grid-row:4;justify-self:start}
  .app-header > .app-nav {grid-row:5}
 }
+
+.catalog-form {display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}.catalog-form label,.catalog-manual label {display:flex;flex-direction:column;gap:6px;min-width:180px;flex:1}.catalog-form input,.catalog-form select {width:100%}.catalog-manual {display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-top:12px}.catalog-manual label{max-width:420px}

@@ -63,11 +63,15 @@ def leagues():
         connection.execute('BEGIN')
         result = []
         for row in connection.execute('SELECT l.id,l.name,l.game,l.realm,l.lifecycle,l.archived,l.history_complete,l.settings_json,'
-                                      'COUNT(t.id) AS transactions,MIN(t.occurred_at) AS oldest_at,'
+                                      'l.monitored,l.observed_lifecycle,l.observed_source,l.observed_at,l.variant_json,COUNT(t.id) AS transactions,MIN(t.occurred_at) AS oldest_at,'
                                       'MAX(t.occurred_at) AS newest_at FROM leagues l '
                                       'LEFT JOIN transactions t ON t.league_id=l.id GROUP BY l.id ORDER BY l.name,l.id'):
             league = dict(row)
             league['archived'] = bool(league['archived'])
+            league['monitored']=bool(league['monitored'])
+            league['variant']=__import__('json').loads(league.pop('variant_json'))
+            policy=connection.execute('SELECT lifecycle_override FROM league_policies WHERE league_id=?',(league['id'],)).fetchone()
+            league['lifecycle_source']='manual' if policy and policy[0] is not None else league['observed_source']
             league['history_complete'] = None if row['history_complete'] is None else bool(row['history_complete'])
             from .quantities import effective_settings, projection_hash, visible_stashes, settings_hash
             configured = effective_settings(row, connection)

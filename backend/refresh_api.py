@@ -12,7 +12,8 @@ def queue():
     return Queue(current_app.config['DATABASE_FILE'],
                  history_scope=current_app.config['HISTORY_SCOPE'],
                  history_available=current_app.config['HISTORY_AVAILABLE'],
-                 prices_available=current_app.config['PRICE_FETCH_AVAILABLE'])
+                 prices_available=current_app.config['PRICE_FETCH_AVAILABLE'],
+                 catalog_available=current_app.config['CATALOG_FETCH_AVAILABLE'],connection_file=current_app.config['GGG_CONNECTION_FILE'])
 
 
 @refresh.after_request
@@ -58,5 +59,6 @@ def enqueue(league_id):
     kind, trigger = payload.get('kind', 'history'), payload.get('trigger', 'automatic')
     if not isinstance(kind, str) or not isinstance(trigger, str):
         return jsonify(error='invalid_refresh_request'), 400
+    if kind=='league_catalog':return jsonify(error='invalid_refresh_request'),400
     result = queue().enqueue(league_id, kind, trigger)
     return jsonify(result), 202 if result['outcome'] in {'queued', 'coalesced'} else 200

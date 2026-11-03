@@ -10,6 +10,7 @@ import signal
 import sqlite3
 import threading
 import uuid
+import time
 
 from .archive_import import canonical, normalize
 from .browsing import revision
@@ -67,7 +68,9 @@ class Worker:
         from .quantities import QuantityAdapter
         from .prices import PricesAdapter
         from .valuation import ValuationAdapter
-        self.adapters = adapters or {'local_verify': LocalVerification(), 'history': UnavailableHistory(), 'quantities': QuantityAdapter(), 'prices': PricesAdapter(), 'valuations': ValuationAdapter()}
+        from .league_catalog import LeagueCatalogAdapter
+        from .ggg_history import GuildHistoryAdapter
+        self.adapters = adapters or {'local_verify': LocalVerification(), 'history': GuildHistoryAdapter() if queue.connection_file else UnavailableHistory(), 'quantities': QuantityAdapter(), 'prices': PricesAdapter(), 'valuations': ValuationAdapter(), 'league_catalog': LeagueCatalogAdapter()}
         self.stop = stop or threading.Event()
         self.id = str(uuid.uuid4())
 
@@ -88,7 +91,9 @@ class Worker:
         try:
             publish = self.adapters[job['kind']].stage(self.queue, job, self.stop)
             if not lost.is_set():
-                self.queue.complete(job, publish)
+                result=self.queue.complete(job, publish)
+                if job['kind']=='history' and result:
+                    for league_id in result.get('changed_leagues',[]):self.queue.enqueue(league_id,'quantities','automatic')
                 if job['kind'] in {'prices','quantities'}:
                     with connect(self.queue.path, readonly=True) as c:
                         prices_available=c.execute('SELECT 1 FROM price_snapshots WHERE league_id=? LIMIT 1',(job['league_id'],)).fetchone()
@@ -98,6 +103,9 @@ class Worker:
             log.warning('Lease lost; staged result discarded')
         except Exception as error:
             failure = error if isinstance(error, AdapterFailure) else AdapterFailure('adapter_error')
+            if job['kind']=='history' and self.queue.connection_file and job.get('connection_revision'):
+                from .ggg_connection import GGGConnectionStore
+                GGGConnectionStore(self.queue.connection_file).mark(job['connection_revision'],'rejected' if failure.code=='history_auth_failed' else 'error',failure.code)
             try:
                 self.queue.fail(job, failure.code, retryable=failure.retryable, retry_after=failure.retry_after)
             except LeaseLost:
@@ -128,8 +136,11 @@ class Worker:
             thread.start()
             try:
                 log.info('Worker ready')
+                next_catalog_check=0
                 while not self.stop.is_set():
                     try:
+                        if self.queue.catalog_available and time.monotonic()>=next_catalog_check:
+                            self.queue.enqueue(None,'league_catalog','automatic');next_catalog_check=time.monotonic()+60
                         worked = self.run_once()
                     except sqlite3.Error:
                         log.warning('Queue temporarily unavailable')
@@ -148,7 +159,10 @@ def main():
     parser.add_argument('--database', type=Path, default=os.environ.get('POE2GUILD_DATABASE', ROOT / 'data/poe2guild.sqlite'))
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-    worker = Worker(Queue(args.database))
+    connection_file=Path(os.environ.get('POA_GGG_CONNECTION_FILE',str(Path(args.database).parent/'auth/providers.sqlite')))
+    from .ggg_connection import GGGConnectionStore
+    GGGConnectionStore(connection_file)
+    worker = Worker(Queue(args.database,catalog_available=os.environ.get('POA_CATALOG_ENABLED','1')!='0',connection_file=connection_file))
     for name in (signal.SIGINT, signal.SIGTERM):
         signal.signal(name, lambda *_args: worker.stop.set())
     worker.run()

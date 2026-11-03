@@ -5,8 +5,9 @@
       "id": "ggg-history",
       "name": "Historia skrytki gildii PoE2",
       "status": "not_documented",
-      "detail": "Publiczna referencja nie opisuje tego zasobu; sekcja Guild Stashes dotyczy PoE1. Dostęp wymaga potwierdzenia przed implementacją fetchera.",
-      "source": "https://www.pathofexile.com/developer/docs/reference"
+      "detail": "Zaimplementowany sesyjny adapter poprzedniej aplikacji, z surowymi odpowiedziami, paginacją i limitami. Nie jest to udokumentowane API OAuth; weryfikacja rzeczywistego dostępu wymaga sesji administratora.",
+      "source": "https://www.pathofexile.com/developer/docs/reference",
+      "checked_at": "2026-11-03"
     },
     {
       "id": "ggg-oauth",
@@ -19,8 +20,9 @@
       "id": "ggg-leagues",
       "name": "Katalog lig GGG",
       "status": "conditional",
-      "detail": "Lista lig obsługuje realm=poe2 i wymaga service:leagues. Potwierdzono dokumentację, nie dostęp tego wdrożenia.",
-      "source": "https://www.pathofexile.com/developer/docs/reference#leagues"
+      "detail": "Zaimplementowany opcjonalny adapter service:leagues (realm=poe2). Brak skonfigurowanego tokenu w tym wdrożeniu; katalog poe.ninja nie potwierdza statusu w grze.",
+      "source": "https://www.pathofexile.com/developer/docs/reference#leagues",
+      "checked_at": "2026-11-03"
     },
     {
       "id": "ninja-prices",

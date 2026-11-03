@@ -48,6 +48,10 @@ class DatabaseTests(unittest.TestCase):
                             'INSERT INTO archive_files SELECT * FROM current_files; DROP TABLE current_files;')
             c.execute("INSERT INTO archive_files SELECT id+1000,source_id,league_id,archive_key||'.retired',relative_path||'.retired','report',sha256,bytes,provenance_json,import_id FROM archive_files WHERE kind='history'")
             import re
+            for table in ('guild_history_events','guild_history_pages','league_catalog_entries','league_policies','league_catalog_sources','league_catalog_http_cache'):
+                c.execute('DROP TABLE '+table)
+            for column in ('monitored','observed_lifecycle','observed_source','observed_at','variant_json'):
+                c.execute('ALTER TABLE leagues DROP COLUMN '+column)
             c.execute('DROP TABLE inventory_value_points')
             pricing=(Path(__file__).resolve().parents[1]/'backend/migrations/006_prices_and_valuations.sql').read_text()
             for table in reversed(re.findall(r'CREATE TABLE (\w+)',pricing)):c.execute('DROP TABLE '+table)
@@ -76,6 +80,39 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual([tuple(row) for row in c.execute('SELECT * FROM price_snapshots')],before)
             self.assertEqual(c.execute('SELECT COUNT(*) FROM price_quotes').fetchone()[0],1)
             self.assertEqual(c.execute('SELECT target_key FROM price_aliases').fetchone()[0],'token')
+
+    def test_rebuild_preserves_fetched_history_pending_entries_and_admin_catalog(self):
+        from backend.league_catalog import parse_catalog,publish_catalog,apply_observed_status
+        from backend.archive_import import canonical
+        import hashlib
+        import_bundle(self.database,self.data)
+        with connect(self.database) as c:
+            source=c.execute('SELECT id FROM sources').fetchone()[0]
+            c.execute("UPDATE sources SET owner_reference='123' WHERE id=?",(source,))
+            c.execute("INSERT INTO leagues(id,game,realm,name,settings_provenance) VALUES('Gamma','poe2','pc','Gamma','admin_catalog')")
+            c.execute("INSERT INTO league_policies VALUES('Gamma','active',1,'2026-01-02')")
+            apply_observed_status(c,'Gamma')
+            c.execute("INSERT INTO import_runs(id,source_id,started_at,status,manifest_sha256) VALUES('api-run',?,'2026-01-02','completed','api')",(source,))
+            row=dict(Date='2026-01-02T00:00:00Z',Id='50',League='Gamma',Account='Actor',Action='added',Stash='Main',Item='3× Token',X='0',Y='0');norm=normalize(row,'Gamma')
+            tx=c.execute("INSERT INTO transactions(source_id,league_id,external_id,occurred_at,account,action,stash,item,x,y,raw_json,normalized_sha256,normalization_version,import_id) VALUES(?,'Gamma','50',?,?,?,?,?,?,?,?,?,'ggg-history-v1','api-run')",(source,norm['Date'],norm['Account'],norm['Action'],norm['Stash'],norm['Item'],norm['X'],norm['Y'],canonical(row),hashlib.sha256(canonical(norm).encode()).hexdigest())).lastrowid
+            c.execute("INSERT INTO revisions VALUES('api-revision','Gamma','api-run','2026-01-02','raw_import','ggg-history-v1',NULL)")
+            body=canonical({'entries':[row]})
+            c.execute("INSERT INTO guild_history_pages VALUES('page',?,'api-run',1,'123','0','','2026-01-02',?,?)",(source,body,hashlib.sha256(body.encode()).hexdigest()))
+            c.execute("INSERT INTO guild_history_events VALUES(?,'Gamma','50',?,?,?,?,'page')",(source,norm['Date'],canonical(row),canonical(row),tx))
+            pending=dict(row,League='Not added',Id='51')
+            c.execute("INSERT INTO guild_history_events VALUES(?,'Not added','51',?,?,?,NULL,'page')",(source,norm['Date'],canonical(pending),canonical(pending)))
+            c.execute("INSERT INTO source_cursors VALUES(?,'ggg-guild-history-v1',?,'2026-01-02')",(source,canonical({'upper':123})))
+            payload=[dict(id='Gamma',name='Gamma'),dict(id='Candidate',name='Candidate')]
+            publish_catalog(c,'poe.ninja',parse_catalog('poe.ninja',payload),payload)
+        rebuild(self.database,self.data)
+        with connect(self.database) as c:
+            self.assertEqual(c.execute("SELECT raw_json FROM transactions WHERE league_id='Gamma'").fetchone()[0],canonical(row))
+            self.assertEqual(c.execute('SELECT payload_json FROM guild_history_pages').fetchone()[0],body)
+            self.assertEqual(c.execute('SELECT count(*) FROM guild_history_events WHERE transaction_id IS NULL').fetchone()[0],1)
+            self.assertEqual(c.execute("SELECT lifecycle FROM leagues WHERE id='Gamma'").fetchone()[0],'active')
+            self.assertEqual(c.execute('SELECT lifecycle_override FROM league_policies').fetchone()[0],'active')
+            self.assertEqual(c.execute('SELECT count(*) FROM league_catalog_entries').fetchone()[0],2)
+            self.assertEqual(c.execute('SELECT owner_reference FROM sources WHERE id=?',(source,)).fetchone()[0],'123')
 
     def test_history_rebuild_cannot_silently_discard_a_league_with_prices(self):
         from backend.prices import snapshot,save_snapshot

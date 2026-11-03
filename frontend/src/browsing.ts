@@ -6,6 +6,8 @@ export interface League {
   game: string
   realm: string
   lifecycle: 'unknown' | 'active' | 'ended'
+  monitored?: boolean
+  lifecycle_source?: string
   archived: boolean
   history_complete: boolean | null
   transactions: number

@@ -130,11 +130,12 @@ class ValuationTests(TestCase):
         with connect(self.path) as c:
             facts=[tuple(r) for r in c.execute('SELECT * FROM price_snapshots')]
             historical=c.execute("SELECT id FROM valuation_runs WHERE mode='historical'").fetchone()[0]
-            c.executescript('DROP TRIGGER valuation_historical_only_insert; DROP TRIGGER valuation_historical_only_update; DELETE FROM schema_migrations WHERE version=9; PRAGMA user_version=8;')
+            c.executescript('DROP TRIGGER valuation_historical_only_insert; DROP TRIGGER valuation_historical_only_update;')
             c.execute("INSERT INTO valuation_runs SELECT 'retired-run',quantity_run_id,league_id,price_revision,'latest',algorithm_version,created_at FROM valuation_runs WHERE id=?",(historical,))
             c.execute("INSERT INTO valuation_lines SELECT 'retired-run',transaction_id,sequence,snapshot_id,quote_key,price_atomic,value_atomic,reason FROM valuation_lines WHERE run_id=?",(historical,))
             c.execute("INSERT INTO inventory_value_points SELECT 'retired-run',sequence,occurred_at,stash,item_name,quantity,value_atomic,reason,snapshot_id,quote_key FROM inventory_value_points WHERE run_id=?",(historical,))
-        migrate(self.path)
+        from backend.database import MIGRATIONS
+        with connect(self.path) as c:c.executescript((MIGRATIONS/'009_historical_valuations_only.sql').read_text())
         with connect(self.path) as c:
             self.assertEqual([tuple(r) for r in c.execute('SELECT * FROM price_snapshots')],facts)
             self.assertEqual(c.execute('SELECT id FROM valuation_runs').fetchone()[0],historical)

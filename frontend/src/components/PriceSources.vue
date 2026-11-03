@@ -5,10 +5,10 @@ import {useApiRequest} from '../composables/useApiRequest'
 import CollapsiblePanel from './CollapsiblePanel.vue'
 const props=defineProps<{leagueId:string}>()
 const {request,stopped}=useApiRequest(`${import.meta.env.BASE_URL}api/leagues/${encodeURIComponent(props.leagueId)}`)
-const data=ref<any>(null),job=ref<any>(null),busy=ref(false),error=ref(false),warnings=ref<any[]>([]),available=ref(true),notice=ref('')
+const data=ref<any>(null),job=ref<any>(null),busy=ref(false),error=ref(false),warnings=ref<any[]>([]),available=ref(true),availabilityReason=ref(''),notice=ref('')
 let timer:ReturnType<typeof setTimeout>|undefined
 async function load(){
- try{const [prices,status]=await Promise.all([request('/prices'),request('/refresh')]);if(stopped())return;data.value=prices;job.value=status.prices?.job;available.value=Boolean(status.prices?.available);if(job.value?.state==='completed'&&notice.value==='pricing.fetching')notice.value='pricing.updated';warnings.value=status.prices?.last_result?.errors??[];error.value=false}
+ try{const [prices,status]=await Promise.all([request('/prices'),request('/refresh')]);if(stopped())return;data.value=prices;job.value=status.prices?.job;available.value=Boolean(status.prices?.available);availabilityReason.value=status.prices?.reason??'';if(job.value?.state==='completed'&&notice.value==='pricing.fetching')notice.value='pricing.updated';warnings.value=status.prices?.last_result?.errors??[];error.value=false}
  catch{error.value=true}
  if(!stopped())timer=setTimeout(load,5000)
 }
@@ -21,7 +21,7 @@ onMounted(load);onUnmounted(()=>clearTimeout(timer))
  <button :disabled="busy||!available||job?.state==='running'||job?.state==='queued'" @click="refresh">{{ t('pricing.refresh') }}</button>
  <span v-if="job?.state==='running'||job?.state==='queued'" role="status"> {{ t('pricing.fetching') }}</span>
  <p v-if="notice" role="status">{{ t(notice) }}</p>
- <p v-if="!available" role="status">{{ t('pricing.sourceUnavailable') }}</p>
+ <p v-if="!available" role="status">{{ t(availabilityReason==='not_monitored'?'refresh.not_monitored':'pricing.sourceUnavailable') }}</p>
  <p v-if="error||job?.state==='failed'" role="alert">{{ t('pricing.sourceError') }}</p>
  <details v-if="warnings.length"><summary>{{ t('pricing.categoryWarnings',{count:warnings.length}) }}</summary><ul><li v-for="(warning,index) in warnings" :key="index">{{ warning.category }}{{ warning.item?' · '+warning.item:'' }}: {{ warning.error }}</li></ul></details>
  <template v-if="data">
