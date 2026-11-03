@@ -1,4 +1,4 @@
-# Faza 6 — ceny i wycena operacji
+# Faza 6 — ceny, wycena operacji graczy i stanu skrytek
 
 Status: zaimplementowana i wdrożona; oczekuje odbioru manualnego.
 Dzień odbioru technicznego: 2026-11-03. Następne fazy nie są rozpoczęte.
@@ -16,17 +16,41 @@ poprzednich ruchów. Tryb Current prices używa jednego, przypiętego zestawu
 najnowszych dostępnych snapshotów kategorii danej ligi dla całej historii.
 To najnowsze dostępne obserwacje, nie gwarancja wykonania transakcji po tej cenie.
 
-Wycena historyczna jest saldem wycenionych operacji, a nie bieżącą wartością
-przechowywanych przedmiotów. Przykład: dodanie 20 sztuk po 2 Divine i zabranie
-5 po 3 daje saldo 25 Divine; według najnowszej ceny 3 daje 45 Divine. Saldo
-historyczne może być ujemne mimo nieujemnej ilości przedmiotów.
+Modele wyceny są rozdzielone:
 
-Wykres, miniatury, filtry UTC, tooltip w dowolnym czasie, sumy i osobna seria
-Korekty rekonstrukcji działają również w trybie wartości. Korekty korzystają
-z tej samej ceny danego przedmiotu w czasie zdarzenia; pozostają oddzielone
-od wkładu graczy. Kolory, zwijanie i format dat zachowują ustawienia klienta.
-Oś wartości obsługuje także ułamkowe ilości Divine; tooltip nie wymusza całych
-liczb. Tabele wartości i brakujących cen mają paginację w URL.
+- Players: suma podpisanych operacji danego gracza × cena w czasie każdej
+  operacji. Późniejszy kurs nie zmienia wkładu; saldo gracza może być ujemne.
+- Stashes: odtworzony stan ilościowy każdego przedmiotu × cena w danej chwili.
+  Worker tworzy punkty zarówno po operacjach, jak i po zmianach cen. Stan
+  i jego wycena są nieujemne. Zmiana kursu może zmieniać wartość bez operacji.
+- Summary: suma wartości stanu widocznych skrytek; nie suma wkładów graczy.
+
+Przykład: Alice dodaje 20 sztuk po 2 Divine, Buyer zabiera 5 po 3 Divine.
+Salda to +40 i −15; ich suma to 25 Divine. Stan skrytki to 15 sztuk, więc
+jej wartość wynosi 45 Divine. Gdy cena wzrośnie do 4 bez nowej operacji,
+skrytka ma wartość 60, a salda graczy nadal +40 i −15. W trybie najnowszych
+cen stały kurs stosuje się do obu modeli; suma graczy wraz z korektami może
+wtedy być równa wartości stanu. To nie jest wymuszona zgodność historyczna.
+
+Korekty rekonstrukcji pozostają osobną serią techniczną w Players. W Stashes
+są częścią odtworzenia zawartości, a nie dodatkowym graczem lub drugą wyceną.
+Wszystkie wpisy ledgeru tej samej transakcji są stosowane atomowo; przejściowe
+podwójne usunięcie nie tworzy ujemnego stanu. Równoczesna zmiana kursów jest
+atomowa również dla sumy skrytek. Kurs z danego czasu stosuje się przed
+operacjami z identycznym timestampem. Nie zmienia to surowych logów GGG.
+
+Filtr gracza obowiązuje w Players, ale jest ignorowany dla wyceny stanu
+Stashes/Summary, z wyraźną informacją w interfejsie. Pozostali gracze nadal
+zmieniają stan skrytki. Filtry przedmiotu i skrytek pozostają aktywne.
+Daty wyznaczają wyświetlany przedział; wcześniejsze operacje nadal budują
+stan początkowy. Ignorowane zakładki są nadal wyłączane przez projekcję.
+Tabela stanu pokazuje ilość, wartość początkową, wartość końcową oraz zmianę;
+nie nazywa zmiany wartości dodaniem lub zabraniem. Braki cen dotyczą
+przechowywanych pozycji na końcu przedziału, a nie dawnych operacji.
+
+Wykres, miniatury, filtry UTC, tooltip w dowolnym czasie i sumy działają
+w obu modelach. Kolory, zwijanie i format dat zachowują ustawienia klienta.
+Oś wartości obsługuje ułamki Divine. Tabele i braki cen mają paginację w URL.
 
 Brak ceny nie oznacza 0. Wycena ma pokrycie complete / partial / none i liczniki
 operacji wycenionych, brakujących oraz estymowanych. Przy braku pokrycia wykres
@@ -133,15 +157,20 @@ nie wybieramy arbitralnie jednego unikalnego przedmiotu o wspólnej nazwie.
 
 ## SQLite i odtwarzalność
 
-Migracje 006–007, schemat 7:
+Migracje 006–008, schemat 8:
 
 - price_http_cache — cache transportu, ETag, terminy i kody błędów.
 - price_catalogs / price_categories — wersje katalogu i aktywność kategorii.
 - price_snapshots / price_quotes — niezmienne payloady, SHA-256, liga, źródło,
   czas pierwszej obserwacji, pewny/nieznany czas ceny, waluta i warianty.
 - price_aliases — jawne aliasy nazw osobno dla każdej ligi.
-- valuation_runs / valuation_lines — wersja algorytmu valuation-v2, przypięta
+- valuation_runs / valuation_lines — wersja algorytmu valuation-v3, przypięta
   projekcja ilościowa, rewizja cen, tryb i cena/snapshot użyte dla każdego ruchu.
+- inventory_value_points — materializowane przez workera ilości i wartości
+  pozycji po atomowych operacjach i zmianach cen; własne daty, przyczyny braku
+  oraz FK do konkretnego źródła ceny. CHECK(quantity>=0); brak ukrytego
+  przycinania ujemnych wartości. Niespójna projekcja zatrzymuje publikację.
+  Odczyty filtrują gotowe punkty, zamiast wyceniać całą historię przy każdym GET.
 
 Identyczny payload kategorii i pochodzenia nie tworzy duplikatu snapshotu;
 zachowuje czas pierwszej obserwacji. Kolejne sprawdzenia HTTP są w cache
@@ -212,7 +241,7 @@ zmienia jedynie prezentację.
 
 ## Weryfikacja techniczna
 
-- Po dodaniu historii: 189 testów backendu, 22 testy wykresów i wyceny
+- Po rozdzieleniu modeli: 193 testy backendu, 91 testów
   w Chromium oraz 16 testów tłumaczeń: zaliczone. Kontrola typów i build
   produkcyjny również zaliczone. Testy obejmują daty i kursy historyczne,
   kotwicę daysAgo po 304, izolację przedmiotów i pierwszeństwo nowszego overview.
@@ -220,7 +249,7 @@ zmienia jedynie prezentację.
   historyczne punkty są używane według daty; nieznane ceny pozostają jawne.
 - Zachowano 104 534 surowe transakcje i konfigurację lig/gildii bez zmian.
   Sumy SHA-256 wszystkich 56 istniejących plików cen pozostały identyczne.
-- SQLite: integralność poprawna, brak naruszeń kluczy obcych, schemat 7.
+- SQLite: integralność poprawna, brak naruszeń kluczy obcych, schemat 8.
 
 ## Odbiór manualny
 
@@ -229,7 +258,9 @@ zmienia jedynie prezentację.
 2. Włączyć Current prices: pojawiają się tabela i interaktywny wykres wartości
    w Divine. Przełączyć Summary / Players / Stashes, filtry i ligę.
 3. Sprawdzić zoom obiema miniaturami, tooltip między operacjami, sumę serii
-   oraz oddzielne Korekty rekonstrukcji. Reload zachowuje tryb wyceny w URL.
+   oraz oddzielne Korekty rekonstrukcji w Players. Sprawdzić, że zmiana ceny
+   bez operacji zmienia Stashes, ale nie Players. Filtr gracza nie może
+   zmieniać stanu skrytek. Reload zachowuje tryb wyceny w URL.
 4. Włączyć Quantity mode: wracają ilości, wybór przedmiotu i All; projekcja
    ilościowa nie jest przebudowywana wskutek zmiany sposobu wyceny.
 5. Po zalogowaniu sprawdzić System settings → Źródła cen, katalog, snapshoty

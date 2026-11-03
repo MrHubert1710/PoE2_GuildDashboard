@@ -73,10 +73,11 @@ watch(data,value=>{if(value&&!initial){initial=true;if(new URL(currentUrl.value)
   </div>
   <p v-if="valuation" class="footnote valuation-status" data-testid="valuation-status">{{ t('pricing.currency') }} · {{ t(priceMode==='latest'?'pricing.latest':'pricing.historical') }}
     <span v-if="data?.pricing?.state==='missing'" role="status"> · {{ t('pricing.pending') }}</span>
-    <span v-else-if="data?.pricing?.coverage==='none'"> · {{ t('pricing.noCoverage') }}</span>
-    <span v-else-if="data?.pricing?.coverage==='partial'"> · {{ t('pricing.partial') }}</span>
+    <span v-else-if="data?.pricing?.coverage==='none'"> · {{ t(view==='players'?'pricing.noCoverage':'pricing.inventoryNoCoverage') }}</span>
+    <span v-else-if="data?.pricing?.coverage==='partial'"> · {{ t(view==='players'?'pricing.partial':'pricing.inventoryPartial') }}</span>
     <span v-if="data?.pricing?.estimated_operations"> · {{ t('pricing.estimated') }}</span>
   </p>
+  <p v-if="valuation&&view!=='players'&&query.account" class="footnote">{{ t('pricing.inventoryAccountNote') }}</p>
   <p v-if="error" role="alert">{{ t(`quantity.error.${error}`) }}</p>
   <p v-else-if="!projectionId" role="status">{{ t('quantity.pending') }}</p>
   <p v-else-if="!loading&&!data?.series.length" class="empty-state">{{ t('chart.empty') }}</p>
@@ -91,7 +92,7 @@ watch(data,value=>{if(value&&!initial){initial=true;if(new URL(currentUrl.value)
   <ColorPicker v-if="picker" :name="picker.name" :value="picker.color" :left="picker.left" :top="picker.top" @change="setColor" @close="picker=null" />
   <TimeSeriesChart v-if="data&&navigator.bounds&&navigator.series.length" :series="chartSeries" :unit="data.unit" :view="view" :bounds="navigator.bounds" :context-series="navigator.series" :timezone="data.timezone" :enabled="enabled" :state-at="stateAt" :loaded-window="data.window" :value-window="valueWindow" :window="window" @zoom="zoom" @commit="commit" @value-zoom="valueZoom" @reset-time="reset" @reset-values="resetValues" />
   <CollapsiblePanel :title="t('chart.details')" :storage-key="'chart-info:'+leagueId+':'+view" :initial-open="false" class="chart-info">
-    <p v-if="valuation" class="footnote">{{ t('pricing.balanceNote') }}</p>
+    <p v-if="valuation" class="footnote">{{ t(view==='players'?'pricing.balanceNote':'pricing.inventoryNote') }}</p>
     <p class="footnote">{{ t('chart.note') }}</p><p class="footnote">{{ t('chart.interaction',{zone:data?.timezone??'UTC'}) }}</p>
     <p v-if="window&&data" class="footnote" data-testid="chart-window">{{ date(new Date(window.start).toISOString(),data.timezone) }} — {{ date(new Date(window.end).toISOString(),data.timezone) }} {{ data.timezone }}</p>
     <p v-if="data" class="footnote">{{ t(data.sampled?'chart.sampled':'chart.exact') }}</p>

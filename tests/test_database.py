@@ -48,6 +48,7 @@ class DatabaseTests(unittest.TestCase):
                             'INSERT INTO archive_files SELECT * FROM current_files; DROP TABLE current_files;')
             c.execute("INSERT INTO archive_files SELECT id+1000,source_id,league_id,archive_key||'.retired',relative_path||'.retired','report',sha256,bytes,provenance_json,import_id FROM archive_files WHERE kind='history'")
             import re
+            c.execute('DROP TABLE inventory_value_points')
             pricing=(Path(__file__).resolve().parents[1]/'backend/migrations/006_prices_and_valuations.sql').read_text()
             for table in reversed(re.findall(r'CREATE TABLE (\w+)',pricing)):c.execute('DROP TABLE '+table)
             c.execute('DROP VIEW quantity_ledger')

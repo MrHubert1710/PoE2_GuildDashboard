@@ -40,6 +40,14 @@ def report(league_id):
         league=league_row(c,league_id);meta,qrun=metadata(c,league);run,revision=current_valuation(c,league,mode)
         if one_argument('revision') and one_argument('revision')!=meta['input_revision']:raise ReadError('revision_changed',409)
         if not run:return jsonify(state='missing',rows=[],unpriced=[],unpriced_total=0,total=0,page=1,pages=1,mode=mode,currency=CURRENCY,price_revision=revision)
+        if view!='players':
+            from .inventory_valuation import inventory_rows,inventory_report
+            settings=effective_settings(league,c)
+            start,end=date_argument('from',zone=request_timezone(settings['timezone'])),date_argument('to',end=True,zone=request_timezone(settings['timezone']))
+            if start and end and start>=end:raise ReadError('invalid_date_range')
+            points=inventory_rows(c,run,filters,settings,stash_arguments())
+            result=inventory_report(points,start,end,view,page,size,missing_page)
+            return jsonify(state='ready',mode=mode,currency=CURRENCY,price_revision=revision,valuation_id=run['id'],algorithm_version=run['algorithm_version'],account_filter_ignored=bool(filters.values['account']),**result)
         where=['v.run_id=?'];args=[run['id']]
         for field,column in [('account','COALESCE(m.account,t.account)'),('item','m.item_name')]:
             if filters.values[field]:
@@ -68,4 +76,4 @@ def report(league_id):
         return jsonify(state='ready',rows=values[(page-1)*size:page*size],unpriced=missing[(missing_page-1)*50:missing_page*50],unpriced_total=len(missing),unpriced_page=missing_page,unpriced_pages=missing_pages,total=len(values),page=page,pages=pages,
                        mode=mode,currency=CURRENCY,price_revision=revision,valuation_id=run['id'],snapshot_ids=sorted(snapshots),estimated_operations=estimated,
                        priced_operations=priced,unpriced_operations=sum(v['operations'] for v in missing),coverage='none' if not priced else 'partial' if missing else 'complete',
-                       algorithm_version=run['algorithm_version'])
+                       algorithm_version=run['algorithm_version'],model='transactions')

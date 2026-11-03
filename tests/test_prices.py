@@ -87,7 +87,7 @@ class ValuationTests(TestCase):
             league=c.execute("SELECT * FROM leagues WHERE id='A'").fetchone()
             run,_=current_valuation(c,league,'historical');self.assertIsNotNone(run)
     def series(self,**params):
-        response=self.client.get('/api/leagues/A/quantity-series',query_string={'mode':'value',**params})
+        response=self.client.get('/api/leagues/A/quantity-series',query_string={'mode':'value','view':'players',**params})
         self.assertEqual(response.status_code,200,response.json);return response.json
 
     def test_historical_never_uses_future_or_undated_prices_and_latest_is_explicit(self):
@@ -96,26 +96,26 @@ class ValuationTests(TestCase):
         self.assertEqual(historical['series'],[])
         self.assertEqual(historical['pricing']['coverage'],'none')
         latest=self.series(pricing='latest')
-        self.assertEqual(latest['series'][0]['closing_balance'],45)
+        self.assertEqual(latest['total_series']['closing_balance'],45)
         self.assertEqual(latest['pricing']['estimated_operations'],0)
 
     def test_per_operation_historical_rates_do_not_revalue_previous_contributions(self):
         early=self.put(2,'2026-01-01T00:00:00Z');later=self.put(3,'2026-01-02T00:00:00Z');self.build();self.value()
         historical=self.series();latest=self.series(pricing='latest')
-        self.assertEqual(historical['series'][0]['closing_balance'],25) # +20*2 -5*3
-        self.assertEqual(latest['series'][0]['closing_balance'],45) # (20-5)*3
+        self.assertEqual(historical['total_series']['closing_balance'],25) # +20*2 -5*3
+        self.assertEqual(latest['total_series']['closing_balance'],45) # (20-5)*3
         self.assertEqual(set(historical['pricing']['snapshot_ids']),{early,later})
         cursor=self.series(at=1798761600000)
-        self.assertEqual(cursor['balances'][0]['balance'],25)
-        report=self.client.get('/api/leagues/A/valuations?mode=historical').json
-        self.assertEqual(report['rows'][0]['net'],25)
+        self.assertEqual(cursor['balances'][-1]['balance'],25)
+        report=self.client.get('/api/leagues/A/valuations?mode=historical&view=players').json
+        self.assertEqual(sum(row['net'] for row in report['rows']),25)
         with connect(self.path,readonly=True) as c:
             self.assertTrue(all(row[0] for row in c.execute('SELECT snapshot_id FROM valuation_lines WHERE value_atomic IS NOT NULL')))
 
     def test_undated_estimates_are_flagged_and_imports_are_repeatable(self):
         identity=self.put(2);self.assertEqual(identity,self.put(2));self.build();self.value()
         latest=self.series(pricing='latest')
-        self.assertEqual(latest['series'][0]['closing_balance'],30)
+        self.assertEqual(latest['total_series']['closing_balance'],30)
         self.assertGreater(latest['pricing']['estimated_operations'],0)
         self.assertEqual(self.series()['pricing']['coverage'],'none')
 
@@ -126,7 +126,7 @@ class ValuationTests(TestCase):
         latest=self.series(pricing='latest',item='Token')
         self.assertEqual(latest['pricing']['coverage'],'complete')
         self.assertEqual(latest['pricing']['estimated_operations'],0)
-        self.assertEqual(latest['series'][0]['closing_balance'],30)
+        self.assertEqual(latest['total_series']['closing_balance'],30)
 
     def test_missing_is_not_zero_and_leagues_never_share_prices(self):
         self.put(0,league='B');self.build();self.value()
@@ -134,12 +134,12 @@ class ValuationTests(TestCase):
         self.put(0,'2026-01-01T00:00:00Z');self.value()
         zero=self.series(item='Token')
         self.assertEqual(zero['pricing']['coverage'],'complete')
-        self.assertEqual(zero['series'][0]['closing_balance'],0)
+        self.assertEqual(zero['total_series']['closing_balance'],0)
 
     def test_ambiguous_variants_are_unpriced_and_aliases_are_league_scoped(self):
         self.put(2,'2026-01-01T00:00:00Z',name='Canonical token')
         with connect(self.path) as c:c.execute('INSERT INTO price_aliases VALUES(?,?,?)',('A','token','canonical token'))
-        self.build();self.value();self.assertEqual(self.series()['series'][0]['closing_balance'],30)
+        self.build();self.value();self.assertEqual(self.series()['total_series']['closing_balance'],30)
         self.put(9,'2026-01-01T00:00:00Z',name='Canonical token',category='Other')
         self.value();self.assertEqual(self.series()['pricing']['coverage'],'none')
         report=self.client.get('/api/leagues/A/valuations').json
@@ -152,7 +152,7 @@ class ValuationTests(TestCase):
         response=self.client.get('/api/leagues/A/quantity-series',query_string={'mode':'value','price_revision':version})
         self.assertEqual(response.status_code,409)
         self.assertEqual(self.series()['pricing']['state'],'missing')
-        self.value();self.assertEqual(self.series()['series'][0]['closing_balance'],25)
+        self.value();self.assertEqual(self.series()['total_series']['closing_balance'],25)
 
     def test_staged_valuation_cannot_publish_after_price_revision_changes(self):
         import threading
@@ -213,11 +213,60 @@ class ValuationTests(TestCase):
             self.assertEqual(index.resolve('Token','2025-12-31T00:00:00.000000Z','historical'),(None,'historical_price_missing'))
             self.assertEqual(index.resolve('Token','2026-01-04T00:00:00.000000Z','historical')[0][1]['price_atomic'],str(3*ATOMIC))
         self.build();self.value()
-        self.assertEqual(self.series(view='stashes',item='Token')['total_series']['closing_balance'],25)
+        self.assertEqual(self.series(view='stashes',item='Token')['total_series']['closing_balance'],45)
         self.assertEqual(self.series(view='stashes',item='Token')['pricing']['estimated_operations'],0)
         self.put(4,'2026-11-01T00:00:00Z');self.value()
         self.assertEqual(self.series(view='stashes',item='Token',pricing='latest')['total_series']['closing_balance'],60)
-        self.assertEqual(self.series(view='stashes',item='Token')['total_series']['closing_balance'],25)
+        self.assertEqual(self.series(view='stashes',item='Token')['total_series']['closing_balance'],60)
+
+
+    def test_inventory_revalues_without_operation_and_player_cash_flow_does_not(self):
+        self.put(2,'2026-01-01T00:00:00Z');self.put(3,'2026-01-02T00:00:00Z');self.put(4,'2026-01-03T00:00:00Z')
+        self.build();self.value()
+        player=self.series(view='players',item='Token')
+        stash=self.series(view='stashes',item='Token')
+        self.assertEqual(player['total_series']['closing_balance'],25)
+        self.assertEqual(stash['total_series']['closing_balance'],60)
+        self.assertEqual(self.series(view='summary',item='Token')['series'][0]['closing_balance'],60)
+        at=1767398400000 # Jan 3, midnight: only a price change, no operation.
+        self.assertTrue(any(p['timestamp']==at and p['balance']==60 for p in stash['series'][0]['points']))
+        cursor=self.series(view='stashes',item='Token',at=at+43200000)
+        self.assertEqual(cursor['balances'][0]['balance'],60)
+        report=self.client.get('/api/leagues/A/valuations?view=stashes&item=Token').json
+        self.assertEqual(report['model'],'inventory');self.assertEqual(report['rows'][0]['quantity'],15)
+        self.assertEqual(report['rows'][0]['net'],60)
+
+    def test_withdrawal_leaves_empty_stash_and_negative_player_balance(self):
+        self.put(2,'2026-01-01T00:00:00Z');self.put(4,'2026-01-03T00:00:00Z')
+        self.insert(event(40,'removed',15,account='Collector',occurred_at='2026-01-04T12:00:00.000000Z'),'A')
+        self.build();self.value()
+        players=self.series(view='players',item='Token')
+        self.assertEqual(next(s['closing_balance'] for s in players['series'] if s['name']=='Collector'),-60)
+        stash=self.series(view='stashes',item='Token')
+        self.assertEqual(stash['total_series']['closing_balance'],0)
+        self.assertTrue(all(p['balance']>=0 for s in stash['series'] for p in s['points']))
+
+    def test_inventory_ignores_player_and_date_start_does_not_reset_stock(self):
+        self.put(2,'2026-01-01T00:00:00Z');self.put(4,'2026-01-03T00:00:00Z');self.build();self.value()
+        query={'view':'stashes','item':'Token','account':'Nobody','from':'2026-01-03T00:00:00Z','to':'2026-01-04T00:00:00Z'}
+        chart=self.series(**query)
+        self.assertEqual(chart['total_series']['closing_balance'],60)
+        report=self.client.get('/api/leagues/A/valuations',query_string=query).json
+        self.assertTrue(report['account_filter_ignored'])
+        self.assertEqual(report['rows'][0]['quantity'],15)
+        self.assertEqual(report['rows'][0]['opening_value'],30)
+        self.assertEqual(report['rows'][0]['net'],60)
+        self.assertEqual(report['rows'][0]['change'],30)
+        self.assertEqual(self.series(view='players',item='Token',account='Nobody')['series'],[])
+
+    def test_inventory_missing_price_does_not_discard_units_or_leave_a_negative_value(self):
+        self.put(2,'2026-01-03T00:00:00Z');self.build();self.value()
+        report=self.client.get('/api/leagues/A/valuations?view=stashes&item=Token&to=2026-01-02T12:00:00Z').json
+        self.assertEqual(report['coverage'],'none');self.assertEqual(report['unpriced'][0]['units'],15)
+        self.assertEqual(report['rows'][0]['quantity'],15)
+        early=self.series(view='stashes',item='Token',at=1767312000000)
+        self.assertEqual(early['pricing']['coverage'],'none')
+        self.assertEqual(self.series(view='stashes',item='Token')['total_series']['closing_balance'],30)
 
 
 class DailyHistoryTests(TestCase):

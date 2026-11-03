@@ -263,8 +263,11 @@ Zakres:
   i estymowane. Nie utożsamiać braku wyceny z wartością zero.
 - Tabele i wykresy wartości oraz widok przedmiotów bez wyceny.
 - Zastąpić tymczasowy wybór pojedynczego przedmiotu na wykresie łączną wartością
-  operacji. Podstawowy tryb wycenia każdą operację ceną z chwili jej realizacji;
-  późniejsze wahania ceny nie przeszacowują już wykonanych operacji.
+  operacji graczy. Players: saldo operacji × kurs z czasu operacji, także ujemne.
+  Stashes: odtworzony stan ilościowy × kurs w danej chwili, nieujemna wartość
+  zmieniająca się również bez operacji. Summary sumuje wartość stanu skrytek.
+  Filtr gracza nie pomija cudzych operacji przy odtwarzaniu stanu. Tabela
+  Stashes prezentuje wartości stanu i ich zmianę zamiast dodane/zabrane.
 - Dodać przełącznik „najnowsze ceny”: wycenić wszystkie operacje jednym jawnym,
   najnowszym zestawem cen ligi. Przeliczać podpisane ruchy, nie łączyć cen lig.
   Zapisywać identyfikatory snapshotów i oznaczać brak historycznej ceny;

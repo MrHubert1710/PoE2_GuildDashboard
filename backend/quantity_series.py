@@ -70,6 +70,9 @@ def navigator_context(rows, view, limit):
 
 def combined_series(rows, window, limit, overview=None):
     """Sum ordered source movements before sampling, including simultaneous events."""
+    if rows and 'atomic_group' in rows[0]:
+        from .inventory_valuation import atomic_totals
+        rows=atomic_totals(rows)
     low,high=window['start'],window['end']
     opening=sum(row['quantity_delta'] for row in rows if row['timestamp']<low)
     balance=opening;points=[dict(timestamp=low,balance=balance)]
@@ -129,6 +132,36 @@ def read_series(league_id):
             if one_argument('price_revision') and one_argument('price_revision')!=price_version:raise ReadError('price_revision_changed',409)
             if not value_run:return jsonify(base)
         if not run:return jsonify(base)
+        if valuation and view!='players':
+            from .inventory_valuation import inventory_rows,inventory_movements,current_positions,coverage,atomic_totals
+            points=inventory_rows(c,value_run,filters,settings,stashes)
+            selected_end=end
+            if upper is not None:
+                try:selected_end=(datetime(1970,1,1,tzinfo=timezone.utc)+timedelta(milliseconds=upper)).isoformat(timespec='microseconds').replace('+00:00','Z')
+                except (OverflowError,ValueError):raise ReadError('invalid_viewport')
+            base['pricing'].update(coverage(current_positions(points,selected_end)))
+            base['model']='inventory'
+            if at is not None:
+                try:cutoff=(datetime(1970,1,1,tzinfo=timezone.utc)+timedelta(milliseconds=at+1)).isoformat(timespec='microseconds').replace('+00:00','Z')
+                except (OverflowError,ValueError):raise ReadError('invalid_viewport')
+                positions=current_positions(points,cutoff);totals=defaultdict(int)
+                for point in points:totals[point['stash'] if view=='stashes' else 'summary']+=0
+                for row in positions.values():
+                    name=row['stash'] if view=='stashes' else 'summary'
+                    if row['value_atomic'] is not None:totals[name]+=int(row['value_atomic'])
+                    else:totals[name]+=0
+                balances=[dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,balance=money(value)) for name,value in sorted(totals.items())]
+                if view!='summary':balances.append(dict(id='combined',name='Combined balance',balance=money(sum(totals.values()))))
+                return jsonify(league_id=league_id,projection=meta,timezone=settings['timezone'],timestamp=at,balances=balances,pricing=dict(base['pricing'],**coverage(positions)))
+            rows=inventory_movements(points)
+            if not rows:return jsonify(base)
+            if view=='summary':rows=atomic_totals(rows)
+            if not any(point['value_atomic'] is not None and point['quantity'] for point in points) and base['pricing']['coverage']=='none':return jsonify(base)
+            for row in rows:row['timestamp']=stamp(row['occurred_at'])
+            # Prices still extend the timeline when the inventory is unchanged/empty.
+            latest=c.execute('SELECT MAX(COALESCE(q.effective_at,s.effective_at)) FROM price_snapshots s JOIN price_quotes q ON q.snapshot_id=s.id WHERE s.league_id=?',(league_id,)).fetchone()[0]
+            horizon=stamp(latest)+1 if latest else None
+            return render_series(base,rows,rows,view,limit,start,end,lower,upper,True,horizon)
         conditions,args=["m.run_id=?","q.effective_action!='excluded'"],[run['id']]
         for field,column in [('account','COALESCE(m.account,t.account)'),('item','m.item_name')]:
             if filters.values[field]:
@@ -195,64 +228,74 @@ def read_series(league_id):
                     if row['confidence'] == 'inferred': atomic[row['id']]['confidence'] = 'inferred'
             rows = list(atomic.values())
         for row in rows:row['timestamp']=stamp(row['occurred_at'])
-        base['navigator']=navigator_context(rows,view,limit)
-        first=stamp(start) if start else rows[0]['timestamp']-1
-        last=stamp(end) if end else rows[-1]['timestamp']+1
-        if last<=first:last=first+1
-        domain=dict(start=first,end=last)
-        low=lower if lower is not None else first
-        high=upper if upper is not None else last
-        if low>=high:low,high=first,last
-        grouped=defaultdict(list)
-        for row in rows:
-            group=row['account'] if view=='players' else row['stash'] if view=='stashes' else 'summary'
-            grouped[group].append(row)
-        for row in ledger_rows:
+        return render_series(base,rows,ledger_rows,view,limit,start,end,lower,upper,valuation)
+
+
+def render_series(base,rows,ledger_rows,view,limit,start,end,lower,upper,valuation=False,horizon=None):
+    from .valuation import money
+    base['navigator']=navigator_context(rows,view,limit)
+    if horizon and horizon>base['navigator']['bounds']['end']:
+        base['navigator']['bounds']['end']=horizon
+        for series in base['navigator']['series']:
+            series['overview'].append(dict(timestamp=horizon,balance=series['closing_balance']))
+    first=stamp(start) if start else rows[0]['timestamp']-1
+    last=stamp(end) if end else max(rows[-1]['timestamp']+1,horizon or 0)
+    if last<=first:last=first+1
+    domain=dict(start=first,end=last)
+    low=lower if lower is not None else first
+    high=upper if upper is not None else last
+    if low>=high:low,high=first,last
+    grouped=defaultdict(list)
+    for row in rows:
+        group=row['account'] if view=='players' else row['stash'] if view=='stashes' else 'summary'
+        grouped[group].append(row)
+    for row in ledger_rows:
+        if low<=row['timestamp']<high:
+            amount=row['quantity_delta'];base['totals']['added' if amount>0 else 'removed']+=abs(amount)
+            base['totals']['net']+=amount
+            if row['confidence']=='inferred':base['totals']['inferred']+=abs(amount)
+    ranked=sorted(grouped,key=lambda group:(group!='__poa_reconstruction__',-sum(abs(row['quantity_delta']) for row in grouped[group]),group))
+    base['series_truncated']=len(ranked)>100
+    ranked=ranked[:100]
+    point_limit=min(limit,max(24,6000//max(1,len(ranked))))
+    output=[];resolution=None;sampled=False
+    for name in ranked:
+        opening=sum(row['quantity_delta'] for row in grouped[name] if row['timestamp']<low)
+        balance=opening;points=[dict(timestamp=low,balance=balance)]
+        for row in grouped[name]:
             if low<=row['timestamp']<high:
-                amount=row['quantity_delta'];base['totals']['added' if amount>0 else 'removed']+=abs(amount)
-                base['totals']['net']+=amount
-                if row['confidence']=='inferred':base['totals']['inferred']+=abs(amount)
-        ranked=sorted(grouped,key=lambda group:(group!='__poa_reconstruction__',-sum(abs(row['quantity_delta']) for row in grouped[group]),group))
-        base['series_truncated']=len(ranked)>100
-        ranked=ranked[:100]
-        point_limit=min(limit,max(24,6000//max(1,len(ranked))))
-        output=[];resolution=None;sampled=False
-        for name in ranked:
-            opening=sum(row['quantity_delta'] for row in grouped[name] if row['timestamp']<low)
-            balance=opening;points=[dict(timestamp=low,balance=balance)]
-            for row in grouped[name]:
-                if low<=row['timestamp']<high:
-                    balance+=row['quantity_delta'];points.append(dict(timestamp=row['timestamp'],balance=balance))
-            points.append(dict(timestamp=high,balance=balance))
-            # Navigator always covers the full domain, independently of the detail window.
-            full_balance=sum(row['quantity_delta'] for row in grouped[name] if row['timestamp']<first)
-            full_points=[dict(timestamp=first,balance=full_balance)]
-            for row in grouped[name]:
-                if first<=row['timestamp']<last:
-                    full_balance+=row['quantity_delta']
-                    full_points.append(dict(timestamp=row['timestamp'],balance=full_balance))
-            full_points.append(dict(timestamp=last,balance=full_balance))
-            overview,_=sample_extrema(full_points,point_limit)
-            selected,step=sample_extrema(points,point_limit)
-            if step:sampled=True;resolution=max(resolution or 0,step)
-            output.append(dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,reconstruction=name=='__poa_reconstruction__',opening_balance=opening,
-                               closing_balance=balance,event_count=len(points)-2,point_count=len(points),points=selected,overview=overview))
-        base['navigator']['total_series']=None
-        if view!='summary':
-            total_context,_=combined_series(rows,base['navigator']['bounds'],limit)
-            base['navigator']['total_series']=total_context
-            base['total_series'],step=combined_series(rows,dict(start=low,end=high),limit,total_context['overview'])
-            if step:sampled=True;resolution=max(resolution or 0,step)
-        base.update(series=output,bounds=domain,window=dict(start=low,end=high),sampled=sampled,
-                    resolution_ms=resolution,max_points=point_limit)
-        if valuation:
-            converted=set()
-            for series in [*base['series'],base['total_series'],*base['navigator']['series'],base['navigator']['total_series']]:
-                if not series or id(series) in converted:continue
-                converted.add(id(series))
-                series['opening_balance']=money(series['opening_balance']);series['closing_balance']=money(series['closing_balance'])
-                for key in ('points','overview'):
-                    for point in series[key]:
-                        if id(point) not in converted:point['balance']=money(point['balance']);converted.add(id(point))
-            for key in base['totals']:base['totals'][key]=money(base['totals'][key])
-        return jsonify(base)
+                balance+=row['quantity_delta'];points.append(dict(timestamp=row['timestamp'],balance=balance))
+        points.append(dict(timestamp=high,balance=balance))
+        # Navigator always covers the full domain, independently of the detail window.
+        full_balance=sum(row['quantity_delta'] for row in grouped[name] if row['timestamp']<first)
+        full_points=[dict(timestamp=first,balance=full_balance)]
+        for row in grouped[name]:
+            if first<=row['timestamp']<last:
+                full_balance+=row['quantity_delta']
+                full_points.append(dict(timestamp=row['timestamp'],balance=full_balance))
+        full_points.append(dict(timestamp=last,balance=full_balance))
+        overview,_=sample_extrema(full_points,point_limit)
+        selected,step=sample_extrema(points,point_limit)
+        if step:sampled=True;resolution=max(resolution or 0,step)
+        output.append(dict(id=hashlib.sha256((view+'\0'+name).encode()).hexdigest()[:16],name=name,reconstruction=name=='__poa_reconstruction__',opening_balance=opening,
+                           closing_balance=balance,event_count=len(points)-2,point_count=len(points),points=selected,overview=overview))
+    base['navigator']['total_series']=None
+    if view!='summary':
+        total_context,_=combined_series(rows,base['navigator']['bounds'],limit)
+        base['navigator']['total_series']=total_context
+        base['total_series'],step=combined_series(rows,dict(start=low,end=high),limit,total_context['overview'])
+        if step:sampled=True;resolution=max(resolution or 0,step)
+    base.update(series=output,bounds=domain,window=dict(start=low,end=high),sampled=sampled,
+                resolution_ms=resolution,max_points=point_limit)
+    if base.get('model')=='inventory':base['totals']['net']=sum(series['closing_balance'] for series in output)
+    if valuation:
+        converted=set()
+        for series in [*base['series'],base['total_series'],*base['navigator']['series'],base['navigator']['total_series']]:
+            if not series or id(series) in converted:continue
+            converted.add(id(series))
+            series['opening_balance']=money(series['opening_balance']);series['closing_balance']=money(series['closing_balance'])
+            for key in ('points','overview'):
+                for point in series[key]:
+                    if id(point) not in converted:point['balance']=money(point['balance']);converted.add(id(point))
+        for key in base['totals']:base['totals'][key]=money(base['totals'][key])
+    return jsonify(base)
