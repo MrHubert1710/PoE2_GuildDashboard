@@ -8,7 +8,7 @@ export interface DatabaseStatus {
     id: string
     name: string
     lifecycle: string
-    archived: boolean
+    monitored: boolean
     history_complete: boolean | null
     transactions: number
     oldest_at: string | null

@@ -11,12 +11,13 @@ def database_status(path):
             raise DatabaseError('Database identity is missing')
         instance = metadata[0]
         leagues = []
-        for row in connection.execute('SELECT l.id,l.name,l.lifecycle,l.archived,l.history_complete,'
+        for row in connection.execute('SELECT l.id,l.name,l.lifecycle,l.archived,l.monitored,l.history_complete,'
                                       'COUNT(t.id) AS transactions,MIN(t.occurred_at) AS oldest_at,'
                                       'MAX(t.occurred_at) AS newest_at FROM leagues l '
                                       'LEFT JOIN transactions t ON t.league_id=l.id GROUP BY l.id ORDER BY l.name'):
             league = dict(row)
             league['archived'] = bool(league['archived'])
+            league['monitored'] = bool(league['monitored'])
             league['history_complete'] = (None if league['history_complete'] is None
                                            else bool(league['history_complete']))
             league['files'] = dict(connection.execute('SELECT kind,COUNT(*) FROM archive_files '

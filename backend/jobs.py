@@ -78,7 +78,7 @@ class Queue:
                 return 'history_auth_failed' if configuration['state']=='rejected' else None
         if kind == 'prices' and not self.prices_available:return 'source_unavailable'
         if kind == 'history':
-            if league['archived'] and dict(league).get('lifecycle','unknown')!='active':
+            if dict(league).get('lifecycle','unknown')=='ended':
                 return 'archived'
             if not self.history_available or not league['fetch_available']:
                 return 'source_unavailable'

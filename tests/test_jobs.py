@@ -42,6 +42,7 @@ class JobTests(unittest.TestCase):
         with connect(self.path) as c:
             for league, archive in [('A', 0), ('B', 0), ('Archive', 1)]:
                 c.execute("INSERT INTO leagues(id,name,game,realm,archived,fetch_available) VALUES (?,?,'poe2','poe2',?,1)", (league, league, archive))
+                c.execute('UPDATE leagues SET lifecycle=? WHERE id=?',('ended' if archive else 'active',league))
             c.execute("INSERT INTO sources(id,source_key,provider,created_at) VALUES (1,'test','test','2026-01-01T00:00:00Z')")
             c.execute("INSERT INTO import_runs(id,source_id,started_at,status,manifest_sha256) VALUES ('import',1,'2026-01-01T00:00:00Z','completed','hash')")
             c.execute("INSERT INTO revisions VALUES ('baseline','A','import','2026-01-01T00:00:00Z','raw_import','test',NULL)")
@@ -169,15 +170,15 @@ class JobTests(unittest.TestCase):
         queue = Queue(self.path, clock=lambda: self.now, history_available=True)
         self.assertEqual(queue.claim('after-restart')['id'], first['job_id'])
 
-    def test_archive_blocked_at_enqueue_claim_and_publish_even_with_manual_request(self):
+    def test_ended_status_blocks_enqueue_claim_and_publish_without_session_adapter(self):
         self.assertEqual(self.enqueue('Archive')['reason'], 'archived')
         self.enqueue()
-        with connect(self.path) as c: c.execute("UPDATE leagues SET archived=1 WHERE id='A'")
+        with connect(self.path) as c: c.execute("UPDATE leagues SET lifecycle='ended' WHERE id='A'")
         self.assertIsNone(self.lease())
-        with connect(self.path) as c: c.execute("UPDATE leagues SET archived=0 WHERE id='A'")
+        with connect(self.path) as c: c.execute("UPDATE leagues SET lifecycle='active' WHERE id='A'")
         self.enqueue()
         lease = self.lease()
-        with connect(self.path) as c: c.execute("UPDATE leagues SET archived=1 WHERE id='A'")
+        with connect(self.path) as c: c.execute("UPDATE leagues SET lifecycle='ended' WHERE id='A'")
         self.queue.complete(lease, lambda c: self.fail('Archived publication ran'))
         self.assertEqual(self.queue.status('A')['history']['job']['error_code'], 'archived')
 
@@ -185,6 +186,11 @@ class JobTests(unittest.TestCase):
         queue = Queue(self.path)
         self.assertEqual(queue.enqueue('A', trigger='manual')['reason'], 'source_unavailable')
         self.assertIsNone(queue.status('A')['history']['last_success_at'])
+
+    def test_legacy_local_archive_flag_does_not_disable_an_active_league(self):
+        with connect(self.path) as c:
+            c.execute("UPDATE leagues SET archived=1,lifecycle='active' WHERE id='A'")
+        self.assertEqual(self.enqueue()['outcome'],'queued')
 
     def test_local_verification_does_not_fetch_change_revision_or_generate_report(self):
         self.add_record('A')

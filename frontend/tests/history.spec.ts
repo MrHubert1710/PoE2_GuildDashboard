@@ -146,8 +146,8 @@ test('compact league picker shows per-option status, supports keyboard and hides
   await page.route('**/api/leagues', async route => {
     const response = await route.fetch()
     const payload = await response.json()
+    payload.leagues[0].lifecycle = 'ended'
     payload.leagues[1].lifecycle = 'active'
-    payload.leagues[1].archived = false
     await route.fulfill({ json: payload })
   })
   await gotoHistory(page, path)

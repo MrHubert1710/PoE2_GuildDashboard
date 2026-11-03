@@ -28,6 +28,8 @@ test('catalog discovery needs admin approval and monitoring/status changes are e
  await page.goto('/poe2guild/?lang=en&section=configuration')
  const panel=page.getByTestId('league-catalog')
  await expect(panel).toContainText('Discovery does not add leagues')
+ await expect(panel.getByRole('columnheader',{name:'Local archive',exact:true})).toHaveCount(0)
+ await expect(panel.getByRole('checkbox',{name:/Local archive:/})).toHaveCount(0)
  const initial=(await(await request.get('/poe2guild/api/leagues')).json()).leagues
  expect(initial.some((league:any)=>league.name==='Catalog Test League')).toBe(false)
  const name=initial[0].name
@@ -40,7 +42,7 @@ test('catalog discovery needs admin approval and monitoring/status changes are e
  const changed=(await(await request.get('/poe2guild/api/leagues')).json()).leagues.find((league:any)=>league.id===initial[0].id)
  expect(changed.monitored).toBe(false);expect(changed.lifecycle).toBe('active');expect(changed.lifecycle_source).toBe('manual')
  const current=(await(await request.get('/poe2guild/api/league-catalog')).json()).leagues.find((league:any)=>league.id===initial[0].id)
- await request.put('/poe2guild/api/league-catalog/leagues/'+current.id,{data:{monitored:snapshot.monitored,archived:snapshot.archived,lifecycle_override:snapshot.lifecycle_override,version:current.version}})
+ await request.put('/poe2guild/api/league-catalog/leagues/'+current.id,{data:{monitored:snapshot.monitored,lifecycle_override:snapshot.lifecycle_override,version:current.version}})
  await panel.getByRole('button',{name:'Add league: Catalog Test League',exact:true}).click()
  await expect(panel).toContainText('League configuration saved.')
  await expect(panel.getByRole('button',{name:'Add league: Catalog Test League',exact:true})).toHaveCount(0)

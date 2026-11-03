@@ -102,7 +102,7 @@ onMounted(refreshView)
               <div><dt>{{ t('lastTransaction') }}</dt><dd>{{ date(league.newest_at) }}</dd></div>
               <div><dt>{{ t('registeredFiles') }}</dt><dd>{{ number(Object.values(league.files).reduce((sum, count) => sum + count, 0)) }}</dd></div>
               <div><dt>{{ t('leagueCompleteness') }}</dt><dd>{{ t('unknownCompleteness', { status: league.history_complete === null ? t('unconfirmed') : league.history_complete ? t('full') : t('incomplete') }) }}</dd></div>
-              <div><dt>{{ t('policy') }}</dt><dd>{{ league.archived ? t('archivePolicy') : t('monitoring') }}</dd></div>
+              <div><dt>{{ t('policy') }}</dt><dd>{{ t(league.monitored ? 'catalog.monitored' : 'catalog.notMonitored') }}</dd></div>
             </dl>
           </article>
         </div>

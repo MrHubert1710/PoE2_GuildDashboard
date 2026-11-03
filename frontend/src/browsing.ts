@@ -8,7 +8,6 @@ export interface League {
   lifecycle: 'unknown' | 'active' | 'ended'
   monitored?: boolean
   lifecycle_source?: string
-  archived: boolean
   history_complete: boolean | null
   transactions: number
   oldest_at: string | null

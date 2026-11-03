@@ -40,7 +40,9 @@ Nie łączymy lig przez podobne nazwy i nie dziedziczymy stanów przedmiotów.
 
 Monitorowanie steruje pobieraniem historii i cen. Wyłączenie monitorowania
 nie usuwa danych ani nie ukrywa archiwum przed odczytem. Niezależnie można
-ustawić oznaczenie lokalnego archiwum oraz ręczny status ligi w grze. Zmiana
+ustawić ręczny status ligi w grze. Opcję Local archive usunięto z panelu
+i kontraktu zapisu polityki; historyczna kolumna archived pozostaje tylko
+dla zgodności importów i nie steruje statusem ani pobieraniem. Zmiana
 polityki ma wersję; równoczesny zapis ze starym formularzem daje 409.
 
 Lokalne archiwum nie oznacza końca ligi w grze. Runes of Aldur i Forbidden
@@ -71,8 +73,9 @@ migracji i bez przypisywania obserwacji poe.ninja do źródła GGG. Offline rebu
 zachowuje katalog i polityki oraz ponownie wylicza statusy. Historyczne pola
 observed_* w tabeli leagues pozostają zapisem GGG/właściciela; odpowiedzi API
 uzupełniają je aktualnie wybraną obserwacją automatyczną. Wewnętrzny lifecycle
-ended jest prezentowany jako Archiwalna. Lokalna flaga archived (archiwum
-danych), monitorowanie i usuwanie danych pozostają niezależnymi ustawieniami.
+ended jest prezentowany jako Archiwalna. Monitorowanie i usuwanie danych
+pozostają niezależnymi ustawieniami. Diagnostyka pokazuje stan monitorowania;
+selektor ligi korzysta wyłącznie ze statusu, bez starej flagi archived.
 Odświeżanie nadal korzysta ze wspólnego workera i dotychczasowego cache 1 h;
 nie dodano ruchu per klient ani automatycznego dodawania lig.
 
