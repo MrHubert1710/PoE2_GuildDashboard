@@ -9,7 +9,6 @@ import CollapsiblePanel from './CollapsiblePanel.vue'
 const props=defineProps<{leagueId:string;view:string;query:HistoryQuery;refreshToken:number}>()
 const {request,stopped}=useApiRequest(`${import.meta.env.BASE_URL}api/leagues/${encodeURIComponent(props.leagueId)}`)
 const active=computed(()=>new URL(currentUrl.value).searchParams.get('chart_mode')!=='quantity'&&props.view!=='state')
-const mode=computed(()=>new URL(currentUrl.value).searchParams.get('chart_pricing')==='latest'?'latest':'historical')
 const data=ref<any>(null),error=ref(false),busy=ref(false)
 const readPage=(key:string)=>{const value=Number(new URL(currentUrl.value).searchParams.get(key));return Number.isInteger(value)&&value>0?value:1}
 const page=computed(()=>readPage('valuation_page')),missingPage=computed(()=>readPage('unpriced_page'))
@@ -19,7 +18,7 @@ async function load(){
  const current=++sequence;clearTimeout(timer)
  if(!active.value)return
  try{
-  const params=new URLSearchParams({mode:mode.value,view:props.view,timezone:displayTimezone.value,page:String(page.value),unpriced_page:String(missingPage.value)})
+  const params=new URLSearchParams({view:props.view,timezone:displayTimezone.value,page:String(page.value),unpriced_page:String(missingPage.value)})
   for(const [key,value] of Object.entries(props.query)){
    if(['league','sort','direction','page','page_size'].includes(key))continue
    if(Array.isArray(value)){for(const item of value)params.append(key,item)}else if(value)params.set(key,String(value===true?1:value))
@@ -38,7 +37,7 @@ async function load(){
 }
 async function refreshPrices(){busy.value=true;try{await request('/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'prices',trigger:'manual'})})}catch{error.value=true}finally{busy.value=false}}
 void request('/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'prices',trigger:'automatic'})}).catch(()=>{})
-watch(()=>JSON.stringify([active.value,props.query,props.refreshToken,mode.value,props.view,displayTimezone.value,page.value,missingPage.value]),()=>{data.value=null;void load()},{immediate:true})
+watch(()=>JSON.stringify([active.value,props.query,props.refreshToken,props.view,displayTimezone.value,page.value,missingPage.value]),()=>{data.value=null;void load()},{immediate:true})
 onUnmounted(()=>{++sequence;clearTimeout(timer)})
 </script>
 <template><section v-if="active" data-testid="valuation-report">
@@ -46,10 +45,9 @@ onUnmounted(()=>{++sequence;clearTimeout(timer)})
  <p v-if="!data||data.state!=='ready'" role="status">{{ t('pricing.pending') }}</p>
  <template v-else>
   <CollapsiblePanel :title="t(data.model==='inventory'?'pricing.inventoryTable':'pricing.table')" :storage-key="'value-table:'+leagueId+':'+view">
-   <p class="footnote">{{ t('pricing.currency') }} · {{ t(mode==='latest'?'pricing.latest':'pricing.historical') }} · {{ t(data.model==='inventory'?'pricing.inventoryCoverage':'pricing.coverage',{priced:data.priced_operations,missing:data.unpriced_operations}) }}</p>
+   <p class="footnote">{{ t('pricing.currency') }} · {{ t('pricing.historical') }} · {{ t(data.model==='inventory'?'pricing.inventoryCoverage':'pricing.coverage',{priced:data.priced_operations,missing:data.unpriced_operations}) }}</p>
    <p v-if="data.model==='inventory'" class="footnote">{{ t('pricing.inventoryNote') }}</p>
    <p v-if="data.account_filter_ignored" class="footnote">{{ t('pricing.inventoryAccountNote') }}</p>
-   <p v-if="data.estimated_operations" class="footnote">{{ t('pricing.estimated') }}</p>
    <p v-if="!data.rows.length" class="empty-state">{{ t('pricing.noCoverage') }}</p>
    <div v-else-if="data.model==='inventory'" class="transactions-scroll"><table class="transactions"><thead><tr><th>{{ t('chart.group') }}</th><th>{{ t('pricing.quantityHeld') }}</th><th>{{ t('pricing.openingValue') }}</th><th>{{ t('pricing.closingValue') }}</th><th>{{ t('pricing.valueChange') }}</th></tr></thead><tbody><tr v-for="row in data.rows" :key="row.name"><td>{{ view==='summary'?t('chart.total'):row.name }}</td><td>{{ number(row.quantity) }}</td><td>{{ number(row.opening_value) }}</td><td>{{ row.quantity>0&&row.unpriced_units===row.quantity?'—':number(row.net) }}</td><td>{{ row.quantity>0&&row.unpriced_units===row.quantity?'—':number(row.change) }}</td></tr></tbody></table></div>
    <div v-else class="transactions-scroll"><table class="transactions"><thead><tr><th>{{ t('chart.group') }}</th><th>{{ t('added') }}</th><th>{{ t('removed') }}</th><th>{{ t('quantity.balance') }}</th></tr></thead><tbody><tr v-for="row in data.rows" :key="row.name"><td>{{ row.reconstruction?t('quantity.reconstruction'):view==='summary'?t('chart.total'):row.name }}</td><td>{{ number(row.added) }}</td><td>{{ number(row.removed) }}</td><td>{{ number(row.net) }}</td></tr></tbody></table></div>

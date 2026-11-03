@@ -259,8 +259,9 @@ Zakres:
 - Pobierać dostępną dzienną historię cen per przedmiot z endpointów details/history,
   zachowując znaczniki UTC, kotwicę daysAgo i surową odpowiedź. Krótkiego
   sparkline ani dzisiejszego kursu nie używać do odtwarzania dawnych cen.
-- Snapshoty cen i wersjonowana wycena; rozróżnić ceny aktualne, historyczne
-  i estymowane. Nie utożsamiać braku wyceny z wartością zero.
+- Snapshoty cen i wersjonowana wycena wyłącznie historyczna. Zachować datowane
+  obserwacje cen; niedatowane archiwa nie mogą być używane jako ceny zastępcze.
+  Nie utożsamiać braku wyceny z wartością zero.
 - Tabele i wykresy wartości oraz widok przedmiotów bez wyceny.
 - Zastąpić tymczasowy wybór pojedynczego przedmiotu na wykresie łączną wartością
   operacji graczy. Players: saldo operacji × kurs z czasu operacji, także ujemne.
@@ -268,10 +269,8 @@ Zakres:
   zmieniająca się również bez operacji. Summary sumuje wartość stanu skrytek.
   Filtr gracza nie pomija cudzych operacji przy odtwarzaniu stanu. Tabela
   Stashes prezentuje wartości stanu i ich zmianę zamiast dodane/zabrane.
-- Dodać przełącznik „najnowsze ceny”: wycenić wszystkie operacje jednym jawnym,
-  najnowszym zestawem cen ligi. Przeliczać podpisane ruchy, nie łączyć cen lig.
-  Zapisywać identyfikatory snapshotów i oznaczać brak historycznej ceny;
-  nie podstawiać ceny przyszłej lub najnowszej w trybie historycznym po cichu.
+- Zapisywać identyfikatory historycznych snapshotów i oznaczać brak ceny;
+  nie podstawiać przyszłego kursu do wcześniejszych operacji.
 - Zachować serie balansu wartości dla gildii, poszczególnych graczy i skrytek,
   a także próbkowanie zachowujące ekstrema i szczegóły na żądanie po zoomie.
 
@@ -439,8 +438,8 @@ W bieżącej fazie 5: linie bez punktów, dokładny tooltip stanu w dowolnym cza
 wybór All (suma ilości wszystkich typów), zoom wyłącznie miniaturami i reset
 odpowiedniej osi dwuklikiem. Refresh chart pozostaje ręcznym ponowieniem odczytu.
 Przełącznik ilość/wartość: domyślnie ilość, tryb wartościowy ukrywa wybór
-przedmiotu i wybiera All. Do fazy 6 pokazuje pusty wykres. Przełącznik cen
-historyczne/aktualne jest w nim zablokowany, z wybraną opcją historyczną.
+przedmiotu i wybiera All. Do fazy 6 pokazuje pusty wykres; po wdrożeniu
+wyceny używa wyłącznie danych historycznych.
 Faza 6 uruchomi wycenę i zmieni domyślny tryb na wartościowy. Kliknięcie koloru
 w legendzie otwiera picker, a kolory są zapisywane po stronie klienta.
 

@@ -3,12 +3,16 @@ import { isAdmin } from './auth'
 
 export const workspaceSections = ['summary', 'players', 'stashes', 'state', 'history', 'settings', 'configuration'] as const
 export type WorkspaceSection = typeof workspaceSections[number]
+function normalizeUrl(url:URL){url.searchParams.delete('chart_pricing');return url}
+const initialUrl=normalizeUrl(new URL(location.href))
+if(initialUrl.href!==location.href)history.replaceState(null,'',initialUrl)
 export const currentUrl = ref(location.href)
 export function updateUrl(url: URL, replace = false) {
+  normalizeUrl(url)
   if (url.href !== location.href) history[replace ? 'replaceState' : 'pushState'](null, '', url)
   currentUrl.value = location.href
 }
-window.addEventListener('popstate', () => { currentUrl.value = location.href })
+window.addEventListener('popstate', () => { updateUrl(new URL(location.href),true) })
 export const diagnosticsVisible = computed(() => new URL(currentUrl.value).searchParams.get('view') === 'diagnostics')
 export const section = computed<WorkspaceSection>(() => {
   const params = new URL(currentUrl.value).searchParams

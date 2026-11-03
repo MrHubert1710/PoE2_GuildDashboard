@@ -104,7 +104,6 @@ Wybór pojedynczego przedmiotu pozostaje tymczasowy, żeby nie dodawać sztuk
 różnych przedmiotów. Faza 6 zastąpi go wartością wszystkich operacji:
 
 - domyślnie każda podpisana operacja jest wyceniana tylko ceną z czasu jej realizacji;
-- alternatywny tryb przelicza wszystkie operacje najnowszym zestawem cen ligi;
 - ceny późniejsze nie mogą być po cichu podstawiane w trybie historycznym;
 - snapshoty i brak wyceny pozostają jawne, a serie graczy/skrytek zachowują balans.
 

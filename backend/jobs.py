@@ -100,7 +100,7 @@ class Queue:
                     return {'outcome': 'fresh', 'reason': 'fresh', 'job_id': None}
             if kind == 'valuations':
                 from .valuation import current_valuation
-                if all(current_valuation(connection, league, mode)[0] for mode in ('historical','latest')):
+                if current_valuation(connection, league)[0]:
                     return {'outcome':'fresh','reason':'fresh','job_id':None}
             if kind == 'prices':
                 scope=connection.execute('SELECT last_success_at FROM refresh_scopes WHERE scope_key=?',(key,)).fetchone()

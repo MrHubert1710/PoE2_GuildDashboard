@@ -8,10 +8,10 @@ from .quantities import current_run
 ALGORITHM='valuation-v3'
 
 
-def current_valuation(c,league,mode):
+def current_valuation(c,league):
     run=current_run(c,league)
     revision=price_revision(c,league['id'])
-    value=c.execute('SELECT * FROM valuation_runs WHERE quantity_run_id=? AND price_revision=? AND mode=? AND algorithm_version=?',(run['id'],revision,mode,ALGORITHM)).fetchone() if run else None
+    value=c.execute('SELECT * FROM valuation_runs WHERE quantity_run_id=? AND price_revision=? AND mode=? AND algorithm_version=?',(run['id'],revision,'historical',ALGORITHM)).fetchone() if run else None
     return value,revision
 
 
@@ -26,26 +26,22 @@ class ValuationAdapter:
             if not run:raise AdapterFailure('quantity_projection_missing',retryable=False)
             revision=price_revision(c,league['id']);index=PriceIndex(c,league['id'])
             ledger=[dict(row) for row in c.execute('SELECT m.*,t.occurred_at,t.external_id,q.stash FROM quantity_ledger m JOIN transactions t ON t.id=m.transaction_id JOIN event_quantities q ON q.run_id=m.run_id AND q.transaction_id=m.transaction_id WHERE m.run_id=? ORDER BY t.occurred_at,m.transaction_id,m.sequence',(run['id'],))]
-            staged=[]
-            for mode in ('historical','latest'):
-                identity=hashlib.sha256(canonical([run['id'],revision,mode,ALGORITHM]).encode()).hexdigest();lines=[]
-                for row in ledger:
-                    if stop.is_set():raise AdapterFailure('interrupted')
-                    result,reason=index.resolve(row['item_name'],row['occurred_at'],mode)
-                    snapshot,quote=result if result else (None,None)
-                    lines.append((identity,row['transaction_id'],row['sequence'],snapshot['id'] if snapshot else None,quote['quote_key'] if quote else None,
-                                  quote['price_atomic'] if quote else None,str(row['quantity_delta']*int(quote['price_atomic'])) if quote else None,
-                                  ('estimated_undated' if snapshot['effective_at'] is None and not quote.get('effective_at') else 'priced') if snapshot else reason))
-                from .inventory_valuation import project_inventory
-                inventory=project_inventory(ledger,index,mode,stop)
-                staged.append((identity,mode,lines,inventory))
+            identity=hashlib.sha256(canonical([run['id'],revision,'historical',ALGORITHM]).encode()).hexdigest();lines=[]
+            for row in ledger:
+                if stop.is_set():raise AdapterFailure('interrupted')
+                result,reason=index.resolve(row['item_name'],row['occurred_at'])
+                snapshot,quote=result if result else (None,None)
+                lines.append((identity,row['transaction_id'],row['sequence'],snapshot['id'] if snapshot else None,quote['quote_key'] if quote else None,
+                              quote['price_atomic'] if quote else None,str(row['quantity_delta']*int(quote['price_atomic'])) if quote else None,
+                              'priced' if snapshot else reason))
+            from .inventory_valuation import project_inventory
+            inventory=project_inventory(ledger,index,stop)
         def publish(c):
             latest=current_run(c,league)
             if not latest or latest['id']!=run['id'] or price_revision(c,league['id'])!=revision:raise AdapterFailure('data_changed')
-            for identity,mode,lines,inventory in staged:
-                inserted=c.execute('INSERT OR IGNORE INTO valuation_runs VALUES(?,?,?,?,?,?,?)',(identity,run['id'],league['id'],revision,mode,ALGORITHM,utc_now())).rowcount
-                if inserted:
-                    c.executemany('INSERT INTO valuation_lines VALUES(?,?,?,?,?,?,?,?)',lines)
-                    c.executemany('INSERT INTO inventory_value_points VALUES(?,?,?,?,?,?,?,?,?,?)',[(identity,*point) for point in inventory])
-            return dict(price_revision=revision,quantity_run_id=run['id'],modes=['historical','latest'])
+            inserted=c.execute('INSERT OR IGNORE INTO valuation_runs VALUES(?,?,?,?,?,?,?)',(identity,run['id'],league['id'],revision,'historical',ALGORITHM,utc_now())).rowcount
+            if inserted:
+                c.executemany('INSERT INTO valuation_lines VALUES(?,?,?,?,?,?,?,?)',lines)
+                c.executemany('INSERT INTO inventory_value_points VALUES(?,?,?,?,?,?,?,?,?,?)',[(identity,*point) for point in inventory])
+            return dict(price_revision=revision,quantity_run_id=run['id'],modes=['historical'])
         return publish

@@ -346,8 +346,6 @@
     "chart.valueMode": "Tryb wartościowy",
     "chart.quantityMode": "Tryb ilościowy",
     "chart.all": "Wszystkie",
-    "chart.historicalPrices": "Ceny historyczne",
-    "chart.currentPrices": "Ceny aktualne",
     "chart.colorFor": "Kolor: {name}",
     "chart.seriesColor": "Kolor serii",
     "chart.closeColor": "Zamknij",
@@ -439,12 +437,10 @@
     "quantity.reconstruction": "Korekty rekonstrukcji",
     "quantity.reconstructionNote": "Korekty rekonstrukcji uzgadniają księgowanie ze znaną odtworzoną zawartością slotów. To założenia techniczne, a nie wpisy GGG ani wkład graczy. Pełne bilanse są zgodne ze znanym stanem po uwzględnieniu wszystkich graczy i korekt.",
     "pricing.currency": "Wartość w Divine Orb",
-    "pricing.latest": "Najnowsze dostępne ceny",
     "pricing.historical": "Historyczne ceny dzienne",
     "pricing.pending": "Przeliczanie wyceny…",
     "pricing.noCoverage": "Brak cen obejmujących te operacje. Brak ceny nie oznacza zera.",
     "pricing.partial": "Wycena częściowa — niektóre operacje nie mają ceny",
-    "pricing.estimated": "Uwzględnia estymacje z archiwum bez daty; nie są to potwierdzone ceny historyczne ani aktualne.",
     "pricing.error": "Nie udało się odczytać wyceny. Użyj Odśwież widok.",
     "pricing.table": "Wartość operacji",
     "pricing.unpriced": "Przedmioty bez ceny",
@@ -479,6 +475,7 @@
     "pricing.openingValue": "Wartość początkowa",
     "pricing.closingValue": "Wartość stanu",
     "pricing.valueChange": "Zmiana wartości",
+    "pricing.undatedArchive": "Archiwalne ceny bez daty są zachowane do weryfikacji i nie są używane do wyceny.",
     "pricing.dailyHistory": "Datowana dzienna historia cen",
     "pricing.unknownTime": "Nieznany",
     "pricing.observed": "Cena zaobserwowana",
@@ -487,6 +484,6 @@
     "pricing.cacheFresh": "Ceny w cache są nadal świeże; wspólne odświeżenie będzie dostępne po interwale cache dostawcy.",
     "pricing.updated": "Synchronizacja cen zakończona.",
     "pricing.sourceUnavailable": "Pobieranie cen zewnętrznych jest wyłączone w tym środowisku.",
-    "pricing.balanceNote": "Wartości historyczne są saldem operacji wycenionych w chwili ich wykonania, a nie bieżącą wartością stanu skrytki. Tryb najnowszych cen stosuje jeden najnowszy dostępny zestaw."
+    "pricing.balanceNote": "Wartości historyczne są saldem operacji wycenionych w chwili ich wykonania, a nie bieżącą wartością stanu skrytki."
   }
 }

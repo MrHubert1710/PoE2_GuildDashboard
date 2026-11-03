@@ -97,7 +97,7 @@ def read_series(league_id):
     valuation=one_argument('mode','quantity')=='value'
     if one_argument('mode','quantity') not in {'quantity','value'}:raise ReadError('invalid_view')
     price_mode=one_argument('pricing','historical')
-    if price_mode not in {'historical','latest'}:raise ReadError('invalid_view')
+    if price_mode!='historical':raise ReadError('invalid_view')
     limit = number_argument('max_points', 240, 24, 600)
     view = one_argument('view','summary')
     if view not in {'summary','players','stashes'}:
@@ -127,7 +127,7 @@ def read_series(league_id):
                   sampled=False,unresolved_events=0,series_truncated=False,totals=dict(added=0,removed=0,net=0,inferred=0))
         if valuation:
             from .valuation import current_valuation,money
-            value_run,price_version=current_valuation(c,league,price_mode)
+            value_run,price_version=current_valuation(c,league)
             base.update(unit='divine_orb',pricing=dict(state='ready' if value_run else 'missing',mode=price_mode,currency='Divine Orb',revision=price_version,coverage='none',priced_operations=0,unpriced_operations=0,estimated_operations=0,snapshot_ids=[]))
             if one_argument('price_revision') and one_argument('price_revision')!=price_version:raise ReadError('price_revision_changed',409)
             if not value_run:return jsonify(base)

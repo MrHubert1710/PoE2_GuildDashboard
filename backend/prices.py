@@ -141,33 +141,32 @@ class PriceIndex:
         self.cache={}
         for row in self.snapshots:
             if row['provenance']!='history_daily':self.categories[(row['feed'],row['category'])].append(row)
-    def resolve(self,item,at,mode):
-        key=name_key(item);key=self.aliases.get(key,key);cache_key=(key,at if mode=='historical' else None,mode)
+    def resolve(self,item,at):
+        key=name_key(item);key=self.aliases.get(key,key);cache_key=(key,at)
         if cache_key in self.cache:return self.cache[cache_key]
-        result=self._resolve(key,at,mode);self.cache[cache_key]=result;return result
-    def _resolve(self,key,at,mode):
+        result=self._resolve(key,at);self.cache[cache_key]=result;return result
+    def _resolve(self,key,at):
         grouped=defaultdict(list)
         for snapshots in self.categories.values():
-            dated=[s for s in snapshots if s['effective_at'] is not None and (mode=='latest' or s['effective_at']<=at)]
+            dated=[s for s in snapshots if s['effective_at'] is not None and s['effective_at']<=at]
             if dated:chosen=max(dated,key=lambda s:(s['effective_at'],s['id']))
-            elif mode=='latest':chosen=max(snapshots,key=lambda s:(s['observed_at'],s['id']))
             else:continue
             for quote in self.quotes[chosen['id']].get(key,[]):grouped[(chosen['feed'],chosen['category'])].append((chosen,quote))
         historical=defaultdict(list)
         for dates,samples in self.histories.get(key,[]):
-            index=len(samples)-1 if mode=='latest' else bisect_right(dates,at)-1
+            index=bisect_right(dates,at)-1
             if index>=0:
                 source,quote=samples[index];historical[(source['feed'],source['category'])].append((source,quote))
         for category,points in historical.items():
             current=grouped.get(category,[])
-            # A newer observed overview supersedes daily data for latest pricing.
+            # Select the most recent dated price at or before the requested time.
             if not current or max(p[1]['effective_at'] for p in points)>=max(p[0]['effective_at'] or '' for p in current):grouped[category]=points
         candidates=[candidate for group in grouped.values() for candidate in group]
         # Legacy category keys may differ from today's catalog (currency/Currency).
         # Undated estimates must not make a known dated quote ambiguous.
         dated=[candidate for candidate in candidates if candidate[1].get('effective_at') or candidate[0]['effective_at']]
         if dated:candidates=dated
-        if not candidates:return None,'historical_price_missing' if mode=='historical' else 'price_missing'
+        if not candidates:return None,'historical_price_missing'
         if len(candidates)>1 or candidates[0][1]['variant']:return None,'price_ambiguous'
         return candidates[0],None
 

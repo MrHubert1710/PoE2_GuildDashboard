@@ -336,8 +336,6 @@
     "chart.valueMode": "Value mode",
     "chart.quantityMode": "Quantity mode",
     "chart.all": "All",
-    "chart.historicalPrices": "Historical prices",
-    "chart.currentPrices": "Current prices",
     "chart.colorFor": "Color: {name}",
     "chart.seriesColor": "Series color",
     "chart.closeColor": "Close",
@@ -429,12 +427,10 @@
     "quantity.reconstruction": "Reconstruction corrections",
     "quantity.reconstructionNote": "Reconstruction corrections balance the accounting with the known reconstructed slot contents. They are technical assumptions, not GGG entries or player contributions. Full balances agree with known inventory when all players and corrections are included.",
     "pricing.currency": "Value in Divine Orbs",
-    "pricing.latest": "Latest available prices",
     "pricing.historical": "Historical daily prices",
     "pricing.pending": "Calculating valuation…",
     "pricing.noCoverage": "No prices cover these operations. Missing prices are not zero.",
     "pricing.partial": "Partial valuation — some operations have no price",
-    "pricing.estimated": "Includes undated archive estimates; these are not verified historical or current prices.",
     "pricing.error": "Unable to load valuation. Try Refresh view.",
     "pricing.table": "Value of operations",
     "pricing.unpriced": "Items without a price",
@@ -469,6 +465,7 @@
     "pricing.openingValue": "Opening value",
     "pricing.closingValue": "Inventory value",
     "pricing.valueChange": "Value change",
+    "pricing.undatedArchive": "Undated archive prices are retained for verification and excluded from valuations.",
     "pricing.dailyHistory": "Dated daily price history",
     "pricing.unknownTime": "Unknown",
     "pricing.observed": "Observed price",
@@ -477,6 +474,6 @@
     "pricing.cacheFresh": "Cached prices are still fresh; a shared refresh is available after the provider cache interval.",
     "pricing.updated": "Price synchronization completed.",
     "pricing.sourceUnavailable": "External price fetching is disabled in this environment.",
-    "pricing.balanceNote": "Historical values are the signed value of operations at their respective prices, not the current market value of the inventory. Latest-price balances use one latest available price set."
+    "pricing.balanceNote": "Historical values are the signed value of operations at their respective prices, not the current market value of the inventory."
   }
 }

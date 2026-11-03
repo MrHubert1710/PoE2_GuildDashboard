@@ -85,25 +85,23 @@ class ValuationTests(TestCase):
             if not worker.run_once():break
         with connect(self.path,readonly=True) as c:
             league=c.execute("SELECT * FROM leagues WHERE id='A'").fetchone()
-            run,_=current_valuation(c,league,'historical');self.assertIsNotNone(run)
+            run,_=current_valuation(c,league);self.assertIsNotNone(run)
     def series(self,**params):
         response=self.client.get('/api/leagues/A/quantity-series',query_string={'mode':'value','view':'players',**params})
         self.assertEqual(response.status_code,200,response.json);return response.json
 
-    def test_historical_never_uses_future_or_undated_prices_and_latest_is_explicit(self):
+    def test_historical_never_uses_future_or_undated_prices_and_removed_mode_is_rejected(self):
         self.build();self.put(99);self.put(3,'2026-01-03T00:00:00Z');self.value()
         historical=self.series()
         self.assertEqual(historical['series'],[])
         self.assertEqual(historical['pricing']['coverage'],'none')
-        latest=self.series(pricing='latest')
-        self.assertEqual(latest['total_series']['closing_balance'],45)
-        self.assertEqual(latest['pricing']['estimated_operations'],0)
+        self.assertEqual(self.client.get('/api/leagues/A/quantity-series?mode=value&pricing=latest').status_code,400)
+        self.assertEqual(self.client.get('/api/leagues/A/valuations?mode=latest').status_code,400)
 
     def test_per_operation_historical_rates_do_not_revalue_previous_contributions(self):
         early=self.put(2,'2026-01-01T00:00:00Z');later=self.put(3,'2026-01-02T00:00:00Z');self.build();self.value()
-        historical=self.series();latest=self.series(pricing='latest')
+        historical=self.series()
         self.assertEqual(historical['total_series']['closing_balance'],25) # +20*2 -5*3
-        self.assertEqual(latest['total_series']['closing_balance'],45) # (20-5)*3
         self.assertEqual(set(historical['pricing']['snapshot_ids']),{early,later})
         cursor=self.series(at=1798761600000)
         self.assertEqual(cursor['balances'][-1]['balance'],25)
@@ -112,25 +110,43 @@ class ValuationTests(TestCase):
         with connect(self.path,readonly=True) as c:
             self.assertTrue(all(row[0] for row in c.execute('SELECT snapshot_id FROM valuation_lines WHERE value_atomic IS NOT NULL')))
 
-    def test_undated_estimates_are_flagged_and_imports_are_repeatable(self):
+    def test_undated_archives_are_excluded_and_imports_are_repeatable(self):
         identity=self.put(2);self.assertEqual(identity,self.put(2));self.build();self.value()
-        latest=self.series(pricing='latest')
-        self.assertEqual(latest['total_series']['closing_balance'],30)
-        self.assertGreater(latest['pricing']['estimated_operations'],0)
+        self.assertEqual(self.series()['series'],[])
+        self.assertEqual(self.series()['pricing']['estimated_operations'],0)
         self.assertEqual(self.series()['pricing']['coverage'],'none')
 
     def test_old_category_name_cannot_make_dated_prices_ambiguous(self):
         self.put(99,category='currency')
         self.put(2,'2026-01-01T00:00:00Z',category='Currency')
         self.build();self.value()
-        latest=self.series(pricing='latest',item='Token')
-        self.assertEqual(latest['pricing']['coverage'],'complete')
-        self.assertEqual(latest['pricing']['estimated_operations'],0)
-        self.assertEqual(latest['total_series']['closing_balance'],30)
+        dated=self.series(item='Token')
+        self.assertEqual(dated['pricing']['coverage'],'complete')
+        self.assertEqual(dated['pricing']['estimated_operations'],0)
+        self.assertEqual(dated['total_series']['closing_balance'],30)
+
+    def test_retired_valuation_migration_preserves_sources_and_historical_results(self):
+        self.put(2,'2026-01-01T00:00:00Z');self.build();self.value()
+        with connect(self.path) as c:
+            facts=[tuple(r) for r in c.execute('SELECT * FROM price_snapshots')]
+            historical=c.execute("SELECT id FROM valuation_runs WHERE mode='historical'").fetchone()[0]
+            c.executescript('DROP TRIGGER valuation_historical_only_insert; DROP TRIGGER valuation_historical_only_update; DELETE FROM schema_migrations WHERE version=9; PRAGMA user_version=8;')
+            c.execute("INSERT INTO valuation_runs SELECT 'retired-run',quantity_run_id,league_id,price_revision,'latest',algorithm_version,created_at FROM valuation_runs WHERE id=?",(historical,))
+            c.execute("INSERT INTO valuation_lines SELECT 'retired-run',transaction_id,sequence,snapshot_id,quote_key,price_atomic,value_atomic,reason FROM valuation_lines WHERE run_id=?",(historical,))
+            c.execute("INSERT INTO inventory_value_points SELECT 'retired-run',sequence,occurred_at,stash,item_name,quantity,value_atomic,reason,snapshot_id,quote_key FROM inventory_value_points WHERE run_id=?",(historical,))
+        migrate(self.path)
+        with connect(self.path) as c:
+            self.assertEqual([tuple(r) for r in c.execute('SELECT * FROM price_snapshots')],facts)
+            self.assertEqual(c.execute('SELECT id FROM valuation_runs').fetchone()[0],historical)
+            self.assertEqual(c.execute("SELECT count(*) FROM valuation_lines WHERE run_id='retired-run'").fetchone()[0],0)
+            self.assertEqual(c.execute("SELECT count(*) FROM inventory_value_points WHERE run_id='retired-run'").fetchone()[0],0)
+            import sqlite3
+            with self.assertRaises(sqlite3.IntegrityError):
+                c.execute("UPDATE valuation_runs SET mode='latest'")
 
     def test_missing_is_not_zero_and_leagues_never_share_prices(self):
         self.put(0,league='B');self.build();self.value()
-        self.assertEqual(self.series(pricing='latest')['pricing']['coverage'],'none')
+        self.assertEqual(self.series()['pricing']['coverage'],'none')
         self.put(0,'2026-01-01T00:00:00Z');self.value()
         zero=self.series(item='Token')
         self.assertEqual(zero['pricing']['coverage'],'complete')
@@ -210,13 +226,12 @@ class ValuationTests(TestCase):
         with connect(self.path) as c:
             save_snapshot(c,daily);save_snapshot(c,other)
             index=PriceIndex(c,'A')
-            self.assertEqual(index.resolve('Token','2025-12-31T00:00:00.000000Z','historical'),(None,'historical_price_missing'))
-            self.assertEqual(index.resolve('Token','2026-01-04T00:00:00.000000Z','historical')[0][1]['price_atomic'],str(3*ATOMIC))
+            self.assertEqual(index.resolve('Token','2025-12-31T00:00:00.000000Z'),(None,'historical_price_missing'))
+            self.assertEqual(index.resolve('Token','2026-01-04T00:00:00.000000Z')[0][1]['price_atomic'],str(3*ATOMIC))
         self.build();self.value()
         self.assertEqual(self.series(view='stashes',item='Token')['total_series']['closing_balance'],45)
         self.assertEqual(self.series(view='stashes',item='Token')['pricing']['estimated_operations'],0)
         self.put(4,'2026-11-01T00:00:00Z');self.value()
-        self.assertEqual(self.series(view='stashes',item='Token',pricing='latest')['total_series']['closing_balance'],60)
         self.assertEqual(self.series(view='stashes',item='Token')['total_series']['closing_balance'],60)
 
 

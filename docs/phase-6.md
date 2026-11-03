@@ -8,13 +8,12 @@ Dzień odbioru technicznego: 2026-11-03. Następne fazy nie są rozpoczęte.
 Domyślnie wykres i tabela Podsumowania, Graczy oraz Skrytek pokazują wartość
 operacji w Divine Orb. Przełącznik Quantity mode przywraca wybór przedmiotu
 oraz dotychczasowe obliczenia ilościowe, włącznie z All. Zmiana ligi zachowuje
-tryb ilość/wartość i historyczne/najnowsze; zeruje wybór przedmiotu i zoom.
+tryb ilość/wartość; zeruje wybór przedmiotu i zoom.
 
-Historyczne ceny są domyślne. Każdy podpisany ruch otrzymuje kurs z najnowszego
+Wycena korzysta wyłącznie z cen historycznych. Każdy podpisany ruch otrzymuje kurs z najnowszego
 dostępnego punktu datowanego nie później niż jego wykonanie. Późniejsza zmiana kursu nie przeszacowuje
-poprzednich ruchów. Tryb Current prices używa jednego, przypiętego zestawu
-najnowszych dostępnych snapshotów kategorii danej ligi dla całej historii.
-To najnowsze dostępne obserwacje, nie gwarancja wykonania transakcji po tej cenie.
+poprzednich ruchów. Obserwacje bieżących cen są datowanymi punktami historii;
+nie służą do przeszacowania dawnych operacji.
 
 Modele wyceny są rozdzielone:
 
@@ -28,9 +27,8 @@ Modele wyceny są rozdzielone:
 Przykład: Alice dodaje 20 sztuk po 2 Divine, Buyer zabiera 5 po 3 Divine.
 Salda to +40 i −15; ich suma to 25 Divine. Stan skrytki to 15 sztuk, więc
 jej wartość wynosi 45 Divine. Gdy cena wzrośnie do 4 bez nowej operacji,
-skrytka ma wartość 60, a salda graczy nadal +40 i −15. W trybie najnowszych
-cen stały kurs stosuje się do obu modeli; suma graczy wraz z korektami może
-wtedy być równa wartości stanu. To nie jest wymuszona zgodność historyczna.
+skrytka ma wartość 60, a salda graczy nadal +40 i −15. Sumy tych dwóch
+modeli nie są wymuszane jako równe.
 
 Korekty rekonstrukcji pozostają osobną serią techniczną w Players. W Stashes
 są częścią odtworzenia zawartości, a nie dodatkowym graczem lub drugą wyceną.
@@ -53,7 +51,7 @@ w obu modelach. Kolory, zwijanie i format dat zachowują ustawienia klienta.
 Oś wartości obsługuje ułamki Divine. Tabele i braki cen mają paginację w URL.
 
 Brak ceny nie oznacza 0. Wycena ma pokrycie complete / partial / none i liczniki
-operacji wycenionych, brakujących oraz estymowanych. Przy braku pokrycia wykres
+operacji lub pozycji wycenionych oraz brakujących. Przy braku pokrycia wykres
 jest pusty z wyjaśnieniem, a tabela pokazuje nieznane ceny. Przy częściowym
 pokryciu rysowana jest wyłącznie znana część wartości, z jawnym oznaczeniem.
 Prawdziwa cena 0 pozostaje poprawną, rozpoznaną ceną.
@@ -70,9 +68,8 @@ Zaimportowano 28 plików cache, osobno dla obu lig. Ich czas ceny jest nieznany:
 nie jest wyprowadzany z mtime, czasu importu ani sparkline. Mają pochodzenie
 legacy_undated i effective_at=NULL. Powtórny import nie tworzy duplikatów.
 
-Takie ceny mogą być wykorzystane wyłącznie jako jawne estymacje w trybie
-najnowszych dostępnych cen, gdy dana kategoria nie ma obserwowanego snapshotu.
-Tryb historyczny nigdy po nie nie sięga i nie używa przyszłej ceny.
+Takie ceny są zachowane wyłącznie do weryfikacji źródeł. Nie są używane
+w wycenach; brak datowanej ceny nie jest zastępowany estymacją ani przyszłym kursem.
 
 Podczas wdrożenia pobrano 46 obserwowanych snapshotów dla 23 kategorii i dwóch
 lig, które poe.ninja nadal zwraca w katalogu ekonomii. Nie zmienia to lokalnej
@@ -102,14 +99,13 @@ czasu UTC do następnego dostępnego punktu; przed pierwszym punktem cena
 pozostaje nieznana. Nie interpolujemy ani nie cofamy późniejszego kursu.
 
 Archiwalne, niedatowane ceny nie tworzą konfliktu z ceną datowaną nawet
-przy zmianie nazwy kategorii (np. currency → Currency). Pozostają wyłącznie
-rezerwowym źródłem najnowszej estymacji, gdy żadna datowana cena nie pasuje.
+przy zmianie nazwy kategorii (np. currency → Currency): nie są źródłem wyceny.
 
 Surowa odpowiedź historii i kotwica dat są zapisane w niezmiennym snapshocie
 history_daily. Poszczególne kursy mają własne price_quotes.effective_at oraz
 klucz przedmiot+timestamp. Braki dni jednego przedmiotu nie usuwają cen innych
-przedmiotów kategorii. Nowy overview nadal ma pierwszeństwo w najnowszej wycenie,
-gdy jest nowszy niż ostatni punkt dzienny. Rozpoznawanie wariantów pozostaje
+przedmiotów kategorii. Datowany overview może zmienić wycenę stanu dopiero
+od swojego czasu obowiązywania, jeżeli jest nowszy niż ostatni punkt dzienny. Rozpoznawanie wariantów pozostaje
 konserwatywne. Dostępność historii konkretnego przedmiotu zależy od dostawcy;
 nie oznacza pełnego pokrycia wszystkich nazw z logów gildii.
 
@@ -157,7 +153,7 @@ nie wybieramy arbitralnie jednego unikalnego przedmiotu o wspólnej nazwie.
 
 ## SQLite i odtwarzalność
 
-Migracje 006–008, schemat 8:
+Migracje 006–009, schemat 9:
 
 - price_http_cache — cache transportu, ETag, terminy i kody błędów.
 - price_catalogs / price_categories — wersje katalogu i aktywność kategorii.
@@ -227,21 +223,22 @@ cen również aktualizuje historię; backfill służy do pierwszego uzupełnieni
 ## API
 
 - GET /api/leagues/<id>/prices — snapshoty, katalog i rewizja cen.
-- GET /api/leagues/<id>/valuations?mode=historical|latest&view=summary|players|stashes
+- GET /api/leagues/<id>/valuations?mode=historical&view=summary|players|stashes
   — tabele wartości, pokrycie, brakujące ceny i źródła wyceny; wspólne filtry.
-- GET /api/leagues/<id>/quantity-series?mode=value&pricing=historical|latest
+- GET /api/leagues/<id>/quantity-series?mode=value&pricing=historical
   — istniejący kontrakt wykresu, z jednostką divine_orb i metadanymi pricing.
   Cena dla kursora jest przypięta parametrem price_revision; niezgodna daje 409.
 - POST /api/leagues/<id>/refresh z kind=prices lub kind=valuations — wspólne,
   trwałe zadania. Odczyt raportu nie wykonuje zapytań do dostawcy.
 
-Parametry chart_mode, chart_pricing, valuation_page i unpriced_page są w URL.
+Parametry chart_mode, valuation_page i unpriced_page są w URL. Wycofany
+parametr chart_pricing jest usuwany ze starych adresów bez zmiany filtrów.
 Filtry pozostają jednoznacznymi granicami UTC; konfiguracja przeglądarki
 zmienia jedynie prezentację.
 
 ## Weryfikacja techniczna
 
-- Po rozdzieleniu modeli: 193 testy backendu, 91 testów
+- Po usunięciu alternatywnej wyceny: 194 testy backendu, 93 testy
   w Chromium oraz 16 testów tłumaczeń: zaliczone. Kontrola typów i build
   produkcyjny również zaliczone. Testy obejmują daty i kursy historyczne,
   kotwicę daysAgo po 304, izolację przedmiotów i pierwszeństwo nowszego overview.
@@ -249,7 +246,16 @@ zmienia jedynie prezentację.
   historyczne punkty są używane według daty; nieznane ceny pozostają jawne.
 - Zachowano 104 534 surowe transakcje i konfigurację lig/gildii bez zmian.
   Sumy SHA-256 wszystkich 56 istniejących plików cen pozostały identyczne.
-- SQLite: integralność poprawna, brak naruszeń kluczy obcych, schemat 8.
+- SQLite: integralność poprawna, brak naruszeń kluczy obcych, schemat 9.
+
+## Wyłącznie wycena historyczna
+
+Usunięto alternatywny tryb z interfejsu, obliczeń workera i resolvera cen.
+API akceptuje wyłącznie historyczny sposób wyceny. Wycofany parametr nie
+zmienia znaczenia starych linków: klient usuwa go i ładuje wycenę historyczną.
+Migracja 009 usuwa wyłącznie pochodne wyniki wycofanego trybu i blokuje jego
+ponowny zapis w SQLite. Surowe transakcje, wszystkie obserwacje cen oraz
+istniejące wyniki historyczne pozostają zachowane.
 
 ## Poprawka precyzji tooltipa
 
@@ -271,8 +277,8 @@ zweryfikowano tooltip −6134.14223069 w 14:00:22 UTC.
 
 1. Odświeżyć stronę: domyślnie Value mode i ceny historyczne. Sprawdzić wykres
    i tabelę oparte na pobranej historii dziennej oraz listę pozostałych braków cen.
-2. Włączyć Current prices: pojawiają się tabela i interaktywny wykres wartości
-   w Divine. Przełączyć Summary / Players / Stashes, filtry i ligę.
+2. Sprawdzić brak przełącznika najnowszych cen. Przełączyć Summary / Players /
+   Stashes, filtry i ligę; wycena pozostaje historyczna.
 3. Sprawdzić zoom obiema miniaturami, tooltip między operacjami, sumę serii
    oraz oddzielne Korekty rekonstrukcji w Players. Sprawdzić, że zmiana ceny
    bez operacji zmienia Stashes, ale nie Players. Filtr gracza nie może

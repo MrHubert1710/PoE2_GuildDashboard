@@ -388,7 +388,7 @@ test('player filter tooltip shows one row per series for operations sharing a ti
   await expect(page.getByRole('tooltip').locator('strong').filter({hasText:/^29$/})).toHaveCount(2)
 })
 
-test('All sums quantities and value mode supports historical and latest pricing',async({page})=>{
+test('All sums quantities and value mode uses historical pricing only',async({page})=>{
   await page.goto(path+'&section=players')
   const graph=page.getByTestId('time-series-chart')
   await expect(graph).toBeVisible()
@@ -405,8 +405,7 @@ test('All sums quantities and value mode supports historical and latest pricing'
   await page.getByRole('switch',{name:'Value mode',exact:true}).check()
   await expect(page.getByTestId('valuation-status')).toBeVisible()
   await expect(page.getByLabel('Chart item',{exact:true})).toHaveCount(0)
-  await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toBeEnabled()
-  await expect(page.getByRole('switch',{name:'Current prices',exact:true})).not.toBeChecked()
+  await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toHaveCount(0)
   await expect(graph).toBeVisible()
   await expect.poll(()=>quantityRequests).toBeGreaterThan(0)
   await page.reload();await expect(page.getByTestId('valuation-status')).toBeVisible()

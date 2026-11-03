@@ -11,7 +11,7 @@ import CollapsiblePanel from './CollapsiblePanel.vue'
 const TimeSeriesChart=defineAsyncComponent(()=>import('./TimeSeriesChart.vue'))
 const props=defineProps<{leagueId:string;revision:string;settingsHash?:string;projectionId:string|null;query:HistoryQuery;active:boolean;refreshToken:number;view:string}>()
 const emit=defineEmits<{range:[from:string,to:string]}>()
-const {data,error,loading,selectedItem,chooseItem,valuation,chooseMode,priceMode,choosePricing,stateAt,reload}=useQuantitySeries(props)
+const {data,error,loading,selectedItem,chooseItem,valuation,chooseMode,stateAt,reload}=useQuantitySeries(props)
 const colors=computed(()=>clientPreferences.value.colors),picker=ref<{id:string;name:string;color:string;left:number;top:number}|null>(null)
 function colorId(series:{id:string;aggregate?:boolean}){return series.aggregate?'combined':props.view+':'+series.id}
 function colored<T extends {id:string;aggregate?:boolean}>(series:T){return {...series,color:colors.value[colorId(series)]}}
@@ -67,15 +67,13 @@ watch(data,value=>{if(value&&!initial){initial=true;if(new URL(currentUrl.value)
   <div class="chart-controls">
     <label class="check-label chart-mode"><input type="checkbox" role="switch" :checked="valuation" :aria-label="t('chart.valueMode')" @change="chooseMode(($event.target as HTMLInputElement).checked)" />{{ t(valuation?'chart.valueMode':'chart.quantityMode') }}</label>
     <label v-if="!valuation" class="chart-item"><span>{{ t('chart.item') }}</span><select :aria-label="t('chart.item')" :value="selectedItem==='__all__'?'__all__':data?.item??selectedItem" :disabled="!items.length" @change="selectItem(($event.target as HTMLSelectElement).value)"><option v-for="item in items" :key="item" :value="item">{{ item==='__all__'?t('chart.all'):item }}</option></select></label>
-    <label v-else class="check-label">{{ t('chart.historicalPrices') }}<input type="checkbox" role="switch" :aria-label="t('chart.currentPrices')" :checked="priceMode==='latest'" @change="choosePricing(($event.target as HTMLInputElement).checked)" />{{ t('chart.currentPrices') }}</label>
     <button type="button" :disabled="loading||!projectionId" @click="reload">{{ t('chart.refresh') }}</button>
     <span v-if="loading" role="status" class="chart-loading">{{ t('chart.loading') }}</span>
   </div>
-  <p v-if="valuation" class="footnote valuation-status" data-testid="valuation-status">{{ t('pricing.currency') }} · {{ t(priceMode==='latest'?'pricing.latest':'pricing.historical') }}
+  <p v-if="valuation" class="footnote valuation-status" data-testid="valuation-status">{{ t('pricing.currency') }} · {{ t('pricing.historical') }}
     <span v-if="data?.pricing?.state==='missing'" role="status"> · {{ t('pricing.pending') }}</span>
     <span v-else-if="data?.pricing?.coverage==='none'"> · {{ t(view==='players'?'pricing.noCoverage':'pricing.inventoryNoCoverage') }}</span>
     <span v-else-if="data?.pricing?.coverage==='partial'"> · {{ t(view==='players'?'pricing.partial':'pricing.inventoryPartial') }}</span>
-    <span v-if="data?.pricing?.estimated_operations"> · {{ t('pricing.estimated') }}</span>
   </p>
   <p v-if="valuation&&view!=='players'&&query.account" class="footnote">{{ t('pricing.inventoryAccountNote') }}</p>
   <p v-if="error" role="alert">{{ t(`quantity.error.${error}`) }}</p>

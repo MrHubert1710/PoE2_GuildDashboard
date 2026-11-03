@@ -1,23 +1,23 @@
 import {test,expect} from './fixtures'
 const root='/poe2guild/?lang=en'
 
-test('value mode is default, historical and latest prices differ without changing quantities or UTC filters',async({page,request})=>{
- await page.goto(root+'&section=players')
- const chart=page.getByTestId('quantity-chart')
+test('valuation is historical only and obsolete pricing URLs are cleaned without changing quantities',async({page,request})=>{
+ await page.goto(root+'&section=players&chart_pricing=latest')
+ await expect(page).not.toHaveURL(/chart_pricing=/)
  await expect(page.getByRole('switch',{name:'Value mode',exact:true})).toBeChecked()
  await expect(page.getByLabel('Chart item',{exact:true})).toHaveCount(0)
- await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toBeEnabled()
+ await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toHaveCount(0)
  await expect(page.getByTestId('time-series-chart')).toBeVisible()
- await expect(page.getByTestId('valuation-report')).toContainText('Divine Orbs')
+ await expect(page.getByTestId('valuation-status')).toContainText('Historical daily prices')
  const league=new URL(page.url()).searchParams.get('league'),endpoint=`/poe2guild/api/leagues/${league}`
  const quantities=await(await request.get(endpoint+'/quantities')).json()
  const historical=await(await request.get(endpoint+'/quantity-series?mode=value&view=players')).json()
- const latest=await(await request.get(endpoint+'/quantity-series?mode=value&view=players&pricing=latest')).json()
- expect(historical.total_series.closing_balance).not.toBe(latest.total_series.closing_balance)
- const displayed=page.waitForResponse(response=>response.url().includes('/quantity-series?')&&response.url().includes('pricing=latest')&&!response.url().includes('at='))
- await page.getByRole('switch',{name:'Current prices',exact:true}).check();await displayed
- await expect(page.getByTestId('valuation-status')).toContainText('Latest available prices')
- await page.reload();await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toBeChecked()
+ expect(historical.pricing.mode).toBe('historical')
+ expect((await request.get(endpoint+'/quantity-series?mode=value&pricing=latest')).status()).toBe(400)
+ expect((await request.get(endpoint+'/valuations?mode=latest')).status()).toBe(400)
+ expect((await(await request.get(endpoint+'/prices')).json()).valuations).toEqual({historical:true})
+ await page.reload();await expect(page).not.toHaveURL(/chart_pricing=/)
+ await expect(page.getByRole('switch',{name:'Current prices',exact:true})).toHaveCount(0)
  expect((await(await request.get(endpoint+'/quantities')).json()).projection.id).toBe(quantities.projection.id)
  await page.getByRole('switch',{name:'Value mode',exact:true}).uncheck()
  await expect(page.getByLabel('Chart item',{exact:true})).toBeVisible()

@@ -197,5 +197,6 @@ Korekta fazy 5: wykresy pokazują narastające balanse, osobne dla kont/skrytek.
 Próbkowanie zachowuje kolejność i ekstrema rzeczywistych zdarzeń; zoom pobiera
 szczegóły ograniczonego zakresu. Dni filtrów są interpretowane w strefie ligi,
 a przechowywane znaczniki pozostają UTC. Po wycenie pojedynczy przedmiot zostanie
-zastąpiony wartością operacji: historyczną lub przeliczoną najnowszymi cenami.
+zastąpiony historyczną wyceną operacji graczy oraz wyceną stanu skrytek
+według kursów obowiązujących w danym czasie.
 Szczegóły aktualnego kontraktu i granic: [phase-5.md](phase-5.md).

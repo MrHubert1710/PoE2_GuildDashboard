@@ -25,12 +25,12 @@ onMounted(load);onUnmounted(()=>clearTimeout(timer))
  <p v-if="error||job?.state==='failed'" role="alert">{{ t('pricing.sourceError') }}</p>
  <details v-if="warnings.length"><summary>{{ t('pricing.categoryWarnings',{count:warnings.length}) }}</summary><ul><li v-for="(warning,index) in warnings" :key="index">{{ warning.category }}{{ warning.item?' · '+warning.item:'' }}: {{ warning.error }}</li></ul></details>
  <template v-if="data">
-  <p v-if="data.undated" class="footnote">{{ t('pricing.estimated') }}</p>
+  <p v-if="data.undated" class="footnote">{{ t('pricing.undatedArchive') }}</p>
   <CollapsiblePanel :title="t('pricing.categories')+' ('+data.categories.length+')'" :storage-key="'price-categories:'+leagueId" :initial-open="false">
    <ul><li v-for="category in data.categories" :key="category.feed+category.category">{{ category.label }} · {{ category.feed }} · {{ category.category }} · {{ t(category.active?'pricing.available':'pricing.retained') }}</li></ul>
   </CollapsiblePanel>
   <CollapsiblePanel :title="t('pricing.snapshots')+' ('+data.snapshots.length+')'" :storage-key="'price-snapshots:'+leagueId" :initial-open="false">
-   <div class="transactions-scroll"><table class="transactions"><thead><tr><th>{{ t('pricing.categories') }}</th><th>{{ t('pricing.priceTime') }}</th><th>{{ t('pricing.provenance') }}</th></tr></thead><tbody><tr v-for="snapshot in data.snapshots" :key="snapshot.id"><td>{{ snapshot.category }} · {{ snapshot.feed }}</td><td><template v-if="snapshot.history_from">{{ date(snapshot.history_from) }} — {{ date(snapshot.history_to) }} · {{ snapshot.history_samples }}</template><template v-else>{{ snapshot.effective_at?date(snapshot.effective_at):t('pricing.unknownTime') }}</template></td><td>{{ t(snapshot.provenance==='legacy_undated'?'pricing.estimated':snapshot.provenance==='history_daily'?'pricing.dailyHistory':'pricing.observed') }}</td></tr></tbody></table></div>
+   <div class="transactions-scroll"><table class="transactions"><thead><tr><th>{{ t('pricing.categories') }}</th><th>{{ t('pricing.priceTime') }}</th><th>{{ t('pricing.provenance') }}</th></tr></thead><tbody><tr v-for="snapshot in data.snapshots" :key="snapshot.id"><td>{{ snapshot.category }} · {{ snapshot.feed }}</td><td><template v-if="snapshot.history_from">{{ date(snapshot.history_from) }} — {{ date(snapshot.history_to) }} · {{ snapshot.history_samples }}</template><template v-else>{{ snapshot.effective_at?date(snapshot.effective_at):t('pricing.unknownTime') }}</template></td><td>{{ t(snapshot.provenance==='legacy_undated'?'pricing.undatedArchive':snapshot.provenance==='history_daily'?'pricing.dailyHistory':'pricing.observed') }}</td></tr></tbody></table></div>
   </CollapsiblePanel>
  </template>
 </section></template>

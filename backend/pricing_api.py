@@ -21,9 +21,9 @@ def status(league_id):
         require_schema(c);c.execute('BEGIN');league=league_row(c,league_id)
         snapshots=[dict(row) for row in c.execute('SELECT s.id,s.feed,s.category,s.observed_at,s.effective_at,s.provenance,s.currency,MIN(q.effective_at) AS history_from,MAX(q.effective_at) AS history_to,COUNT(q.effective_at) AS history_samples FROM price_snapshots s LEFT JOIN price_quotes q ON q.snapshot_id=s.id WHERE s.league_id=? GROUP BY s.id ORDER BY s.observed_at DESC,s.id',(league_id,))]
         categories=[dict(row) for row in c.execute('SELECT feed,category,label,active FROM price_categories ORDER BY feed,category')]
-        historical,revision=current_valuation(c,league,'historical');latest,_=current_valuation(c,league,'latest')
+        historical,revision=current_valuation(c,league)
         return jsonify(currency=CURRENCY,price_revision=revision,snapshots=snapshots,categories=categories,
-                       valuations={'historical':bool(historical),'latest':bool(latest)},undated=any(s['provenance']=='legacy_undated' for s in snapshots))
+                       valuations={'historical':bool(historical)},undated=any(s['provenance']=='legacy_undated' for s in snapshots))
 
 
 @pricing.get('/api/leagues/<league_id>/valuations')
@@ -31,13 +31,13 @@ def report(league_id):
     allowed={'mode','view','account','account_regex','account_case','account_word','stash','item','item_regex','item_case','item_word','from','to','timezone','page','page_size','unpriced_page','revision'}
     if set(request.args)-allowed:raise ReadError('unknown_parameter')
     mode=one_argument('mode','historical');view=one_argument('view','summary')
-    if mode not in {'historical','latest'} or view not in {'summary','players','stashes'}:raise ReadError('invalid_view')
+    if mode!='historical' or view not in {'summary','players','stashes'}:raise ReadError('invalid_view')
     page=number_argument('page',1,1,1000000);size=number_argument('page_size',25,1,100)
     missing_page=number_argument('unpriced_page',1,1,1000000)
     filters=TextFilters()
     with connect(current_app.config['DATABASE_FILE'],readonly=True) as c:
         require_schema(c);c.execute('BEGIN');filters.bind(c);c.create_function('casefold',1,lambda v:v.casefold())
-        league=league_row(c,league_id);meta,qrun=metadata(c,league);run,revision=current_valuation(c,league,mode)
+        league=league_row(c,league_id);meta,qrun=metadata(c,league);run,revision=current_valuation(c,league)
         if one_argument('revision') and one_argument('revision')!=meta['input_revision']:raise ReadError('revision_changed',409)
         if not run:return jsonify(state='missing',rows=[],unpriced=[],unpriced_total=0,total=0,page=1,pages=1,mode=mode,currency=CURRENCY,price_revision=revision)
         if view!='players':

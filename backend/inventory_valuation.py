@@ -5,17 +5,16 @@ from .quantities import event_order
 from .valuation import money
 
 
-def project_inventory(ledger,index,mode,stop):
+def project_inventory(ledger,index,stop):
     from .worker import AdapterFailure
     ordered=sorted(ledger,key=lambda r:(*event_order(dict(id=r['transaction_id'],occurred_at=r['occurred_at'],external_id=r['external_id'])),r['sequence']))
     operations=defaultdict(list)
     for transaction,rows in groupby(ordered,key=lambda r:r['transaction_id']):
         rows=list(rows);operations[rows[0]['occurred_at']].append(rows)
     price_times=set()
-    if mode=='historical':
-        price_times.update(s['effective_at'] for s in index.snapshots if s['effective_at'])
-        for groups in index.histories.values():
-            for dates,_ in groups:price_times.update(dates)
+    price_times.update(s['effective_at'] for s in index.snapshots if s['effective_at'])
+    for groups in index.histories.values():
+        for dates,_ in groups:price_times.update(dates)
     changes=set(operations)|price_times
     quantities=defaultdict(int);active=set();last={};points=[];sequence=0
 
@@ -25,10 +24,10 @@ def project_inventory(ledger,index,mode,stop):
         for key in sorted(keys):
             quantity=quantities[key]
             if quantity<0:raise AdapterFailure('inventory_reconstruction_invalid',retryable=False)
-            result,reason=index.resolve(key[1],at,mode) if quantity else (None,'empty')
+            result,reason=index.resolve(key[1],at) if quantity else (None,'empty')
             source,quote=result if result else (None,None)
             value=quantity*int(quote['price_atomic']) if quote else 0 if not quantity else None
-            reason=('estimated_undated' if source['effective_at'] is None and not quote.get('effective_at') else 'priced') if source else reason
+            reason='priced' if source else reason
             fingerprint=(quantity,value,reason)
             if last.get(key)==fingerprint:continue
             last[key]=fingerprint

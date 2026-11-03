@@ -10,7 +10,7 @@ import uuid
 
 
 MIGRATIONS = Path(__file__).with_name('migrations')
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 
 class DatabaseError(ValueError):
