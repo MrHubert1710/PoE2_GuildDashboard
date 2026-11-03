@@ -44,6 +44,35 @@ operacji w wybranym zakresie; nie należy z niej wyprowadzać migracji.
 
 ## Konsekwencje dla automatyzacji
 
+### Próba pobrania Dawn of the Hunt na polecenie użytkownika
+
+2026-11-03 wykonano trzy sekwencyjne żądania, tym samym zapisanym
+POESESSID i dla tej samej skonfigurowanej gildii. Zachowano cooldown.
+Nie zmieniano kursora, statusów, ustawień ani danych historii w bazie.
+
+| Zakres UTC | HTTP | Wpisy | truncated |
+| --- | --- | --- | --- |
+| 2025-04-04 19:00 – 2025-08-26 22:00 (Dawn of the Hunt) | 200 | 0 | false |
+| 2026-06-01 – 2026-06-02 (kontrola Runes of Aldur) | 200 | 0 | false |
+| 2026-11-03 02:14 – 02:16 (kontrola Hardcore) | 200 | 10 | false |
+
+W lokalnym archiwum są 2442 operacje Runes of Aldur z kontrolnego dnia,
+ale API nie zwróciło żadnej operacji z tego zakresu. Runes ma status active
+potwierdzony wcześniej przez właściciela. Zatem brak zwracanych starych
+operacji nie daje samodzielnego dowodu zakończenia ligi. Możliwa jest m.in.
+retencja logów; ta próba nie ustala jej długości ani przyczyny braków.
+Nie wykazano również, czy gildia miała operacje podczas Dawn of the Hunt.
+
+Nie udało się uzyskać fragmentu Dawn of the Hunt. Test kontrolny potwierdza,
+że sesja i odczyt ostatnich operacji działają. W tej próbie nie wystąpił
+błąd autoryzacji ani ucięta odpowiedź wymagająca paginacji.
+
+[Wyniki bez sekretów i danych konta](evidence/ggg-dawn-history-2026-11-03.json).
+Surowe odpowiedzi zachowano prywatnie w data/ggg-probes/dawn-2026-11-03/
+(pliki 0600, katalog 0700), poza Git. Nie importowano ich do historii.
+
+### Reguły
+
 - Sama obecność dowolnie starej operacji nie nadaje obecnego statusu active.
 - Sama nieobecność wpisów, również w udanym fetchu, nie nadaje ended.
 - Błąd sesji, limit, awaria albo niepełna paginacja nie zmieniają cyklu życia.

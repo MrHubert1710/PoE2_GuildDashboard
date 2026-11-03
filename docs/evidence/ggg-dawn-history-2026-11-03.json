@@ -1,0 +1,47 @@
+{
+  "checked_at": "2026-11-03T02:28:30.618475+00:00",
+  "method": "Authenticated GET to existing guild history endpoint; no import or cursor change",
+  "results": [
+    {
+      "test": "dawn_of_the_hunt",
+      "requested_start": "2025-04-04T19:00:00Z",
+      "requested_end": "2025-08-26T22:00:00Z",
+      "http_status": 200,
+      "sha256": "ef295a612ded67cbbe2f7b9e1b0f42c9c80f74ad3efa5fff2e5cba6021cefdb6",
+      "response_bytes": 32,
+      "entries": 0,
+      "leagues": {},
+      "truncated": false,
+      "first_at": null,
+      "last_at": null
+    },
+    {
+      "test": "runes_of_aldur_control",
+      "requested_start": "2026-06-01T00:00:00Z",
+      "requested_end": "2026-06-02T00:00:00Z",
+      "http_status": 200,
+      "sha256": "ef295a612ded67cbbe2f7b9e1b0f42c9c80f74ad3efa5fff2e5cba6021cefdb6",
+      "response_bytes": 32,
+      "entries": 0,
+      "leagues": {},
+      "truncated": false,
+      "first_at": null,
+      "last_at": null
+    },
+    {
+      "test": "hardcore_recent_control",
+      "requested_start": "2026-11-03T02:14:00Z",
+      "requested_end": "2026-11-03T02:16:00Z",
+      "http_status": 200,
+      "sha256": "764812d9d1ee18d583db68fb8d57cdd6fe20969f560a7aa8e046c12100840c55",
+      "response_bytes": 1712,
+      "entries": 10,
+      "leagues": {
+        "Hardcore": 10
+      },
+      "truncated": false,
+      "first_at": "2026-11-03T02:14:54.000000Z",
+      "last_at": "2026-11-03T02:14:57.000000Z"
+    }
+  ]
+}
