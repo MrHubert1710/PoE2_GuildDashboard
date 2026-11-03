@@ -96,7 +96,7 @@ watch(data,value=>{if(value&&!initial){initial=true;if(new URL(currentUrl.value)
     <p v-if="data" class="footnote">{{ t(data.sampled?'chart.sampled':'chart.exact') }}</p>
     <p v-if="data?.series_truncated" role="alert">{{ t('chart.truncated') }}</p>
     <p v-if="data?.unresolved_events" class="footnote" data-testid="chart-unresolved">{{ t('chart.unresolved',{count:data.unresolved_events}) }}</p>
-    <p v-if="data" class="footnote" data-testid="chart-totals">{{ t('chart.balanceTotal',{net:number(data.totals.net)}) }}</p>
-    <details v-if="data" class="chart-data"><summary>{{ t('chart.data') }}</summary><div class="transactions-scroll" tabindex="0"><table class="transactions"><thead><tr><th>{{ t('chart.group') }}</th><th>{{ t('quantity.dateZone',{zone:data.timezone}) }}</th><th>{{ t('quantity.balance') }}</th></tr></thead><tbody><template v-for="series in chartSeries" :key="series.id"><tr v-for="(point,index) in series.points" :key="index"><td>{{ seriesLabel(series) }}</td><td>{{ date(new Date(point.timestamp).toISOString(),data.timezone) }}</td><td>{{ number(point.balance) }}</td></tr></template></tbody></table></div></details>
+    <p v-if="data" class="footnote" data-testid="chart-totals">{{ t('chart.balanceTotal',{net:number(data.totals.net,valuation)}) }}</p>
+    <details v-if="data" class="chart-data"><summary>{{ t('chart.data') }}</summary><div class="transactions-scroll" tabindex="0"><table class="transactions"><thead><tr><th>{{ t('chart.group') }}</th><th>{{ t('quantity.dateZone',{zone:data.timezone}) }}</th><th>{{ t('quantity.balance') }}</th></tr></thead><tbody><template v-for="series in chartSeries" :key="series.id"><tr v-for="(point,index) in series.points" :key="index"><td>{{ seriesLabel(series) }}</td><td>{{ date(new Date(point.timestamp).toISOString(),data.timezone) }}</td><td>{{ number(point.balance,valuation) }}</td></tr></template></tbody></table></div></details>
   </CollapsiblePanel>
 </CollapsiblePanel></template>

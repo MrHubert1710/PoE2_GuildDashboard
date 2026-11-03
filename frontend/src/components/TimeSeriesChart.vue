@@ -52,7 +52,7 @@ function draw(){
   const markerValues=actualExtrema.value?[...new Set([actualExtrema.value.min,actualExtrema.value.max])].filter(value=>value>=currentValueWindow.value.start&&value<=currentValueWindow.value.end):[]
   const labelSpacing=(currentValueWindow.value.end-currentValueWindow.value.start)*16/Math.max(1,root.value.clientHeight-53)
   const crowded=markerValues.length===2&&Math.abs(markerValues[1]!-markerValues[0]!)<labelSpacing
-  const axisNumber=(value:number)=>props.unit==='divine_orb'?new Intl.NumberFormat(locale.value,{maximumSignificantDigits:6}).format(value):number(value)
+  const axisNumber=(value:number)=>number(value,props.unit==='divine_orb')
   const options:EChartsOption={
     animation:false,backgroundColor:'transparent',color:balanceColors,
     textStyle:{color:'#b7c4ca',fontFamily:'system-ui'},aria:{enabled:true,description:t('chart.graph')},
@@ -78,7 +78,7 @@ onUnmounted(()=>{leave();observer?.disconnect();chart?.dispose()})
 <div v-if="hover" role="tooltip" class="chart-tooltip" :style="{left:hover.left+'px',top:hover.top+'px'}" :data-state-at="hover.timestamp">
   <p>{{ formatZonedDate(new Date(hover.timestamp).toISOString(),locale,timezone,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3},displayHourFormat) }}</p>
   <p v-if="cursorError">{{ t('quantity.error.'+cursorError) }}</p><p v-else-if="!cursorState" role="status">{{ t('chart.loading') }}</p>
-  <div v-else v-for="row in cursorRows" :key="row.id" class="chart-tooltip-row" :data-series-id="row.id"><i :style="{background:row.color}"></i><span>{{ row.name }}</span><strong>{{ number(row.balance) }}</strong></div>
+  <div v-else v-for="row in cursorRows" :key="row.id" class="chart-tooltip-row" :data-series-id="row.id"><i :style="{background:row.color}"></i><span>{{ row.name }}</span><strong>{{ number(row.balance,unit==='divine_orb') }}</strong></div>
 </div>
 <ValueNavigator :series="contextSeries" :enabled="enabled" :bounds="fullValueBounds" :window="currentValueWindow" @zoom="emit('valueZoom',$event)" @reset="emit('resetValues')" />
 <SeriesNavigator :series="contextSeries" :bounds="bounds" :window="currentWindow" :enabled="enabled" @zoom="emit('zoom',$event)" @commit="emit('commit',$event)" @reset="emit('resetTime')" />

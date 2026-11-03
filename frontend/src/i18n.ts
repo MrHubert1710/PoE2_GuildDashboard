@@ -26,7 +26,10 @@ export function setLanguage(code: string) {
 }
 synchronize(true)
 window.addEventListener('popstate', () => { locale.value = resolveLanguage(); synchronize(true) })
-export function number(value: number) { return new Intl.NumberFormat(locale.value, { maximumFractionDigits: 12 }).format(value) }
+// Formatting only: retain the original numeric value for charts and calculations.
+export function number(value: number, decimal = false) {
+  return new Intl.NumberFormat(locale.value, { minimumFractionDigits: decimal || !Number.isInteger(value) ? 2 : 0, maximumFractionDigits: 2 }).format(value)
+}
 export function t(key: string, parameters: Record<string, string | number> = {}) {
   return formatMessage(catalogs, locale.value, key, parameters)
 }
@@ -36,7 +39,7 @@ export const displayHourFormat = computed(()=>clientPreferences.value.hourFormat
 export function compactNumber(value: number) {
   if (value < 1000) return number(value)
   const scale = value >= 1e9 ? 1e9 : value >= 1e6 ? 1e6 : 1e3
-  return new Intl.NumberFormat(locale.value,{maximumFractionDigits:1}).format(value/scale)+(scale===1e9?'B':scale===1e6?'M':'k')
+  return number(value/scale)+(scale===1e9?'B':scale===1e6?'M':'k')
 }
 export function date(value: string | null, timeZone = displayTimezone.value) {
   return value ? formatZonedDate(value, locale.value, timeZone, undefined, displayHourFormat.value) : t('noData')
