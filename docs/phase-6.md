@@ -10,8 +10,8 @@ operacji w Divine Orb. Przełącznik Quantity mode przywraca wybór przedmiotu
 oraz dotychczasowe obliczenia ilościowe, włącznie z All. Zmiana ligi zachowuje
 tryb ilość/wartość i historyczne/najnowsze; zeruje wybór przedmiotu i zoom.
 
-Historyczne ceny są domyślne. Każdy podpisany ruch otrzymuje cenę obserwowaną
-nie później niż jego wykonanie. Późniejsza zmiana kursu nie przeszacowuje
+Historyczne ceny są domyślne. Każdy podpisany ruch otrzymuje kurs z najnowszego
+dostępnego punktu datowanego nie później niż jego wykonanie. Późniejsza zmiana kursu nie przeszacowuje
 poprzednich ruchów. Tryb Current prices używa jednego, przypiętego zestawu
 najnowszych dostępnych snapshotów kategorii danej ligi dla całej historii.
 To najnowsze dostępne obserwacje, nie gwarancja wykonania transakcji po tej cenie.
@@ -56,10 +56,49 @@ archiwizacji lig ani nie uruchamia pobierania logów GGG. Dostępność cen jest
 niezależna od dostępności historii gildii. Dla ligi usuniętej z ekonomii
 pozostają ostatnie lokalne snapshoty i wyjaśniony brak dostępu do dostawcy.
 
-Nowe obserwacje nie pokrywają historycznych operacji tych archiwów. Dlatego
-na istniejących danych domyślny tryb historyczny wykazuje brak pokrycia;
-przełączenie na najnowsze ceny pokazuje wycenę dostępną do ręcznej weryfikacji.
-To ograniczenie danych wejściowych, nie zastępcze wycenianie historii ceną z dziś.
+Korekta fazy 6: poe.ninja udostępnia także pełną dostępną historię dzienną
+przedmiotu, niezależnie od overview i krótkiego sparkline. Worker pobiera ją
+dla nazw występujących w logach danej ligi oraz walut odniesienia:
+
+- exchange/current/details?league=…&type=…&id=<detailsId> — pairs[].history
+  zawiera timestamp i absolutny rate. Wybierana jest para z Divine, bez
+  odwracania kursu ani mnożenia przez dzisiejszą cenę. Divine ma wartość 1.
+- stash/current/item/history?league=…&type=…&id=<numeric id> — daysAgo/value.
+  Datą odniesienia jest X-League-EndAt zakończonej ligi, a przy jego braku
+  Date odpowiedzi HTTP. Ta kotwica jest przechowywana razem z odpowiedzią
+  w cache i zachowywana po 304; późniejszy odczyt nie przesuwa historii.
+  Wartość jest w core.primary. Przeliczenie innej waluty wymaga kursu
+  historycznego z tego samego dnia; brak kursu nie uruchamia wyceny z dziś.
+
+Przykład zweryfikowany na wykresie źródłowym: Perfect Chaos Orb, Runes of
+Aldur, 2026-07-26: 6.11 Divine. Endpoint zwrócił 157 dziennych próbek od
+2026-05-30 do 2026-11-02. To dzienna rozdzielczość dostawcy, a nie kurs
+każdej pojedynczej transakcji w ciągu dnia. Punkt obowiązuje od oznaczonego
+czasu UTC do następnego dostępnego punktu; przed pierwszym punktem cena
+pozostaje nieznana. Nie interpolujemy ani nie cofamy późniejszego kursu.
+
+Archiwalne, niedatowane ceny nie tworzą konfliktu z ceną datowaną nawet
+przy zmianie nazwy kategorii (np. currency → Currency). Pozostają wyłącznie
+rezerwowym źródłem najnowszej estymacji, gdy żadna datowana cena nie pasuje.
+
+Surowa odpowiedź historii i kotwica dat są zapisane w niezmiennym snapshocie
+history_daily. Poszczególne kursy mają własne price_quotes.effective_at oraz
+klucz przedmiot+timestamp. Braki dni jednego przedmiotu nie usuwają cen innych
+przedmiotów kategorii. Nowy overview nadal ma pierwszeństwo w najnowszej wycenie,
+gdy jest nowszy niż ostatni punkt dzienny. Rozpoznawanie wariantów pozostaje
+konserwatywne. Dostępność historii konkretnego przedmiotu zależy od dostawcy;
+nie oznacza pełnego pokrycia wszystkich nazw z logów gildii.
+
+Źródła sprawdzone 2026-11-03: [wykres Perfect Chaos Orb](https://poe.ninja/poe2/economy/runesofaldur/currency/perfect-chaos-orb)
+i publiczne żądania ekonomii używane przez ten wykres oraz wykres stash.
+Historia ekonomii nie jest opisana w tabeli endpointów overview; adapter
+jest odseparowany i zachowuje poprzednie dane przy zmianie formatu.
+
+Wdrożony backfill obu lig: Forbidden Rites — 299 historii i 16 230 dziennych
+kursów (2026-09-04–2026-11-02); Runes of Aldur — 346 historii i 46 651 kursów
+(2026-05-29–2026-11-02). Dla 13 żądań historii Runes of Aldur dostawca zwrócił
+błąd transportu/HTTP; szczegóły przedmiotów są widoczne w źródłach cen.
+Poprawne dane zostały opublikowane, brakujące nie są zastępowane ceną z dziś.
 
 ## Adapter i katalog
 
@@ -78,6 +117,9 @@ niepowiązane z ekonomią nie są pobierane.
 Transport ma trwały cache HTTP, ETag / If-None-Match / 304, respektuje
 Cache-Control i Retry-After oraz identyfikuje aplikację i kontakt w User-Agent.
 Minimalny interwał feedów i listy lig ekonomii: 1 h; dokumentacji: 24 h.
+Historia dzienna ma osobny cache 24 h; aktualne overview nadal odświeża się
+nie częściej niż raz na godzinę. Nie pobieramy całego katalogu przedmiotów:
+historia dotyczy nazw obecnych w logach ligi i walut odniesienia.
 Przy błędach cache zapisuje cooldown, co zapobiega ponawianiu przez każdą kartę.
 Ręczny fetch nie omija cache dostawcy. Żądania są sekwencyjne w workerze.
 
@@ -91,14 +133,14 @@ nie wybieramy arbitralnie jednego unikalnego przedmiotu o wspólnej nazwie.
 
 ## SQLite i odtwarzalność
 
-Migracja 006, schemat 6:
+Migracje 006–007, schemat 7:
 
 - price_http_cache — cache transportu, ETag, terminy i kody błędów.
 - price_catalogs / price_categories — wersje katalogu i aktywność kategorii.
 - price_snapshots / price_quotes — niezmienne payloady, SHA-256, liga, źródło,
   czas pierwszej obserwacji, pewny/nieznany czas ceny, waluta i warianty.
 - price_aliases — jawne aliasy nazw osobno dla każdej ligi.
-- valuation_runs / valuation_lines — wersja algorytmu valuation-v1, przypięta
+- valuation_runs / valuation_lines — wersja algorytmu valuation-v2, przypięta
   projekcja ilościowa, rewizja cen, tryb i cena/snapshot użyte dla każdego ruchu.
 
 Identyczny payload kategorii i pochodzenia nie tworzy duplikatu snapshotu;
@@ -143,6 +185,16 @@ Alias unieważnia wycenę tej ligi i zgłasza przeliczenie; nie zmienia nazwy
 w surowej historii ani konfiguracji skrytek. Brak połączenia z poe.ninja
 nie uniemożliwia korzystania z zaimportowanych cen offline.
 
+Uzupełnienie historii bez kasowania cache i cen:
+
+```sh
+.venv/bin/python scripts/prices.py backfill
+```
+
+Polecenie omija wyłącznie lokalny znacznik świeżości zadania. Respektuje cache
+HTTP, ETag i cooldown dostawcy, a worker publikuje wynik atomowo. Normalny fetch
+cen również aktualizuje historię; backfill służy do pierwszego uzupełnienia.
+
 ## API
 
 - GET /api/leagues/<id>/prices — snapshoty, katalog i rewizja cen.
@@ -160,19 +212,20 @@ zmienia jedynie prezentację.
 
 ## Weryfikacja techniczna
 
-- 182 testy backendu, 90 testów Chromium i 16 testów tłumaczeń: zaliczone.
-- Po dopracowaniu osi ułamkowych: ponownie zaliczone 22 testy wykresów
-  i wyceny, kontrola typów oraz build produkcyjny.
+- Po dodaniu historii: 189 testów backendu, 22 testy wykresów i wyceny
+  w Chromium oraz 16 testów tłumaczeń: zaliczone. Kontrola typów i build
+  produkcyjny również zaliczone. Testy obejmują daty i kursy historyczne,
+  kotwicę daysAgo po 304, izolację przedmiotów i pierwszeństwo nowszego overview.
 - Publiczne HTTPS API obu lig: wartości końcowe tabel i wykresów są zgodne;
-  historyczny brak datowanych cen pozostaje jawnym brakiem pokrycia.
+  historyczne punkty są używane według daty; nieznane ceny pozostają jawne.
 - Zachowano 104 534 surowe transakcje i konfigurację lig/gildii bez zmian.
   Sumy SHA-256 wszystkich 56 istniejących plików cen pozostały identyczne.
-- SQLite: integralność poprawna, brak naruszeń kluczy obcych, schemat 6.
+- SQLite: integralność poprawna, brak naruszeń kluczy obcych, schemat 7.
 
 ## Odbiór manualny
 
-1. Odświeżyć stronę: domyślnie Value mode i ceny historyczne. Na dotychczasowych
-   archiwach sprawdzić jawny brak historycznych cen i listę przedmiotów bez wyceny.
+1. Odświeżyć stronę: domyślnie Value mode i ceny historyczne. Sprawdzić wykres
+   i tabelę oparte na pobranej historii dziennej oraz listę pozostałych braków cen.
 2. Włączyć Current prices: pojawiają się tabela i interaktywny wykres wartości
    w Divine. Przełączyć Summary / Players / Stashes, filtry i ligę.
 3. Sprawdzić zoom obiema miniaturami, tooltip między operacjami, sumę serii

@@ -1,4 +1,4 @@
-"""Isolated, cached adapter for the documented poe.ninja economy surface."""
+"""Isolated, cached adapter for the public poe.ninja economy surface."""
 from html.parser import HTMLParser
 import json
 import re
@@ -68,12 +68,14 @@ class NinjaClient:
         headers={'User-Agent':USER_AGENT,'Accept':'application/json, text/html'}
         if cached and cached['etag']:headers['If-None-Match']=cached['etag']
         body=None;etag=None;error=None;delay=minimum
+        metadata=cached['headers_json'] if cached else None
         try:
             with self.opener(Request(url,headers=headers),timeout=20) as response:
                 if response.status!=200:raise PriceError('price_source_unavailable')
                 raw=response.read(16*1024*1024+1)
                 if len(raw)>16*1024*1024:raise PriceError('price_response_too_large')
                 body=raw.decode('utf-8');etag=response.headers.get('ETag')
+                metadata=json.dumps({key:response.headers.get(key) for key in ('Date','X-League-EndAt')})
                 age=re.search(r'(?:s-maxage|max-age)=(\d+)',response.headers.get('Cache-Control',''))
                 if age:delay=max(delay,int(age[1]))
         except HTTPError as failure:
@@ -89,7 +91,7 @@ class NinjaClient:
                     except (TypeError,ValueError,OverflowError):pass
         except (URLError,OSError,UnicodeError,PriceError):error='price_source_unavailable'
         with connect(self.database) as c:
-            c.execute('INSERT OR REPLACE INTO price_http_cache VALUES(?,?,?,?,?,?)',(url,body or (cached['body'] if cached else None),etag or (cached['etag'] if cached else None),now+delay,utc_now(),error))
+            c.execute('INSERT OR REPLACE INTO price_http_cache VALUES(?,?,?,?,?,?,?)',(url,body or (cached['body'] if cached else None),etag or (cached['etag'] if cached else None),now+delay,utc_now(),error,metadata))
         if error:raise PriceError(error)
         return body
     def catalog(self):return parse_catalog(self.fetch(DOCS,86400))
@@ -105,3 +107,16 @@ class NinjaClient:
         path='/poe2/api/economy/'+('exchange/current/overview' if category['feed']=='exchange' else 'stash/current/item/overview')
         try:return json.loads(self.fetch(ROOT+path+'?'+urlencode({'league':league,'type':category['category']})))
         except (ValueError,TypeError):raise PriceError('price_payload_invalid')
+
+    def history(self,league,category,item):
+        from urllib.parse import urlencode
+        path='/poe2/api/economy/'+('exchange/current/details' if category['feed']=='exchange' else 'stash/current/item/history')
+        identifier=item.get('detailsId') if category['feed']=='exchange' else item['id']
+        if identifier is None:raise PriceError('price_history_invalid')
+        url=ROOT+path+'?'+urlencode({'league':league,'type':category['category'],'id':identifier})
+        try:payload=json.loads(self.fetch(url,86400))
+        except (ValueError,TypeError):raise PriceError('price_history_invalid')
+        with connect(self.database,readonly=True) as c:
+            cached=c.execute('SELECT headers_json,checked_at FROM price_http_cache WHERE url=?',(url,)).fetchone()
+        headers=json.loads(cached['headers_json'] or '{}')
+        return dict(payload=payload,url=url,headers=headers,retrieved_at=cached['checked_at'])

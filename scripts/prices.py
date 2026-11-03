@@ -10,7 +10,7 @@ from backend.prices import import_legacy
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command',choices=['import-legacy','refresh','value','alias'])
+    parser.add_argument('command',choices=['import-legacy','refresh','backfill','value','alias'])
     parser.add_argument('--database',type=Path,default=ROOT/'data/poe2guild.sqlite')
     parser.add_argument('--league')
     parser.add_argument('--source-name')
@@ -23,7 +23,13 @@ if __name__=='__main__':
             c.execute('INSERT OR REPLACE INTO price_aliases VALUES(?,?,?)',(args.league,name_key(args.source_name),name_key(args.target_name)))
         print(json.dumps(Queue(args.database).enqueue(args.league,'valuations','manual')))
     if args.command=='import-legacy':print(json.dumps({'inserted':import_legacy(args.database,args.database.resolve().parent)}))
-    if args.command in {'import-legacy','refresh','value'}:
+    if args.command in {'import-legacy','refresh','backfill','value'}:
         with connect(args.database,readonly=True) as c:leagues=list(c.execute('SELECT id,name FROM leagues'))
         queue=Queue(args.database)
-        for league in leagues:print(json.dumps({'league':league['name'],**queue.enqueue(league['id'],'prices' if args.command=='refresh' else 'valuations','manual')}))
+        for league in leagues:
+            if args.league and league['id']!=args.league:continue
+            if args.command=='backfill':
+                # Explicit maintenance request bypasses only the local job freshness guard.
+                # Provider HTTP cache, ETag and cooldowns are preserved.
+                with connect(args.database) as c:c.execute('UPDATE refresh_scopes SET last_success_at=NULL WHERE scope_key=?',(queue.scope(league['id'],'prices'),))
+            print(json.dumps({'league':league['name'],**queue.enqueue(league['id'],'prices' if args.command in {'refresh','backfill'} else 'valuations','manual')}))

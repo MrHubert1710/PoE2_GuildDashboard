@@ -113,7 +113,7 @@ Odtworzenie danych ze starego katalogu:
 
 Importer kopiuje pliki i weryfikuje SHA-256. Powtórzenie z tymi samymi danymi
 jest bezpieczne; przy różnej zawartości istniejącego archiwum przerywa pracę.
-Baza SQLite (obecnie schemat 6) jest tworzona z tych danych lub z niezależnej kopii starego
+Baza SQLite (obecnie schemat 7) jest tworzona z tych danych lub z niezależnej kopii starego
 katalogu. Komendy fazy 1:
 
 ```sh

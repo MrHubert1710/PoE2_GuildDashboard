@@ -119,6 +119,15 @@ class ValuationTests(TestCase):
         self.assertGreater(latest['pricing']['estimated_operations'],0)
         self.assertEqual(self.series()['pricing']['coverage'],'none')
 
+    def test_old_category_name_cannot_make_dated_prices_ambiguous(self):
+        self.put(99,category='currency')
+        self.put(2,'2026-01-01T00:00:00Z',category='Currency')
+        self.build();self.value()
+        latest=self.series(pricing='latest',item='Token')
+        self.assertEqual(latest['pricing']['coverage'],'complete')
+        self.assertEqual(latest['pricing']['estimated_operations'],0)
+        self.assertEqual(latest['series'][0]['closing_balance'],30)
+
     def test_missing_is_not_zero_and_leagues_never_share_prices(self):
         self.put(0,league='B');self.build();self.value()
         self.assertEqual(self.series(pricing='latest')['pricing']['coverage'],'none')
@@ -192,3 +201,86 @@ class ValuationTests(TestCase):
         self.assertEqual(data['total_series']['closing_balance'],0)
         stash=self.series(view='stashes',item='Reported')
         self.assertTrue(all(p['balance']==0 for p in stash['series'][0]['points']))
+
+
+    def test_daily_history_values_old_operations_without_future_or_cross_item_leakage(self):
+        fixture=DailyHistoryTests()
+        daily=fixture.make(fixture.exchange_history([('2026-01-01T00:00:00Z',2),('2026-01-02T00:00:00Z',3)]))
+        other=fixture.make(dict(payload={'item':{'id':'other'},'pairs':[{'id':'divine','history':[{'timestamp':'2026-01-03T00:00:00Z','rate':100}]}]},headers={}),item=dict(id='other',name='Other'))
+        with connect(self.path) as c:
+            save_snapshot(c,daily);save_snapshot(c,other)
+            index=PriceIndex(c,'A')
+            self.assertEqual(index.resolve('Token','2025-12-31T00:00:00.000000Z','historical'),(None,'historical_price_missing'))
+            self.assertEqual(index.resolve('Token','2026-01-04T00:00:00.000000Z','historical')[0][1]['price_atomic'],str(3*ATOMIC))
+        self.build();self.value()
+        self.assertEqual(self.series(view='stashes',item='Token')['total_series']['closing_balance'],25)
+        self.assertEqual(self.series(view='stashes',item='Token')['pricing']['estimated_operations'],0)
+        self.put(4,'2026-11-01T00:00:00Z');self.value()
+        self.assertEqual(self.series(view='stashes',item='Token',pricing='latest')['total_series']['closing_balance'],60)
+        self.assertEqual(self.series(view='stashes',item='Token')['total_series']['closing_balance'],25)
+
+
+class DailyHistoryTests(TestCase):
+    def exchange_history(self,rates):
+        return dict(payload={'item':{'id':'token'},'pairs':[{'id':'divine','history':[{'timestamp':at,'rate':price} for at,price in rates]}]},
+                    url='https://poe.ninja/poe2/api/economy/exchange/current/details?league=A&type=Currency&id=token',headers={'Date':'Mon, 02 Nov 2026 23:00:00 GMT'},retrieved_at='2026-11-02T23:00:00Z')
+
+    def make(self,response,feed='exchange',item=None,**kwargs):
+        from backend.price_history import history_snapshot
+        return history_snapshot('A',dict(feed=feed,category='Currency' if feed=='exchange' else 'PrecursorTablets'),item or dict(id='token',name='Token'),response,**kwargs)
+
+    def test_exchange_dates_absolute_rates_zero_and_stable_identity(self):
+        response=self.exchange_history([('2026-07-26T00:00:00Z','6.11'),('2026-07-27T00:00:00Z','5.96'),('2026-07-28T00:00:00Z',0)])
+        result=self.make(response)
+        self.assertEqual([q['price_atomic'] for q in result['quotes']],[str(611*ATOMIC//100),str(596*ATOMIC//100),'0'])
+        self.assertEqual(len({q['quote_key'] for q in result['quotes']}),3)
+        response['retrieved_at']='2026-11-03T12:00:00Z'
+        self.assertEqual(result['id'],self.make(response)['id'])
+        response['payload']['pairs'][0]['history'][0]['timestamp']='2026-07-26'
+        with self.assertRaises(PriceError):self.make(response)
+
+    def test_divine_is_exactly_one_without_inverting_other_pairs(self):
+        response=self.exchange_history([('2026-01-01T00:00:00Z',800)])
+        response['payload']['item']['id']='divine';response['payload']['pairs'][0]['id']='exalted'
+        result=self.make(response,item=dict(id='divine',name='Divine Orb'))
+        self.assertEqual(result['quotes'][0]['price_atomic'],str(ATOMIC))
+
+    def test_stash_uses_league_end_header_or_cached_response_date_not_local_clock(self):
+        response=dict(payload=[dict(daysAgo=2,value=3),dict(daysAgo=0,value=4)],headers={'Date':'Mon, 02 Nov 2026 23:00:00 GMT','X-League-EndAt':'2026-07-20T20:00:00Z'})
+        item=dict(id=123,name='Tablet',variant='Rare')
+        result=self.make(response,'stash',item)
+        self.assertEqual([q['effective_at'][:10] for q in result['quotes']],['2026-07-18','2026-07-20'])
+        self.assertIsNotNone(result['quotes'][0]['variant'])
+        del response['headers']['X-League-EndAt']
+        self.assertEqual(self.make(response,'stash',item)['quotes'][0]['effective_at'][:10],'2026-10-31')
+        response['headers']={}
+        with self.assertRaises(PriceError):self.make(response,'stash',item)
+
+    def test_stash_conversion_requires_rate_on_same_historical_day(self):
+        response=dict(payload=[dict(daysAgo=1,value=100),dict(daysAgo=0,value=100)],headers={'Date':'Fri, 02 Jan 2026 23:00:00 GMT'})
+        from decimal import Decimal
+        result=self.make(response,'stash',dict(id=1,name='Tablet'),primary='exalted',references={'exalted':{'2026-01-01T00:00:00.000000Z':Decimal('.02')}})
+        self.assertEqual(len(result['quotes']),1)
+        self.assertEqual(result['quotes'][0]['price_atomic'],str(2*ATOMIC))
+        with self.assertRaises(PriceError):self.make(response,'stash',dict(id=1,name='Tablet'),primary='exalted')
+
+    def test_history_requests_use_slug_and_304_preserves_relative_date_anchor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'prices.sqlite';migrate(path);now=[1000]
+            class Response:
+                status=200;headers={'ETag':'history-v1','Date':'Mon, 02 Nov 2026 23:00:00 GMT'}
+                def __enter__(self):return self
+                def __exit__(self,*args):pass
+                def read(self,*args):return b'[]'
+            calls=[]
+            def opener(request,**kwargs):calls.append(request.full_url);return Response()
+            client=NinjaClient(path,opener=opener,clock=lambda:now[0])
+            item=dict(id='alch',detailsId='orb-of-alchemy')
+            category=dict(feed='exchange',category='Currency')
+            first=client.history('A',category,item)
+            self.assertIn('id=orb-of-alchemy',calls[0])
+            now[0]+=86400
+            def unchanged(*args,**kwargs):raise HTTPError(DOCS,304,'unchanged',{'Date':'Tue, 03 Nov 2026 23:00:00 GMT'},None)
+            client.opener=unchanged
+            second=client.history('A',category,item)
+            self.assertEqual(first['headers'],second['headers'])

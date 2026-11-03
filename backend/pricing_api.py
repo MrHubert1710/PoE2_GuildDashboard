@@ -19,11 +19,11 @@ pricing.register_error_handler(DatabaseError,database_error)
 def status(league_id):
     with connect(current_app.config['DATABASE_FILE'],readonly=True) as c:
         require_schema(c);c.execute('BEGIN');league=league_row(c,league_id)
-        snapshots=[dict(row) for row in c.execute('SELECT id,feed,category,observed_at,effective_at,provenance,currency FROM price_snapshots WHERE league_id=? ORDER BY observed_at DESC,id',(league_id,))]
+        snapshots=[dict(row) for row in c.execute('SELECT s.id,s.feed,s.category,s.observed_at,s.effective_at,s.provenance,s.currency,MIN(q.effective_at) AS history_from,MAX(q.effective_at) AS history_to,COUNT(q.effective_at) AS history_samples FROM price_snapshots s LEFT JOIN price_quotes q ON q.snapshot_id=s.id WHERE s.league_id=? GROUP BY s.id ORDER BY s.observed_at DESC,s.id',(league_id,))]
         categories=[dict(row) for row in c.execute('SELECT feed,category,label,active FROM price_categories ORDER BY feed,category')]
         historical,revision=current_valuation(c,league,'historical');latest,_=current_valuation(c,league,'latest')
         return jsonify(currency=CURRENCY,price_revision=revision,snapshots=snapshots,categories=categories,
-                       valuations={'historical':bool(historical),'latest':bool(latest)},undated=any(s['effective_at'] is None for s in snapshots))
+                       valuations={'historical':bool(historical),'latest':bool(latest)},undated=any(s['provenance']=='legacy_undated' for s in snapshots))
 
 
 @pricing.get('/api/leagues/<league_id>/valuations')

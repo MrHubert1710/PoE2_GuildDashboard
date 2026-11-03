@@ -59,7 +59,9 @@ def rebuild(database_path, archive_root, *, source_key='legacy-primary', setting
                     try:
                         for table in ('price_http_cache','price_catalogs','price_categories','price_snapshots','price_quotes','price_aliases'):
                             rows=old.execute('SELECT * FROM '+table).fetchall()
-                            if rows:fresh.executemany('INSERT INTO '+table+' VALUES ('+','.join('?' for _ in rows[0])+')',[tuple(row) for row in rows])
+                            if rows:
+                                columns=','.join(rows[0].keys())
+                                fresh.executemany('INSERT INTO '+table+'('+columns+') VALUES ('+','.join('?' for _ in rows[0])+')',[tuple(row) for row in rows])
                         fresh.commit()
                     except BaseException:fresh.rollback();raise
         check = verify(temporary)

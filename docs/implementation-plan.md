@@ -256,6 +256,9 @@ Zakres:
 - Normalizacja walut, tożsamości przedmiotów i aliasów niezależna od kategorii.
 - Import istniejącego cache z oznaczeniem niepewnego pochodzenia lub czasu,
   gdy brakuje tych informacji; nie odgadywać ich jako pewnych faktów.
+- Pobierać dostępną dzienną historię cen per przedmiot z endpointów details/history,
+  zachowując znaczniki UTC, kotwicę daysAgo i surową odpowiedź. Krótkiego
+  sparkline ani dzisiejszego kursu nie używać do odtwarzania dawnych cen.
 - Snapshoty cen i wersjonowana wycena; rozróżnić ceny aktualne, historyczne
   i estymowane. Nie utożsamiać braku wyceny z wartością zero.
 - Tabele i wykresy wartości oraz widok przedmiotów bez wyceny.

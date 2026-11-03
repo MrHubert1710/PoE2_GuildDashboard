@@ -5,7 +5,7 @@ from .database import connect,utc_now
 from .prices import PriceIndex,price_revision,ATOMIC,CURRENCY
 from .quantities import current_run
 
-ALGORITHM='valuation-v1'
+ALGORITHM='valuation-v2'
 
 
 def current_valuation(c,league,mode):
@@ -35,7 +35,7 @@ class ValuationAdapter:
                     snapshot,quote=result if result else (None,None)
                     lines.append((identity,row['transaction_id'],row['sequence'],snapshot['id'] if snapshot else None,quote['quote_key'] if quote else None,
                                   quote['price_atomic'] if quote else None,str(row['quantity_delta']*int(quote['price_atomic'])) if quote else None,
-                                  ('estimated_undated' if snapshot['effective_at'] is None else 'priced') if snapshot else reason))
+                                  ('estimated_undated' if snapshot['effective_at'] is None and not quote.get('effective_at') else 'priced') if snapshot else reason))
                 staged.append((identity,mode,lines))
         def publish(c):
             latest=current_run(c,league)
