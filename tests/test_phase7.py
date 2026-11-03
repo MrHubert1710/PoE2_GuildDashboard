@@ -142,7 +142,7 @@ class CatalogTests(TestCase):
         self.assertEqual(anonymous.post('/api/league-catalog/leagues',json={'name':'Illegal'}).status_code,401)
         result=self.client.post('/api/league-catalog/leagues',json={'provider':'poe.ninja','external_id':'New League'})
         self.assertEqual(result.status_code,201,result.json)
-        leagues=self.client.get('/api/leagues').json['leagues'];self.assertEqual(len(leagues),1);self.assertEqual(leagues[0]['lifecycle'],'unknown')
+        leagues=self.client.get('/api/leagues').json['leagues'];self.assertEqual(len(leagues),1);self.assertEqual(leagues[0]['lifecycle'],'active')
         self.assertTrue(leagues[0]['monitored'])
         self.assertEqual(self.client.post('/api/league-catalog/leagues',json={'provider':'poe.ninja','external_id':'New League'}).status_code,200)
     def test_connection_and_catalog_mutations_require_admin_and_csrf(self):
@@ -154,12 +154,12 @@ class CatalogTests(TestCase):
         self.assertEqual(self.client.put('/api/ggg-connection',json={}).status_code,403)
         self.client.csrf=csrf
 
-    def test_explicit_ggg_status_and_admin_override_survive_absence_from_price_list(self):
+    def test_newer_catalog_status_and_admin_override_take_precedence(self):
         league=self.client.post('/api/league-catalog/leagues',json={'name':'Old but active'}).json['league_id']
         self.publish('ggg',[dict(id='Old but active',name='Old but active',_list='main',startAt='2026-01-01T00:00:00Z')])
         self.assertEqual(self.client.get('/api/leagues').json['leagues'][0]['lifecycle'],'active')
         self.publish('poe.ninja',[dict(id='Other',name='Other')])
-        self.assertEqual(self.client.get('/api/leagues').json['leagues'][0]['lifecycle'],'active')
+        self.assertEqual(self.client.get('/api/leagues').json['leagues'][0]['lifecycle'],'ended')
         policy=dict(monitored=False,archived=True,lifecycle_override='active',version=0)
         self.assertEqual(self.client.put('/api/league-catalog/leagues/'+league,json=policy).status_code,200)
         self.publish('ggg',[dict(id='Old but active',endAt='2026-01-01T00:00:00Z')])
@@ -173,6 +173,44 @@ class CatalogTests(TestCase):
         for payload in [[],{},[dict(id='Bad',name='')],[dict(id='Same'),dict(id='Same')]]:
             with self.assertRaises(ValueError):parse_catalog('poe.ninja',payload)
         with connect(self.path) as c:self.assertEqual(c.execute('SELECT name FROM league_catalog_entries').fetchone()[0],'Keep')
+
+    def test_ninja_assigns_status_to_existing_and_new_leagues_and_keeps_admin_override(self):
+        existing=self.client.post('/api/league-catalog/leagues',json={'name':'Hardcore'}).json['league_id']
+        self.publish('poe.ninja',[dict(id='Hardcore',name='Hardcore'),dict(id='New',name='New')])
+        def state(league_id):return next(r for r in self.client.get('/api/leagues').json['leagues'] if r['id']==league_id)
+        self.assertEqual(state(existing)['lifecycle'],'active')
+        self.assertEqual(state(existing)['lifecycle_source'],'poe.ninja')
+        added=self.client.post('/api/league-catalog/leagues',json={'provider':'poe.ninja','external_id':'New'}).json['league_id']
+        self.assertEqual(state(added)['lifecycle'],'active')
+        self.publish('poe.ninja',[dict(id='New',name='New')])
+        self.assertEqual(state(existing)['lifecycle'],'ended')
+        policy=dict(monitored=True,archived=False,lifecycle_override='active',version=0)
+        self.assertEqual(self.client.put('/api/league-catalog/leagues/'+existing,json=policy).status_code,200)
+        self.publish('poe.ninja',[dict(id='New',name='New')])
+        self.assertEqual(state(existing)['lifecycle'],'active')
+        self.assertEqual(state(existing)['lifecycle_source'],'manual')
+        self.assertEqual(state(existing)['observed_lifecycle'],'ended')
+        policy.update(lifecycle_override=None,version=1)
+        self.assertEqual(self.client.put('/api/league-catalog/leagues/'+existing,json=policy).status_code,200)
+        self.assertEqual(state(existing)['lifecycle'],'ended')
+        self.publish('poe.ninja',[dict(id='Hardcore',name='Hardcore')])
+        self.assertEqual(state(existing)['lifecycle'],'active')
+        self.assertEqual(state(added)['lifecycle'],'ended')
+
+    def test_catalog_failure_does_not_archive_active_league(self):
+        league=self.client.post('/api/league-catalog/leagues',json={'name':'Hardcore'}).json['league_id']
+        self.publish('poe.ninja',[dict(id='Hardcore',name='Hardcore')])
+        queue=Queue(self.path,catalog_available=True,cooldown=0)
+        queue.enqueue(None,'league_catalog','manual');job=queue.claim('worker')
+        for response in ['[]','not JSON']:
+            with patch('backend.league_catalog.NinjaClient') as ninja,patch('backend.league_catalog.ggg_configuration',return_value=None):
+                ninja.return_value.fetch.return_value=response
+                publication=LeagueCatalogAdapter().stage(queue,job,threading.Event())
+            with connect(self.path) as c:
+                c.execute('BEGIN IMMEDIATE');publication(c);c.commit()
+            state=next(r for r in self.client.get('/api/leagues').json['leagues'] if r['id']==league)
+            self.assertEqual(state['lifecycle'],'active')
+            self.assertEqual(state['lifecycle_source'],'poe.ninja')
     def test_catalog_global_job_deduplication_and_fenced_publication(self):
         queue=Queue(self.path,catalog_available=True,cooldown=0)
         first=queue.enqueue(None,'league_catalog','manual');second=queue.enqueue(None,'league_catalog','automatic')

@@ -47,7 +47,7 @@ test('catalog discovery needs admin approval and monitoring/status changes are e
  const leagues=(await(await request.get('/poe2guild/api/leagues')).json()).leagues
  expect(leagues).toHaveLength(initial.length+1)
  const added=leagues.find((league:any)=>league.name==='Catalog Test League')
- expect(added.lifecycle).toBe('unknown');expect(added.transactions).toBe(0)
+ expect(added.lifecycle).toBe('active');expect(added.transactions).toBe(0)
  await page.getByRole('combobox',{name:'League',exact:true}).click()
  await page.getByRole('option').filter({hasText:'Catalog Test League'}).click()
  await expect(page.getByRole('combobox',{name:'League',exact:true})).toContainText('Catalog Test League')
@@ -72,4 +72,23 @@ test('league deletion requires warning confirmation, updates selection and can b
  const leagues=(await(await request.get('/poe2guild/api/leagues')).json()).leagues
  expect(leagues.some((league:any)=>league.id===added.league_id)).toBe(false)
  await page.reload();await expect(panel.getByRole('button',{name:'Delete league: Delete Test League',exact:true})).toHaveCount(0)
+})
+
+test('automatic catalog status defaults to archived for an absent league and admin can override then restore it',async({page,request})=>{
+ const name='Absent status test',created=await(await request.post('/poe2guild/api/league-catalog/leagues',{data:{name}})).json()
+ await page.goto('/poe2guild/?lang=en&section=configuration&league='+created.league_id)
+ const panel=page.getByTestId('league-catalog'),status=panel.getByRole('combobox',{name:'In-game status: '+name,exact:true}),picker=page.getByRole('combobox',{name:'League',exact:true})
+ await expect(status).toHaveValue('')
+ await expect(picker).toContainText('Archived')
+ const row=panel.getByRole('row').filter({hasText:name}).first()
+ await expect(row).toContainText('poe.ninja catalog')
+ await status.selectOption('active')
+ await panel.getByRole('button',{name:'Save league: '+name,exact:true}).click()
+ await expect(picker).toContainText('Active')
+ await status.selectOption('')
+ await panel.getByRole('button',{name:'Save league: '+name,exact:true}).click()
+ await expect(picker).toContainText('Archived')
+ const state=(await(await request.get('/poe2guild/api/league-catalog')).json()).leagues.find((league:any)=>league.id===created.league_id)
+ expect(state.observed_source).toBe('poe.ninja');expect(state.lifecycle_override).toBe(null)
+ expect((await request.delete('/poe2guild/api/league-catalog/leagues/'+created.league_id,{data:{name,version:state.version}})).status()).toBe(200)
 })

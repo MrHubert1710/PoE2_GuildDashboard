@@ -21,7 +21,7 @@
       "id": "ggg-leagues",
       "name": "Katalog lig GGG",
       "status": "conditional",
-      "detail": "Zaimplementowany opcjonalny adapter service:leagues (realm=poe2). Brak skonfigurowanego tokenu w tym wdrożeniu; katalog poe.ninja nie potwierdza statusu w grze.",
+      "detail": "Opcjonalny adapter service:leagues (realm=poe2), wymagający tokenu. Domyślny status może pochodzić z katalogu aktywnych ekonomii poe.ninja; źródła są jawnie rozdzielone.",
       "source": "https://www.pathofexile.com/developer/docs/reference#leagues",
       "checked_at": "2026-11-03"
     },
@@ -29,7 +29,7 @@
       "id": "ninja-prices",
       "name": "Ligi ekonomiczne i ceny poe.ninja",
       "status": "documented",
-      "detail": "Zaimplementowany adapter publicznych feedów exchange i stash item z cache, ETag oraz snapshotami cen per liga.",
+      "detail": "Publiczny katalog aktywnych lig ekonomicznych oraz feedy cen. Status automatyczny: obecna liga aktywna, nieobecna archiwalna; błąd zachowuje ostatni status, nadpisanie Admina ma pierwszeństwo.",
       "source": "https://poe.ninja/docs/api",
       "checked_at": "2026-11-03"
     },

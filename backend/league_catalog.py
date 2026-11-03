@@ -58,8 +58,9 @@ def parse_catalog(provider,payload,now=None):
             variant=dict(hardcore='Hardcore' in ids,ssf='NoParties' in ids,rules=sorted(ids),category=(raw.get('category') or {}).get('id'))
             state=lifecycle(raw,now)
         elif provider=='poe.ninja':
-            # Economy presence is not proof of in-game lifecycle.
-            variant=dict(hardcore=name.startswith('HC ') or name=='Hardcore',ssf=None);state='unknown'
+            # Documented as active economy leagues. Absence is handled only
+            # after publishing a complete, validated catalog snapshot.
+            variant=dict(hardcore=name.startswith('HC ') or name=='Hardcore',ssf=None);state='active'
         else:raise PriceError('catalog_invalid')
         rows.append(dict(external_id=identity,name=name,game='poe2',realm='pc',variant_json=canonical(variant),lifecycle=state,payload_json=canonical(raw)))
     return rows
@@ -131,10 +132,30 @@ def matched_league(c,provider,row):
     return c.execute('SELECT * FROM leagues WHERE game=? AND realm=? AND name=?',(row['game'],row['realm'],row['name'])).fetchone()
 
 
+def automatic_status(c,league):
+    """Derive status and provenance from the last successful source snapshot.
+
+    Keep provider evidence in its existing catalog tables; the legacy observed
+    fields retain GGG/owner observations without mislabelling Ninja as GGG.
+    """
+    fallback=dict(observed_lifecycle=league['observed_lifecycle'],observed_source=league['observed_source'],observed_at=league['observed_at'])
+    if (league['game'],league['realm'])!=('poe2','pc'):return fallback
+    observation=c.execute("SELECT observed_at FROM catalog_observations WHERE provider='poe.ninja' AND kind='leagues' ORDER BY id DESC LIMIT 1").fetchone()
+    if not observation:return fallback
+    # A newer explicit GGG observation can supersede the economy snapshot.
+    if league['observed_source']=='ggg' and league['observed_lifecycle']!='unknown' and (league['observed_at'] or '')>=observation['observed_at']:
+        return fallback
+    for candidate in c.execute("SELECT * FROM league_catalog_entries WHERE provider='poe.ninja' AND game=? AND realm=? AND present=1",(league['game'],league['realm'])):
+        matched=matched_league(c,'poe.ninja',candidate)
+        if matched and matched['id']==league['id']:
+            return dict(observed_lifecycle='active',observed_source='poe.ninja',observed_at=observation['observed_at'])
+    return dict(observed_lifecycle='ended',observed_source='poe.ninja',observed_at=observation['observed_at'])
+
+
 def apply_observed_status(c,league_id):
-    league=c.execute('SELECT observed_lifecycle FROM leagues WHERE id=?',(league_id,)).fetchone()
+    league=c.execute('SELECT * FROM leagues WHERE id=?',(league_id,)).fetchone()
     override=c.execute('SELECT lifecycle_override FROM league_policies WHERE league_id=?',(league_id,)).fetchone()
-    state=override[0] if override and override[0] is not None else league['observed_lifecycle']
+    state=override[0] if override and override[0] is not None else automatic_status(c,league)['observed_lifecycle']
     c.execute('UPDATE leagues SET lifecycle=? WHERE id=?',(state,league_id))
 
 
@@ -150,7 +171,10 @@ def publish_catalog(c,provider,rows,payload,observed_at=None):
             c.execute('INSERT OR IGNORE INTO league_external_ids VALUES(?,?,?)',(league['id'],provider,row['external_id']))
             if provider=='ggg' and row['lifecycle']!='unknown':
                 c.execute("UPDATE leagues SET observed_lifecycle=?,variant_json=?,observed_source='ggg',observed_at=? WHERE id=?",(row['lifecycle'],row['variant_json'],stamp,league['id']))
-                apply_observed_status(c,league['id'])
+    if provider=='poe.ninja':
+        c.execute("UPDATE league_catalog_entries SET lifecycle='ended' WHERE provider='poe.ninja' AND present=0")
+    # Re-evaluate missing leagues as well as the ones present in this snapshot.
+    for league in c.execute('SELECT id FROM leagues').fetchall():apply_observed_status(c,league['id'])
     return observation
 
 

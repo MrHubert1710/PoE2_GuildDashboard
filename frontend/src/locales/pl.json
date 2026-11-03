@@ -516,7 +516,7 @@
     "catalog.noObservation": "Brak poprawnego odczytu",
     "catalog.sourceError": "Źródło niedostępne; poprzednie obserwacje zachowane",
     "catalog.local": "Ligi dodane do aplikacji",
-    "catalog.lifecycleNote": "Aktywność w grze i lokalne archiwum są niezależne. Historyczne dane mogą dotyczyć aktywnej ligi. Ręczny status ma pierwszeństwo przed obserwacjami do ponownego wybrania Automatycznie.",
+    "catalog.lifecycleNote": "Automatycznie: obecność w ostatnim poprawnie pobranym katalogu poe.ninja oznacza ligę aktywną; brak — archiwalną. Błąd pobierania zachowuje poprzedni status. Ręczny status Admina ma pierwszeństwo.",
     "catalog.monitored": "Monitorowanie",
     "catalog.archive": "Lokalne archiwum",
     "catalog.lifecycle": "Status w grze",
@@ -592,6 +592,7 @@
     "catalog.cancelDelete": "Anuluj",
     "catalog.confirmDelete": "Usuń trwale",
     "catalog.deleted": "Liga i jej dane zostały usunięte.",
-    "catalog.error.league_busy": "Trwa pobieranie lub przeliczanie danych. Poczekaj na zakończenie i spróbuj ponownie."
+    "catalog.error.league_busy": "Trwa pobieranie lub przeliczanie danych. Poczekaj na zakończenie i spróbuj ponownie.",
+    "catalog.evidence.poe.ninja": "Katalog poe.ninja"
   }
 }

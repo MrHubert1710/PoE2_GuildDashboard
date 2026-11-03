@@ -44,6 +44,8 @@ def preserve(old,fresh):
         if row['league_id'] in known:insert('league_external_ids',row)
     for table in ('catalog_observations','league_catalog_entries','league_catalog_sources','league_catalog_http_cache','league_policies','guild_quantity_defaults'):
         for row in old.execute('SELECT * FROM '+table):insert(table,row,replace=True)
+    from .league_catalog import apply_observed_status
+    for league_id in known:apply_observed_status(fresh,league_id)
     if not has_history:return
     imports={row[0] for row in old.execute('SELECT DISTINCT import_id FROM guild_history_pages')}
     for run in imports:insert('import_runs',old.execute('SELECT * FROM import_runs WHERE id=?',(run,)).fetchone())

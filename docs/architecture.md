@@ -139,9 +139,11 @@ oficjalnej integracji, nie uprawnień sesyjnego endpointu WWW.
 
 Łączyć lokalny rejestr archiwów z metadanymi GGG, gdy dostępne, oraz listą
 aktywnych lig ekonomicznych poe.ninja. Są to różne katalogi i różne możliwości.
-Brak ligi na liście cen nie dowodzi zakończenia ligi ani braku historii gildii.
-Błąd sieci nie zmienia ligi w archiwalną; brak w odpowiedzi nie usuwa jej z bazy.
-Zachować stan nieznany, źródła ustaleń i możliwość ręcznej korekty.
+Na polecenie użytkownika obecność w poprawnym katalogu poe.ninja oznacza
+automatyczny status Aktywna, nieobecność — Archiwalna. Jest to polityka
+aplikacji, nie dowód migracji ani braku historii gildii. Błąd sieci i błędny
+katalog zachowują poprzednią obserwację. Status nie usuwa ligi ani danych;
+zachować źródło, datę oraz nadrzędną możliwość ręcznej korekty Admina.
 
 poe.ninja publikuje `GET /poe2/api/economy/leagues`. Dokumentacja wymienia
 kategorie i odrębne feedy exchange/stash item; nie opisuje endpointu katalogu

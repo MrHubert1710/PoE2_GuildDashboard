@@ -69,6 +69,8 @@ def leagues():
             league = dict(row)
             league['archived'] = bool(league['archived'])
             league['monitored']=bool(league['monitored'])
+            from .league_catalog import automatic_status
+            league.update(automatic_status(connection,league))
             league['variant']=__import__('json').loads(league.pop('variant_json'))
             policy=connection.execute('SELECT lifecycle_override FROM league_policies WHERE league_id=?',(league['id'],)).fetchone()
             league['lifecycle_source']='manual' if policy and policy[0] is not None else league['observed_source']

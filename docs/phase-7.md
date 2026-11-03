@@ -51,9 +51,38 @@ go zaktualizować. Ręczne ustawienie administratora ma pierwszeństwo do czasu
 ponownego wybrania Automatycznie. Pole ze statusem ze źródła pokazuje też
 pochodzenie i datę, aby nie przypisywać tej wiedzy niewykonanemu żądaniu GGG.
 
-Katalog poe.ninja wskazuje dostępność ekonomii. Nie stanowi dowodu aktywności
-ani zakończenia ligi w grze. Brak na liście cen, błąd sieci i pusty/błędny
-katalog nie archiwizują żadnej ligi i nie kasują wcześniejszej wiedzy.
+Na polecenie użytkownika katalog poe.ninja jest źródłem domyślnego statusu:
+obecność na ostatniej poprawnej liście oznacza Aktywna, nieobecność oznacza
+Archiwalna. Dokumentacja nazywa ten endpoint listą aktywnych lig ekonomicznych.
+Archiwalna w tym trybie jest przyjętą regułą aplikacji, nie potwierdzeniem
+migracji przez GGG. Błąd sieci, pusty lub nieprawidłowy katalog zachowuje ostatni
+status; brak danych cenowych lub logów również go nie zmienia.
+
+Nowe ligi domyślnie korzystają z Automatycznie (brak lifecycle_override).
+Ręczne nadpisanie Admina ma pierwszeństwo; powrót do Automatycznie natychmiast
+stosuje ostatni poprawny katalog. Po odświeżeniu ponownie wyliczane są również
+ligi nieobecne na liście. Pojawienie się ligi ponownie przywraca Aktywna.
+Lista publiczna i panel pokazują źródło poe.ninja oraz datę obserwacji.
+Świeższa jawna obserwacja oficjalnego katalogu GGG może zastąpić starszą
+obserwację poe.ninja; przy tym samym czasie pierwszeństwo ma GGG.
+
+Status jest wyliczany z już przechowywanych obserwacji katalogów, bez nowej
+migracji i bez przypisywania obserwacji poe.ninja do źródła GGG. Offline rebuild
+zachowuje katalog i polityki oraz ponownie wylicza statusy. Historyczne pola
+observed_* w tabeli leagues pozostają zapisem GGG/właściciela; odpowiedzi API
+uzupełniają je aktualnie wybraną obserwacją automatyczną. Wewnętrzny lifecycle
+ended jest prezentowany jako Archiwalna. Lokalna flaga archived (archiwum
+danych), monitorowanie i usuwanie danych pozostają niezależnymi ustawieniami.
+Odświeżanie nadal korzysta ze wspólnego workera i dotychczasowego cache 1 h;
+nie dodano ruchu per klient ani automatycznego dodawania lig.
+
+Weryfikacja tej zmiany: 218 testów backendu, 17 ponownie uruchomionych testów
+katalogu, 4 scenariusze przeglądarkowe panelu (w tym Archiwalna dla ligi
+nieobecnej i powrót z nadpisania do Automatycznie), 16 testów tłumaczeń oraz
+build produkcyjny — zaliczone. Po wdrożeniu ponownie zastosowano istniejący
+poprawny katalog do lig w bazie, bez dodatkowego pobierania ani zmiany daty
+obserwacji. Dane historii, cen, wycen, kursory i ręczne polityki zachowano.
+SQLite quick_check: ok, zero naruszeń foreign keys.
 
 Opcjonalny adapter oficjalnego katalogu używa GET /league z realm=poe2,
 paginacją oraz service:leagues. Odczytuje main/event i sprawdza znane ligi

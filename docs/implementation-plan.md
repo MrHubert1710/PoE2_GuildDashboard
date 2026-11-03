@@ -296,8 +296,10 @@ Połączone na polecenie użytkownika. Implementacja i odbiór:
 - Automatyczne wykrywanie zasila katalog administratora. Wyłącznie Admin
   dodaje ligi do aplikacji oraz ustawia ich monitorowanie; sama obecność
   w katalogu nie uruchamia zbierania ani nie dodaje ligi do publicznej listy.
-- Zachować źródło, datę obserwacji, ID, game/realm i warianty. Błąd, brak ceny
-  albo nieobecność w katalogu nie kończy i nie archiwizuje ligi.
+- Zachować źródło, datę obserwacji, ID, game/realm i warianty. Domyślnie status
+  jest automatyczny: obecność w poprawnym katalogu poe.ninja → Aktywna,
+  nieobecność → Archiwalna. Błąd, pusty/niepoprawny katalog, brak ceny albo
+  brak logów nie zmieniają statusu. Nadpisanie Admina ma pierwszeństwo.
 - Rozdzielić status w grze, lokalne archiwum oraz monitorowanie. Właściciel
   potwierdził, że Runes of Aldur i Forbidden Rites nadal są aktywne; to dane
   historyczne, a nie dowód wygaśnięcia lig. Potwierdzenie właściciela ma jawne

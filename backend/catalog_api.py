@@ -4,7 +4,7 @@ from flask import Blueprint,current_app,jsonify,request
 from .database import connect,require_schema,utc_now,DatabaseError
 from .browsing import ReadError,read_error,database_error
 from .archive_import import canonical
-from .league_catalog import text,matched_league,apply_observed_status,ggg_configuration
+from .league_catalog import text,matched_league,apply_observed_status,automatic_status,ggg_configuration
 from .ggg_connection import GGGConnectionStore,ConnectionError
 from .refresh_api import queue
 from .jobs import JobRejected
@@ -35,7 +35,7 @@ def status():
             rows.append(row)
         local=[]
         for league in c.execute('SELECT * FROM leagues ORDER BY name,id'):
-            local.append(dict(id=league['id'],name=league['name'],lifecycle=league['lifecycle'],observed_lifecycle=league['observed_lifecycle'],observed_source=league['observed_source'],observed_at=league['observed_at'],**policy(c,league)))
+            local.append(dict(id=league['id'],name=league['name'],lifecycle=league['lifecycle'],**automatic_status(c,league),**policy(c,league)))
         sources=[dict(r) for r in c.execute('SELECT * FROM league_catalog_sources ORDER BY provider')]
         job=c.execute('SELECT id,state,error_code,finished_at,result_json FROM jobs WHERE scope_key=? ORDER BY rowid DESC LIMIT 1',(q.scope(None,'league_catalog'),)).fetchone()
         return jsonify(entries=rows,leagues=local,sources=sources,available=q.catalog_available,ggg_configured=bool(ggg_configuration()),job=dict(job) if job else None)

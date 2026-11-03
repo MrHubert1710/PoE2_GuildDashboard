@@ -12,8 +12,8 @@ const selected = computed(() => props.leagues.find(league => league.id === props
 
 function status(league: League) {
   if (league.lifecycle === 'active') return { label: 'active', kind: 'active', title: 'activeTitle' }
+  if (league.lifecycle === 'ended') return { label: 'archived', kind: 'archived', title: 'endedTitle' }
   if (league.archived) return { label: 'archived', kind: 'archived', title: 'archivedTitle' }
-  if (league.lifecycle === 'ended') return { label: 'ended', kind: 'ended', title: 'endedTitle' }
   return { label: 'unknown', kind: 'unknown', title: 'unknownTitle' }
 }
 function show() {
