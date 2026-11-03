@@ -41,6 +41,10 @@ async function settingsSaved() {
   refreshToken.value++
 }
 async function refreshView() { await loadLeagues(true); refreshToken.value++ }
+async function catalogChanged(deletedId?:string) {
+  await refreshView()
+  if(deletedId && query.value.league===deletedId)selectLeague(leagues.value[0]?.id??'')
+}
 const dataSection = computed(() => !['settings', 'configuration'].includes(section.value))
 </script>
 
@@ -57,7 +61,7 @@ const dataSection = computed(() => !['settings', 'configuration'].includes(secti
       <p>{{ t('unknownLeague') }}</p><button type="button" @click="selectLeague(leagues[0]!.id)">{{ t('firstLeague') }}</button>
     </div>
     <template v-if="isAdmin && !selected && section==='configuration'">
-      <GGGConnection /><LeagueCatalog @changed="refreshView" />
+      <GGGConnection /><LeagueCatalog @changed="catalogChanged" />
     </template>
     <button v-if="isAdmin&&!leagues.length&&section!=='configuration'" @click="navigateSection('configuration')">{{ t('workspace.section.configuration') }}</button>
     <template v-if="selected && !leagueError">
@@ -80,7 +84,7 @@ const dataSection = computed(() => !['settings', 'configuration'].includes(secti
           <HistoryTable v-show="section === 'history'" :query="query" :result="result" :loading-rows="loadingRows" :row-error="rowError" :timezone="displayTimezone" @set-page="setPage" @set-page-size="setPageSize" @sort-by="sortBy" />
           <ClientSettings v-show="section === 'settings'" />
           <GGGConnection v-if="isAdmin && section === 'configuration'" />
-          <LeagueCatalog v-if="isAdmin && section === 'configuration'" @changed="refreshView" />
+          <LeagueCatalog v-if="isAdmin && section === 'configuration'" @changed="catalogChanged" />
           <PriceSources v-if="isAdmin && section === 'configuration'" :key="'prices-'+selected.id" :league-id="selected.id" />
           <QuantitySettings v-if="isAdmin" v-show="section === 'configuration'" :key="'settings-' + selected.id" :league-id="selected.id" :settings-hash="selected.quantity_settings_hash" :refresh-token="refreshToken" :display-hash="selected.display_settings_hash" @saved="settingsSaved" />
           </div>

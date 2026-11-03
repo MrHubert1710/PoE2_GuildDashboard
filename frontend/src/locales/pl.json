@@ -568,7 +568,7 @@
     "catalog.error.invalid_catalog_request": "Nieprawidłowe ustawienia ligi.",
     "catalog.error.catalog_entry_not_found": "Kandydat nie istnieje w lokalnym katalogu. Odśwież listę.",
     "catalog.error.catalog_policy_changed": "Konfiguracja ligi zmieniła się w innym oknie. Odśwież przed zapisem.",
-    "catalog.error.league_not_found": "Nie znaleziono ligi.",
+    "catalog.error.league_not_found": "Ta liga została już usunięta.",
     "catalog.error.unavailable": "Katalog lig jest niedostępny.",
     "catalog.error.admin_required": "Wymagane logowanie administratora.",
     "catalog.error.csrf_rejected": "Walidacja sesji nie powiodła się. Odśwież i spróbuj ponownie.",
@@ -582,6 +582,16 @@
     "pricing.cacheFresh": "Ceny w cache są nadal świeże; wspólne odświeżenie będzie dostępne po interwale cache dostawcy.",
     "pricing.updated": "Synchronizacja cen zakończona.",
     "pricing.sourceUnavailable": "Pobieranie cen zewnętrznych jest wyłączone w tym środowisku.",
-    "pricing.balanceNote": "Wartości historyczne są saldem operacji wycenionych w chwili ich wykonania, a nie bieżącą wartością stanu skrytki."
+    "pricing.balanceNote": "Wartości historyczne są saldem operacji wycenionych w chwili ich wykonania, a nie bieżącą wartością stanu skrytki.",
+    "catalog.delete": "Usuń",
+    "catalog.deleteFor": "Usuń ligę: {name}",
+    "catalog.deleteTitle": "Trwale usunąć ligę?",
+    "catalog.deleteWarning": "Spowoduje to trwałe usunięcie ligi „{name}” oraz wszystkich jej transakcji, cen, wycen, ustawień skrytek i pobranej historii z bazy aplikacji. Tej operacji nie można cofnąć.",
+    "catalog.deleteRecovery": "Źródłowe pliki archiwów i kopie zapasowe pozostaną nienaruszone. Autofetch i przebudowa bazy nie przywrócą ligi. Administrator może jawnie dodać ją ponownie i pobrać dostępną historię.",
+    "catalog.deleting": "Usuwanie danych ligi… Proszę czekać.",
+    "catalog.cancelDelete": "Anuluj",
+    "catalog.confirmDelete": "Usuń trwale",
+    "catalog.deleted": "Liga i jej dane zostały usunięte.",
+    "catalog.error.league_busy": "Trwa pobieranie lub przeliczanie danych. Poczekaj na zakończenie i spróbuj ponownie."
   }
 }

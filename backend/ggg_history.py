@@ -122,7 +122,9 @@ class GuildHistoryAdapter:
         if not configuration['enabled'] or not configuration['session_id']:raise AdapterFailure('source_unavailable',retryable=False)
         job['connection_revision']=configuration['revision']
         source=configuration['source_id'];upper=int(time.time())
+        from .league_deletion import deleted_names,redact_history
         with connect(queue.path,readonly=True) as c:
+            excluded=deleted_names(c)
             row=c.execute('SELECT cursor FROM source_cursors WHERE source_id=? AND resource=?',(source,RESOURCE)).fetchone()
             expected=row[0] if row else None
         previous=json.loads(expected)['upper'] if expected else 0
@@ -142,8 +144,9 @@ class GuildHistoryAdapter:
             except (ValueError,TypeError,KeyError,OverflowError):
                 store.mark(configuration['revision'],'error','history_invalid_response')
                 raise AdapterFailure('history_invalid_response',retryable=False) from None
-            page_id=str(uuid.uuid4());pages.append((page_id,page_number,str(start),str(end),from_id,utc_now(),body,hashlib.sha256(body.encode()).hexdigest()))
-            fetched.extend((raw,csv,norm,page_id) for raw,csv,norm in normalized)
+            stored_body=redact_history(body,excluded) if excluded else body
+            page_id=str(uuid.uuid4());pages.append((page_id,page_number,str(start),str(end),from_id,utc_now(),stored_body,hashlib.sha256(stored_body.encode()).hexdigest()))
+            fetched.extend((raw,csv,norm,page_id) for raw,csv,norm in normalized if norm['League'] not in excluded)
             store.mark(configuration['revision'],'fetching',pages=page_number)
             if not truncated:break
             last=normalized[-1][2];next_start=str(int(datetime.fromisoformat(last['Date'].replace('Z','+00:00')).timestamp()));next_id=last['Id']
@@ -153,6 +156,7 @@ class GuildHistoryAdapter:
         else:raise AdapterFailure('history_page_limit',retryable=False)
         def publish(c):
             if store.get()['revision']!=configuration['revision']:raise AdapterFailure('data_changed',retryable=False)
+            if deleted_names(c)!=excluded:raise AdapterFailure('data_changed')
             cursor=c.execute('SELECT cursor FROM source_cursors WHERE source_id=? AND resource=?',(source,RESOURCE)).fetchone()
             if (cursor[0] if cursor else None)!=expected:raise AdapterFailure('data_changed')
             run=str(uuid.uuid4());stamp=utc_now();changed=set();duplicates=0

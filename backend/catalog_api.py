@@ -8,6 +8,7 @@ from .league_catalog import text,matched_league,apply_observed_status,ggg_config
 from .ggg_connection import GGGConnectionStore,ConnectionError
 from .refresh_api import queue
 from .jobs import JobRejected
+from .league_deletion import purge_league,remember_deletion,allow_readdition
 
 catalog=Blueprint('catalog',__name__)
 catalog.register_error_handler(ReadError,read_error)
@@ -70,7 +71,12 @@ def add_league():
         for candidate in c.execute("SELECT * FROM league_catalog_entries WHERE game='poe2' AND realm='pc' AND name=?",(name,)).fetchall():
             c.execute('INSERT OR IGNORE INTO league_external_ids VALUES(?,?,?)',(league_id,candidate['provider'],candidate['external_id']))
             if candidate['provider']=='ggg' and candidate['lifecycle']!='unknown':c.execute("UPDATE leagues SET observed_lifecycle=?,observed_source='ggg',observed_at=? WHERE id=?",(candidate['lifecycle'],candidate['last_seen'],league_id))
-        apply_observed_status(c,league_id);c.commit()
+        apply_observed_status(c,league_id)
+        if allow_readdition(c,league_id):
+            # Explicit re-addition needs a full history pass, not only the overlap.
+            from .ggg_history import RESOURCE
+            c.execute('DELETE FROM source_cursors WHERE resource=?',(RESOURCE,))
+        c.commit()
     # Pending guild entries may already contain this league's history.
     result=queue().enqueue(league_id,'history','manual')
     return jsonify(league_id=league_id,added=not bool(existing),history=result),200 if existing else 201
@@ -88,6 +94,24 @@ def update_policy(league_id):
         c.execute('INSERT OR REPLACE INTO league_policies VALUES(?,?,?,?)',(league_id,payload['lifecycle_override'],payload['version']+1,utc_now()))
         apply_observed_status(c,league_id);c.commit()
     return jsonify(saved=True)
+
+
+@catalog.delete('/api/league-catalog/leagues/<league_id>')
+def delete_league(league_id):
+    payload=request.get_json(silent=True)
+    if not isinstance(payload,dict) or set(payload)!={'name','version'} or type(payload['version']) is not int:
+        raise ReadError('invalid_catalog_request')
+    with connect(current_app.config['DATABASE_FILE']) as c:
+        require_schema(c);c.execute('BEGIN IMMEDIATE')
+        league=c.execute('SELECT * FROM leagues WHERE id=?',(league_id,)).fetchone()
+        if not league:raise ReadError('league_not_found',404)
+        if payload['name']!=league['name'] or payload['version']!=policy(c,league)['version']:
+            raise ReadError('catalog_policy_changed',409)
+        # A staged history publication could otherwise restore deleted source facts.
+        if c.execute("SELECT 1 FROM jobs WHERE state='running' AND (league_id=? OR kind='history')",(league_id,)).fetchone():
+            raise ReadError('league_busy',409)
+        remember_deletion(c,league);purge_league(c,league);c.commit()
+    return jsonify(deleted=True,league_id=league_id)
 
 
 @catalog.get('/api/ggg-connection')

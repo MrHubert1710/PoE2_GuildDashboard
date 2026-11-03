@@ -558,7 +558,7 @@
     "catalog.error.invalid_catalog_request": "Invalid league settings.",
     "catalog.error.catalog_entry_not_found": "Candidate no longer exists in the local catalog. Refresh the list.",
     "catalog.error.catalog_policy_changed": "League configuration changed elsewhere. Reload before saving.",
-    "catalog.error.league_not_found": "League not found.",
+    "catalog.error.league_not_found": "This league has already been deleted.",
     "catalog.error.unavailable": "League catalog unavailable.",
     "catalog.error.admin_required": "Administrator login required.",
     "catalog.error.csrf_rejected": "Session validation failed. Reload and try again.",
@@ -572,6 +572,16 @@
     "pricing.cacheFresh": "Cached prices are still fresh; a shared refresh is available after the provider cache interval.",
     "pricing.updated": "Price synchronization completed.",
     "pricing.sourceUnavailable": "External price fetching is disabled in this environment.",
-    "pricing.balanceNote": "Historical values are the signed value of operations at their respective prices, not the current market value of the inventory."
+    "pricing.balanceNote": "Historical values are the signed value of operations at their respective prices, not the current market value of the inventory.",
+    "catalog.delete": "Delete",
+    "catalog.deleteFor": "Delete league: {name}",
+    "catalog.deleteTitle": "Permanently delete league?",
+    "catalog.deleteWarning": "This will permanently delete “{name}” and all its transactions, prices, valuations, stash settings and fetched history from the application database. This cannot be undone.",
+    "catalog.deleteRecovery": "Source archive files and backups remain unchanged. Automatic fetch and database rebuild will not restore this league. An administrator can explicitly add it again and fetch available history.",
+    "catalog.deleting": "Deleting league data… Please wait.",
+    "catalog.cancelDelete": "Cancel",
+    "catalog.confirmDelete": "Permanently delete",
+    "catalog.deleted": "League and its data deleted.",
+    "catalog.error.league_busy": "A fetch or calculation is running. Wait for it to finish, then retry."
   }
 }

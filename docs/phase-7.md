@@ -163,6 +163,42 @@ W testach nie ma żadnego ruchu do zewnętrznych źródeł.
 
 ## Odbiór manualny i granica fazy
 
+### Usuwanie ligi (uzupełnienie)
+
+System settings → Katalog lig → Usuń otwiera modalne ostrzeżenie z nazwą ligi,
+zakresem danych i przyciskami Anuluj / Usuń trwale. Domyślny fokus otrzymuje
+Anuluj. W czasie usuwania widoczny jest status; przyciski są zablokowane.
+Po usunięciu wybranej ligi selektor przechodzi na następną dostępną ligę.
+Można usunąć ostatnią ligę i nadal korzystać z konfiguracji Admina.
+
+DELETE /api/league-catalog/leagues/<id> wymaga Admina, CSRF oraz potwierdzenia
+nazwy i aktualnej wersji polityki. Usuwa atomowo transakcje, projekcje ilości,
+wyceny, ceny i cache danej ligi, aliasy, ustawienia, zadania oraz powiązania
+archiwów w bazie. Blokuje operację podczas pracy nad tą ligą albo wspólnego
+pobierania historii. Dane innych lig, sekrety i wspólny kursor pozostają.
+Indeksy odwrotne foreign keys powstają przy pierwszym usuwaniu, aby uniknąć
+kwadratowych skanów danych pozostałych lig.
+
+Pobrane wpisy ligi są usuwane również ze wspólnych stron JSON. Strony
+zawierające inne ligi są redagowane, oznaczane _poa_redacted i otrzymują nowy
+SHA-256; nie są już oryginalnym payloadem 1:1. Pozostałe wpisy pozostają.
+Minimalny zapis usunięcia w metadata zapobiega automatycznemu przywróceniu
+z pobieranej historii albo offline rebuild. Nazwa może nadal występować
+w katalogu kandydatów i metadanych audytowych.
+
+Źródłowe pliki archiwów i backupy na dysku pozostają nienaruszone — popup
+wyjaśnia tę granicę. To usuwanie danych ligi z bazy aplikacji, nie bezpieczne
+wymazywanie dysku ani kasowanie kopii zapasowych. Jawne dodanie ligi przez
+Admina usuwa blokadę i zleca ponowne pobranie całej dostępnej historii.
+
+Weryfikacja: testy Admin/CSRF, anulowania, potwierdzenia, zmiany wyboru,
+odrzucenia starej wersji i aktywnego zadania, zachowania innych lig, usunięcia
+cen/wycen, pomijania usuniętej ligi w fetchu i rebuildzie. Próba na odizolowanej
+kopii produkcyjnej bazy usunęła 89 190 transakcji z zależnymi danymi w 4,32 s;
+pozostałe ligi zachowane, zero naruszeń foreign keys.
+
+### Kroki odbioru
+
 1. Zalogować Admina, otworzyć System settings i zapisać poprawne GUILD_ID oraz
    SESSION_ID. Hasła ani sesji nie wklejać do rozmowy.
 2. Włączyć pobieranie. Sprawdzić brak zwracanej wartości SESSION_ID po reloadzie.

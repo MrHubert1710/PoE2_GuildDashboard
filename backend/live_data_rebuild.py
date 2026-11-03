@@ -4,6 +4,13 @@ from .database import DatabaseError
 
 def preserve(old,fresh):
     if not old.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='league_catalog_entries'").fetchone():return
+    from .league_deletion import KEY,deleted_leagues,purge_league
+    from .archive_import import canonical
+    deleted=deleted_leagues(old)
+    for entry in deleted:
+        league=fresh.execute('SELECT * FROM leagues WHERE id=?',(entry['id'],)).fetchone()
+        if league:purge_league(fresh,league)
+    if deleted:fresh.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)',(KEY,canonical(deleted)))
     def insert(table,row,replace=False):
         values=dict(row);columns=','.join(values)
         fresh.execute(('INSERT OR REPLACE' if replace else 'INSERT OR IGNORE')+' INTO '+table+'('+columns+') VALUES('+','.join('?' for _ in values)+')',tuple(values.values()))
