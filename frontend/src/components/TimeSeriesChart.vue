@@ -25,7 +25,10 @@ function leave(){++hoverSequence;clearTimeout(hoverTimer);hover.value=null;curso
 function move(event:PointerEvent){
   if(!root.value||!inside(event)){leave();return}
   const box=root.value.getBoundingClientRect(),x=event.clientX-box.left
-  const timestamp=Math.round(currentWindow.value.start+(x-65)/(box.width-85)*(currentWindow.value.end-currentWindow.value.start))
+  // Use the rendered axis transform: value charts reserve a wider Y-axis gutter.
+  const time=chart?.convertFromPixel({xAxisIndex:0},x)
+  if(typeof time!=='number'||!Number.isFinite(time)){leave();return}
+  const timestamp=Math.round(time)
   const current=++hoverSequence;clearTimeout(hoverTimer);cursorState.value=null;cursorError.value=''
   hover.value={timestamp,x,left:Math.max(8,Math.min(innerWidth-310,event.clientX+16)),top:Math.max(8,Math.min(innerHeight-190,event.clientY+16))}
   hoverTimer=setTimeout(()=>{void props.stateAt(timestamp).then(value=>{if(current===hoverSequence)cursorState.value=value}).catch(()=>{if(current===hoverSequence)cursorError.value='report_unavailable'})},90)
@@ -62,8 +65,9 @@ function draw(){
   chart.setOption(options,{notMerge:true,silent:true});chart.resize();root.value.querySelector('svg')?.setAttribute('aria-hidden','true')
 }
 function inside(event:MouseEvent){
-  const box=root.value!.getBoundingClientRect()
-  return event.clientX>=box.left+65&&event.clientX<=box.right-20&&event.clientY>=box.top+18&&event.clientY<=box.bottom-35
+  if(!root.value||!chart)return false
+  const box=root.value.getBoundingClientRect()
+  return chart.containPixel({gridIndex:0},[event.clientX-box.left,event.clientY-box.top])
 }
 watch(()=>[props.series,props.contextSeries,props.bounds,props.enabled,props.window,props.loadedWindow,props.timezone,props.view,props.valueWindow,locale.value,displayHourFormat.value],()=>{leave();void nextTick(draw)},{deep:true})
 onMounted(()=>{observer=new ResizeObserver(()=>{if(root.value?.clientWidth)draw()});if(root.value)observer.observe(root.value);draw()})

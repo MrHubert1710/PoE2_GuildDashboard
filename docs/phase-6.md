@@ -251,6 +251,22 @@ zmienia jedynie prezentację.
   Sumy SHA-256 wszystkich 56 istniejących plików cen pozostały identyczne.
 - SQLite: integralność poprawna, brak naruszeń kluczy obcych, schemat 8.
 
+## Poprawka precyzji tooltipa
+
+Wykres wartości rezerwuje 88 px na oś Y, a ilościowy 65 px. Stare ręczne
+przeliczanie kursora zakładało zawsze 65 px, więc tooltip pobierał stan
+z przesuniętego czasu. Na krótkich spadkach był to już stan po odbiciu.
+Czas kursora wyznacza teraz transformacja narysowanej osi ECharts
+(convertFromPixel); containPixel wyklucza marginesy osi z obszaru tooltipa.
+Odczyt nadal dotyczy dowolnego czasu, również pomiędzy snapshotami.
+
+Odtworzony przypadek: Runes of Aldur, JohnnyKremowka, 2026-07-09
+14:00:20–14:00:24 UTC: −6134.14223069. API zwraca właściwy stan;
+regresja obejmuje trafienie w krótki spadek w trybie wartości i ilości,
+zmianę szerokości okna oraz opuszczenie obszaru danych. Zaliczone 22 testy
+wykresów oraz build produkcyjny z kontrolą typów. Na wdrożonym wykresie
+zweryfikowano tooltip −6134.14223069 w 14:00:22 UTC.
+
 ## Odbiór manualny
 
 1. Odświeżyć stronę: domyślnie Value mode i ceny historyczne. Sprawdzić wykres

@@ -516,3 +516,45 @@ test('technical corrections use a localized separate legend and table label',asy
   await expect(chart(page).getByRole('checkbox',{name:'Korekty rekonstrukcji',exact:true})).toBeVisible()
   await expect(page.getByTestId('quantity-panel').locator('.quantity-table')).toContainText('Korekty rekonstrukcji')
 })
+
+for(const mode of ['quantity','value'])test(`tooltip follows the rendered ${mode} axis through a brief trough and resize`,async({page})=>{
+  const start=Date.UTC(2026,6,9,13,52),end=start+12*60*1000,dip=start+6*60*1000,recovery=dip+6000
+  let seriesId=''
+  await page.route('**/quantity-series?*',async route=>{
+    const url=new URL(route.request().url())
+    if(url.searchParams.has('at')){
+      const at=Number(url.searchParams.get('at'))
+      await route.fulfill({json:{timestamp:at,balances:[{id:seriesId,name:'Synthetic Alice',balance:at>=dip&&at<recovery?-6134.14223069:-50.14223069}]}})
+      return
+    }
+    const response=await route.fetch(),data=await response.json()
+    const points=[{timestamp:start,balance:-50.14223069},{timestamp:dip,balance:-6134.14223069},{timestamp:recovery,balance:-50.14223069},{timestamp:end,balance:-50.14223069}]
+    const series={...data.series[0],points,overview:points,opening_balance:-50.14223069,closing_balance:-50.14223069}
+    seriesId=series.id
+    await route.fulfill({response,json:{...data,unit:mode==='value'?'divine_orb':'item_count',series:[series],total_series:null,bounds:{start,end},window:{start,end},navigator:{bounds:{start,end},series:[series],total_series:null}}})
+  })
+  await page.setViewportSize({width:1440,height:1000})
+  await page.goto(`/poe2guild/?chart_mode=${mode}&lang=en&section=players`)
+  const graph=page.getByTestId('time-series-chart'),tooltip=page.getByRole('tooltip')
+  await expect(graph).toBeVisible()
+  for(const width of [1440,900]){
+    await page.setViewportSize({width,height:1000})
+    await expect.poll(()=>graph.locator('svg').evaluate(svg=>Number(svg.getAttribute('width')))).toBe(await graph.evaluate(el=>el.clientWidth))
+    // Read the actual SVG axis geometry; do not repeat the component's gutter constants.
+    const axis=await graph.locator('path[stroke="#46545e"]').first().evaluate(element=>{
+      const path=element as SVGPathElement,matrix=path.getScreenCTM()!
+      const a=path.getPointAtLength(0),b=path.getPointAtLength(path.getTotalLength())
+      const first=new DOMPoint(a.x,a.y).matrixTransform(matrix),last=new DOMPoint(b.x,b.y).matrixTransform(matrix)
+      return {left:Math.min(first.x,last.x),right:Math.max(first.x,last.x)}
+    })
+    const box=(await graph.boundingBox())!,target=dip+3000
+    await page.mouse.move(axis.left+(axis.right-axis.left)*(target-start)/(end-start),box.y+box.height*.6)
+    await expect(tooltip.locator('.chart-tooltip-row strong')).toHaveText('-6,134.14223069')
+    const actual=Number(await tooltip.getAttribute('data-state-at'))
+    expect(Math.abs(actual-target)).toBeLessThan((end-start)/(axis.right-axis.left))
+    await page.mouse.move(axis.left+(axis.right-axis.left)*.8,box.y+box.height*.6)
+    await expect(tooltip.locator('.chart-tooltip-row strong')).toHaveText('-50.14223069')
+    await page.mouse.move(axis.left-5,box.y+box.height*.6)
+    await expect(tooltip).toHaveCount(0)
+  }
+})
