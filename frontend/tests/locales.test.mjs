@@ -40,7 +40,7 @@ for (const [name, mutate, pattern] of [
 test('English fallback, plural categories and localized numbers', () => {
   const catalogs = validateCatalog(files())
   for (const [count, expected] of [[1, '1 przedmiot'], [2, '2 przedmioty'], [5, '5 przedmiotów'], [12, '12 przedmiotów'], [22, '22 przedmioty']]) assert.equal(formatMessage(catalogs, 'pl', 'count', { count }), expected)
-  assert.equal(formatMessage(catalogs, 'en', 'count', { count: 1000 }), '1,000 items')
+  assert.equal(formatMessage(catalogs, 'en', 'count', { count: 1000 }), '1\u00a0000 items')
   assert.equal(formatMessage(catalogs, 'pl', 'count', { count: 10000 }), '10\u00a0000 przedmiotów')
   delete catalogs.pl.messages.greeting // Defensive runtime fallback; build validation normally prevents this.
   assert.equal(formatMessage(catalogs, 'pl', 'greeting', { name: '<img>' }), 'Hello <img>')

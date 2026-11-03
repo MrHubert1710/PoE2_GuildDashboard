@@ -3,7 +3,7 @@ import { appName } from './branding'
 import { computed, ref, watchEffect } from 'vue'
 import { formatZonedDate } from './timezones'
 import { updateUrl } from './navigation'
-import { formatMessage } from './message-format.mjs'
+import { formatMessage, formatNumber } from './message-format.mjs'
 import type { Catalog } from '../scripts/locale-catalog.mjs'
 
 // Vite discovers the files; its plugin validates the same catalog before serving/building.
@@ -28,7 +28,7 @@ synchronize(true)
 window.addEventListener('popstate', () => { locale.value = resolveLanguage(); synchronize(true) })
 // Formatting only: retain the original numeric value for charts and calculations.
 export function number(value: number, decimal = false) {
-  return new Intl.NumberFormat(locale.value, { minimumFractionDigits: decimal || !Number.isInteger(value) ? 2 : 0, maximumFractionDigits: 2 }).format(value)
+  return formatNumber(value, locale.value, { minimumFractionDigits: decimal || !Number.isInteger(value) ? 2 : 0, maximumFractionDigits: 2 })
 }
 export function t(key: string, parameters: Record<string, string | number> = {}) {
   return formatMessage(catalogs, locale.value, key, parameters)
