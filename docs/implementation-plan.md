@@ -7,6 +7,10 @@ odbioru manualnego prawdziwymi danymi dostępowymi. Faza 7C i dalsze nie są
 rozpoczęte; symulacja stasha pozostaje opcjonalną fazą 9.
 Wyniki: [phase-0.md](phase-0.md), [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-2a.md](phase-2a.md), [phase-3.md](phase-3.md), [phase-4.md](phase-4.md), [phase-4b.md](phase-4b.md), [phase-5.md](phase-5.md), [phase-5a.md](phase-5a.md), [phase-5b.md](phase-5b.md), [phase-6.md](phase-6.md), [phase-7.md](phase-7.md).
 Założenia i ustalenia o API: [architecture.md](architecture.md).
+Analiza alternatywnej autoryzacji i wyniki prób:
+[ggg-authorization.md](ggg-authorization.md). Pełny test OAuth historii
+oczekuje własnego klienta i tokenu z właściwymi scopes; obecny adapter sesji
+pozostaje bez zmian. Nie jest to rozpoczęcie fazy 7C.
 
 ## Cel i granice
 

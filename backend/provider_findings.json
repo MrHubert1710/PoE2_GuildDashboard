@@ -1,11 +1,11 @@
 {
-  "checked_at": "2026-11-02",
+  "checked_at": "2026-11-03",
   "items": [
     {
       "id": "ggg-history",
       "name": "Historia skrytki gildii PoE2",
       "status": "not_documented",
-      "detail": "Zaimplementowany sesyjny adapter poprzedniej aplikacji, z surowymi odpowiedziami, paginacją i limitami. Nie jest to udokumentowane API OAuth; weryfikacja rzeczywistego dostępu wymaga sesji administratora.",
+      "detail": "Sesyjny endpoint PoE2 zweryfikowany 2026-11-03: POESESSID daje 200, brak autoryzacji 401. Nieprawidłowy Bearer daje OAuth invalid_token; dostęp poprawnym tokenem pozostaje niezweryfikowany. Brak udokumentowanej historii gildii w OAuth API.",
       "source": "https://www.pathofexile.com/developer/docs/reference",
       "checked_at": "2026-11-03"
     },
@@ -13,8 +13,9 @@
       "id": "ggg-oauth",
       "name": "Autoryzacja GGG",
       "status": "conditional",
-      "detail": "OAuth jest udokumentowany. Rejestracja nowych aplikacji jest obecnie wstrzymana; wymagany jest klient z dostępem do potrzebnego zasobu.",
-      "source": "https://www.pathofexile.com/developer/docs"
+      "detail": "Udokumentowane Authorization Code + PKCE, refresh_token i client_credentials. Katalog lig wspiera PoE2; skrytki gildii opisano jako PoE1-only, scope account:guild:stashes na specjalny wniosek. Brak klienta/tokenów do pełnego testu OAuth w tej instalacji.",
+      "source": "https://www.pathofexile.com/developer/docs",
+      "checked_at": "2026-11-03"
     },
     {
       "id": "ggg-leagues",

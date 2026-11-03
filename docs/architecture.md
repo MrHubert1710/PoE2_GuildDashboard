@@ -103,6 +103,12 @@ wykresów i statusów synchronizacji.
 
 ## GGG: zweryfikowane możliwości i ograniczenia
 
+Analiza i próby z 2026-11-03: [ggg-authorization.md](ggg-authorization.md).
+Sesja historii PoE2 daje HTTP 200. Nieprawidłowy Bearer daje invalid_token;
+działanie prawidłowego OAuth na tym endpointcie pozostaje niezweryfikowane
+z powodu braku własnego klienta/tokenów. Trasa skrytek gildii z /poe2/
+dała 404. Nie utożsamiać tych prób z pełnym testem grantów OAuth.
+
 Stan implementacji fazy 7A + 7B: na polecenie użytkownika działa adapter
 historii oparty o SESSION_ID/POESESSID ze starej aplikacji. Nie jest to
 oficjalny adapter OAuth i wymaga ręcznego odnawiania sesji. Dane dostępowe

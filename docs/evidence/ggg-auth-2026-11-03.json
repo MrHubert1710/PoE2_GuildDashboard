@@ -1,0 +1,84 @@
+{
+  "checked_at": "2026-11-03T02:01:50.196525+00:00",
+  "valid_oauth_credentials_available": false,
+  "results": [
+    {
+      "test": "official_poe2_leagues_no_token",
+      "http_status": 401,
+      "content_type": "application/json",
+      "body_bytes": 45,
+      "json_keys": [
+        "error"
+      ],
+      "error_code": 8
+    },
+    {
+      "test": "official_poe2_characters_no_token",
+      "http_status": 401,
+      "content_type": "application/json",
+      "body_bytes": 45,
+      "json_keys": [
+        "error"
+      ],
+      "error_code": 8
+    },
+    {
+      "test": "official_poe1_guild_stashes_no_token",
+      "http_status": 401,
+      "content_type": "application/json",
+      "body_bytes": 45,
+      "json_keys": [
+        "error"
+      ],
+      "error_code": 8
+    },
+    {
+      "test": "poe1_guild_route_with_poe2_realm_no_token",
+      "http_status": 404,
+      "content_type": "application/json",
+      "body_bytes": 51,
+      "json_keys": [
+        "error"
+      ],
+      "error_code": 1
+    },
+    {
+      "test": "existing_poe2_history_no_credentials",
+      "http_status": 401,
+      "content_type": "application/json",
+      "body_bytes": 45,
+      "json_keys": [
+        "error"
+      ],
+      "error_code": 8
+    },
+    {
+      "test": "existing_poe2_history_invalid_bearer_negative_control",
+      "http_status": 401,
+      "content_type": "application/json",
+      "body_bytes": 99,
+      "json_keys": [
+        "error",
+        "error_description"
+      ]
+    },
+    {
+      "test": "existing_poe2_history_configured_session",
+      "http_status": 200,
+      "content_type": "application/json",
+      "body_bytes": 32,
+      "json_keys": [
+        "entries",
+        "truncated"
+      ],
+      "entries": 0,
+      "truncated": false
+    },
+    {
+      "test": "history_invalid_bearer_error_detail",
+      "http_status": 401,
+      "error": "invalid_token",
+      "error_description": "The access token provided is invalid or has expired"
+    }
+  ]
+}
