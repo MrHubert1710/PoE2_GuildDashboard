@@ -68,7 +68,7 @@ def leagues():
                                       'LEFT JOIN transactions t ON t.league_id=l.id GROUP BY l.id ORDER BY l.name,l.id'):
             league = dict(row)
             league['archived'] = bool(league['archived'])
-            league['monitored']=bool(league['monitored'])
+            league['monitored']=league['lifecycle']!='ended'
             from .league_catalog import automatic_status
             league.update(automatic_status(connection,league))
             league['variant']=__import__('json').loads(league.pop('variant_json'))

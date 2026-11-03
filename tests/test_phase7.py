@@ -112,7 +112,7 @@ class HistoryTests(TestCase):
     def test_rate_limit_headers_and_retry_after_are_respected(self):
         self.assertGreaterEqual(rate_delay({'Retry-After':'120'}),120)
         self.assertGreaterEqual(rate_delay({'X-Rate-Limit-Rules':'Account','X-Rate-Limit-Account':'5:60:120','X-Rate-Limit-Account-State':'4:60:0'}),60)
-        with connect(self.path) as c:c.execute("UPDATE leagues SET monitored=0 WHERE id='A'")
+        with connect(self.path) as c:c.execute("UPDATE leagues SET lifecycle='ended' WHERE id='A'")
         self.assertEqual(self.queue.status('A')['history']['reason'],'not_monitored')
     def test_unknown_pending_history_is_imported_after_admin_adds_the_league(self):
         self.fetch([{'entries':[raw(70,'Next League')],'truncated':False}])
@@ -125,6 +125,26 @@ class HistoryTests(TestCase):
             for _ in range(10):
                 if not worker.run_once():break
         with connect(self.path) as c:self.assertEqual(c.execute('SELECT count(*) FROM transactions WHERE league_id=? AND external_id=?',(league,'70')).fetchone()[0],1)
+
+    def test_shared_history_preserves_archived_raw_but_imports_only_monitored_leagues(self):
+        self.assertEqual(self.client.put('/api/league-catalog/leagues/A',json={'lifecycle_override':'ended','version':0}).status_code,200)
+        payload={'entries':[raw(101),raw(102,'B')],'truncated':False}
+        def run(league,payload):
+            self.queue.enqueue(league,'history','manual')
+            with patch('backend.ggg_history.GuildHistoryClient') as client:
+                client.return_value.fetch.return_value=(json.dumps(payload),payload)
+                worker=Worker(self.queue)
+                for _ in range(10):
+                    if not worker.run_once():break
+        run('B',payload)
+        with connect(self.path) as c:
+            self.assertEqual(c.execute("SELECT count(*) FROM transactions WHERE league_id='A' AND external_id='101'").fetchone()[0],0)
+            self.assertEqual(c.execute("SELECT count(*) FROM transactions WHERE league_id='B' AND external_id='102'").fetchone()[0],1)
+            self.assertIsNone(c.execute("SELECT transaction_id FROM guild_history_events WHERE league_name='A' AND external_id='101'").fetchone()[0])
+        self.assertEqual(self.client.put('/api/league-catalog/leagues/A',json={'lifecycle_override':'active','version':1}).status_code,200)
+        run('A',{'entries':[],'truncated':False})
+        with connect(self.path) as c:
+            self.assertEqual(c.execute("SELECT count(*) FROM transactions WHERE league_id='A' AND external_id='101'").fetchone()[0],1)
 
 
 class CatalogTests(TestCase):
@@ -160,7 +180,7 @@ class CatalogTests(TestCase):
         self.assertEqual(self.client.get('/api/leagues').json['leagues'][0]['lifecycle'],'active')
         self.publish('poe.ninja',[dict(id='Other',name='Other')])
         self.assertEqual(self.client.get('/api/leagues').json['leagues'][0]['lifecycle'],'ended')
-        policy=dict(monitored=False,lifecycle_override='active',version=0)
+        policy=dict(lifecycle_override='active',version=0)
         self.assertEqual(self.client.put('/api/league-catalog/leagues/'+league,json=policy).status_code,200)
         self.publish('ggg',[dict(id='Old but active',endAt='2026-01-01T00:00:00Z')])
         current=self.client.get('/api/leagues').json['leagues'][0];self.assertEqual(current['lifecycle'],'active');self.assertEqual(current['observed_lifecycle'],'ended')
@@ -184,7 +204,7 @@ class CatalogTests(TestCase):
         self.assertEqual(state(added)['lifecycle'],'active')
         self.publish('poe.ninja',[dict(id='New',name='New')])
         self.assertEqual(state(existing)['lifecycle'],'ended')
-        policy=dict(monitored=True,lifecycle_override='active',version=0)
+        policy=dict(lifecycle_override='active',version=0)
         self.assertEqual(self.client.put('/api/league-catalog/leagues/'+existing,json=policy).status_code,200)
         self.publish('poe.ninja',[dict(id='New',name='New')])
         self.assertEqual(state(existing)['lifecycle'],'active')
@@ -211,6 +231,31 @@ class CatalogTests(TestCase):
             state=next(r for r in self.client.get('/api/leagues').json['leagues'] if r['id']==league)
             self.assertEqual(state['lifecycle'],'active')
             self.assertEqual(state['lifecycle_source'],'poe.ninja')
+
+    def test_archiving_disables_monitoring_and_fences_queued_and_running_fetches(self):
+        league=self.client.post('/api/league-catalog/leagues',json={'name':'Hardcore'}).json['league_id']
+        self.publish('poe.ninja',[dict(id='Hardcore',name='Hardcore')])
+        queue=Queue(self.path,cooldown=0)
+        queued=queue.enqueue(league,'prices','manual')['job_id']
+        policy=dict(lifecycle_override='ended',version=0)
+        self.assertEqual(self.client.put('/api/league-catalog/leagues/'+league,json=policy).status_code,200)
+        self.assertFalse(self.client.get('/api/leagues').json['leagues'][0]['monitored'])
+        self.assertEqual(queue.enqueue(league,'history','manual')['reason'],'not_monitored')
+        self.assertIsNone(queue.claim('worker'))
+        with connect(self.path) as c:self.assertEqual(c.execute('SELECT error_code FROM jobs WHERE id=?',(queued,)).fetchone()[0],'not_monitored')
+        policy.update(lifecycle_override='active',version=1)
+        self.assertEqual(self.client.put('/api/league-catalog/leagues/'+league,json=policy).status_code,200)
+        self.assertTrue(self.client.get('/api/leagues').json['leagues'][0]['monitored'])
+        queued=queue.enqueue(league,'prices','manual')['job_id'];lease=queue.claim('worker')
+        policy.update(lifecycle_override='ended',version=2)
+        self.assertEqual(self.client.put('/api/league-catalog/leagues/'+league,json=policy).status_code,200)
+        queue.complete(lease,lambda c:self.fail('Archived price publication ran'))
+        with connect(self.path) as c:
+            self.assertEqual(c.execute('SELECT error_code FROM jobs WHERE id=?',(queued,)).fetchone()[0],'not_monitored')
+            self.assertEqual(c.execute('SELECT monitored FROM leagues WHERE id=?',(league,)).fetchone()[0],0)
+        policy.update(lifecycle_override=None,version=3)
+        self.assertEqual(self.client.put('/api/league-catalog/leagues/'+league,json=policy).status_code,200)
+        self.assertTrue(self.client.get('/api/leagues').json['leagues'][0]['monitored'])
     def test_catalog_global_job_deduplication_and_fenced_publication(self):
         queue=Queue(self.path,catalog_available=True,cooldown=0)
         first=queue.enqueue(None,'league_catalog','manual');second=queue.enqueue(None,'league_catalog','automatic')

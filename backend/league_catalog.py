@@ -156,7 +156,7 @@ def apply_observed_status(c,league_id):
     league=c.execute('SELECT * FROM leagues WHERE id=?',(league_id,)).fetchone()
     override=c.execute('SELECT lifecycle_override FROM league_policies WHERE league_id=?',(league_id,)).fetchone()
     state=override[0] if override and override[0] is not None else automatic_status(c,league)['observed_lifecycle']
-    c.execute('UPDATE leagues SET lifecycle=? WHERE id=?',(state,league_id))
+    c.execute('UPDATE leagues SET lifecycle=?,monitored=? WHERE id=?',(state,int(state!='ended'),league_id))
 
 
 def publish_catalog(c,provider,rows,payload,observed_at=None):

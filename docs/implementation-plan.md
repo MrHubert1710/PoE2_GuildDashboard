@@ -294,7 +294,8 @@ Połączone na polecenie użytkownika. Implementacja i odbiór:
 [phase-7.md](phase-7.md). Nie rozpoczynać 7C bez odbioru pobierania.
 
 - Automatyczne wykrywanie zasila katalog administratora. Wyłącznie Admin
-  dodaje ligi do aplikacji oraz ustawia ich monitorowanie; sama obecność
+  dodaje ligi do aplikacji; monitorowanie wynika ze statusu (archiwalna:
+  wyłączone; aktywna/nieznana: włączone). Sama obecność
   w katalogu nie uruchamia zbierania ani nie dodaje ligi do publicznej listy.
 - Zachować źródło, datę obserwacji, ID, game/realm i warianty. Domyślnie status
   jest automatyczny: obecność w poprawnym katalogu poe.ninja → Aktywna,

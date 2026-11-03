@@ -505,7 +505,7 @@
     "ggg.checked": "Ostatnia próba",
     "ggg.pending": "Historia oczekująca na monitorowaną ligę",
     "catalog.title": "Katalog lig",
-    "catalog.note": "Wykrycie nie dodaje ligi do aplikacji. Tylko administrator może dodać ligę i włączyć monitorowanie.",
+    "catalog.note": "Wykrycie nie dodaje ligi do aplikacji. Tylko administrator może dodać ligę.",
     "catalog.refresh": "Odśwież katalog lig",
     "catalog.fetching": "Odświeżanie katalogu lig…",
     "catalog.fresh": "Wspólny katalog jest nadal świeży; sprawdzenia odbywają się najwyżej raz na godzinę.",
@@ -519,7 +519,6 @@
     "catalog.monitored": "Monitorowanie",
     "catalog.lifecycle": "Status w grze",
     "catalog.observed": "Status ze źródła",
-    "catalog.monitorFor": "Monitoruj: {name}",
     "catalog.lifecycleFor": "Status w grze: {name}",
     "catalog.saveFor": "Zapisz ligę: {name}",
     "catalog.addFor": "Dodaj ligę: {name}",
@@ -590,6 +589,9 @@
     "catalog.confirmDelete": "Usuń trwale",
     "catalog.deleted": "Liga i jej dane zostały usunięte.",
     "catalog.error.league_busy": "Trwa pobieranie lub przeliczanie danych. Poczekaj na zakończenie i spróbuj ponownie.",
-    "catalog.evidence.poe.ninja": "Katalog poe.ninja"
+    "catalog.evidence.poe.ninja": "Katalog poe.ninja",
+    "catalog.monitoringOn": "Włączony",
+    "catalog.monitoringOff": "Wyłączony",
+    "catalog.monitoringNote": "Monitoring wynika ze statusu ligi: ligi archiwalne nie pobierają nowej historii ani cen. Ligi aktywne i o nieznanym statusie pozostają monitorowane."
   }
 }

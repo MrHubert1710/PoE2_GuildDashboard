@@ -17,7 +17,7 @@ def database_status(path):
                                       'LEFT JOIN transactions t ON t.league_id=l.id GROUP BY l.id ORDER BY l.name'):
             league = dict(row)
             league['archived'] = bool(league['archived'])
-            league['monitored'] = bool(league['monitored'])
+            league['monitored'] = league['lifecycle']!='ended'
             league['history_complete'] = (None if league['history_complete'] is None
                                            else bool(league['history_complete']))
             league['files'] = dict(connection.execute('SELECT kind,COUNT(*) FROM archive_files '

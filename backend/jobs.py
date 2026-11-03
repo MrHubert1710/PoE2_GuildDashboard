@@ -70,7 +70,7 @@ class Queue:
 
     def restriction(self, league, kind):
         if kind=='league_catalog':return None if self.catalog_available else 'source_unavailable'
-        if kind in {'history','prices'} and not dict(league).get('monitored',1):return 'not_monitored'
+        if kind in {'history','prices'} and dict(league).get('lifecycle','unknown')=='ended':return 'not_monitored'
         if kind=='history' and self.connection_file:
             from .ggg_connection import GGGConnectionStore
             configuration=GGGConnectionStore(self.connection_file).get()
@@ -78,8 +78,6 @@ class Queue:
                 return 'history_auth_failed' if configuration['state']=='rejected' else None
         if kind == 'prices' and not self.prices_available:return 'source_unavailable'
         if kind == 'history':
-            if dict(league).get('lifecycle','unknown')=='ended':
-                return 'archived'
             if not self.history_available or not league['fetch_available']:
                 return 'source_unavailable'
         return None

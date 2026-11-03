@@ -21,7 +21,7 @@ def connection_store():return GGGConnectionStore(current_app.config['GGG_CONNECT
 
 def policy(c,league):
     row=c.execute('SELECT * FROM league_policies WHERE league_id=?',(league['id'],)).fetchone()
-    return dict(monitored=bool(league['monitored']),lifecycle_override=row['lifecycle_override'] if row else None,version=row['version'] if row else 0)
+    return dict(monitored=league['lifecycle']!='ended',lifecycle_override=row['lifecycle_override'] if row else None,version=row['version'] if row else 0)
 
 
 @catalog.get('/api/league-catalog')
@@ -85,12 +85,11 @@ def add_league():
 @catalog.put('/api/league-catalog/leagues/<league_id>')
 def update_policy(league_id):
     payload=request.get_json(silent=True)
-    if not isinstance(payload,dict) or set(payload)!={'monitored','lifecycle_override','version'} or type(payload['monitored']) is not bool or type(payload['version']) is not int or payload['lifecycle_override'] not in (None,'active','ended','unknown'):raise ReadError('invalid_catalog_request')
+    if not isinstance(payload,dict) or set(payload)!={'lifecycle_override','version'} or type(payload['version']) is not int or payload['lifecycle_override'] not in (None,'active','ended','unknown'):raise ReadError('invalid_catalog_request')
     with connect(current_app.config['DATABASE_FILE']) as c:
         require_schema(c);c.execute('BEGIN IMMEDIATE');league=c.execute('SELECT * FROM leagues WHERE id=?',(league_id,)).fetchone()
         if not league:raise ReadError('league_not_found',404)
         if policy(c,league)['version']!=payload['version']:raise ReadError('catalog_policy_changed',409)
-        c.execute('UPDATE leagues SET monitored=? WHERE id=?',(int(payload['monitored']),league_id))
         c.execute('INSERT OR REPLACE INTO league_policies VALUES(?,?,?,?)',(league_id,payload['lifecycle_override'],payload['version']+1,utc_now()))
         apply_observed_status(c,league_id);c.commit()
     return jsonify(saved=True)

@@ -171,7 +171,7 @@ class JobTests(unittest.TestCase):
         self.assertEqual(queue.claim('after-restart')['id'], first['job_id'])
 
     def test_ended_status_blocks_enqueue_claim_and_publish_without_session_adapter(self):
-        self.assertEqual(self.enqueue('Archive')['reason'], 'archived')
+        self.assertEqual(self.enqueue('Archive')['reason'], 'not_monitored')
         self.enqueue()
         with connect(self.path) as c: c.execute("UPDATE leagues SET lifecycle='ended' WHERE id='A'")
         self.assertIsNone(self.lease())
@@ -180,7 +180,7 @@ class JobTests(unittest.TestCase):
         lease = self.lease()
         with connect(self.path) as c: c.execute("UPDATE leagues SET lifecycle='ended' WHERE id='A'")
         self.queue.complete(lease, lambda c: self.fail('Archived publication ran'))
-        self.assertEqual(self.queue.status('A')['history']['job']['error_code'], 'archived')
+        self.assertEqual(self.queue.status('A')['history']['job']['error_code'], 'not_monitored')
 
     def test_no_adapter_means_unavailable_not_fake_success(self):
         queue = Queue(self.path)
@@ -252,7 +252,7 @@ class JobTests(unittest.TestCase):
     def test_http_validation_archives_and_offline_worker_status(self):
         url = '/api/leagues/Archive/refresh'
         response = self.client.post(url, json={'trigger': 'manual'})
-        self.assertEqual((response.status_code, response.json['reason']), (200, 'archived'))
+        self.assertEqual((response.status_code, response.json['reason']), (200, 'not_monitored'))
         self.assertEqual(self.client.get(url).json['worker'], 'offline')
         for body in ([], {'kind': []}, {'trigger': 'invalid'}, {'unexpected': 1}, {'kind': 'local_verify', 'trigger': 'automatic'}):
             self.assertEqual(self.client.post(url, json=body).status_code, 400)

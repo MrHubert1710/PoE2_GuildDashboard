@@ -495,7 +495,7 @@
     "ggg.checked": "Last check",
     "ggg.pending": "History waiting for a monitored league",
     "catalog.title": "League catalog",
-    "catalog.note": "Discovery does not add leagues to the application. Only an administrator can add a league and enable monitoring.",
+    "catalog.note": "Discovery does not add leagues to the application. Only an administrator can add a league.",
     "catalog.refresh": "Refresh league catalog",
     "catalog.fetching": "Refreshing league catalog…",
     "catalog.fresh": "The shared catalog is still fresh; checks are limited to once per hour.",
@@ -509,7 +509,6 @@
     "catalog.monitored": "Monitoring",
     "catalog.lifecycle": "In-game status",
     "catalog.observed": "Observed status",
-    "catalog.monitorFor": "Monitor: {name}",
     "catalog.lifecycleFor": "In-game status: {name}",
     "catalog.saveFor": "Save league: {name}",
     "catalog.addFor": "Add league: {name}",
@@ -580,6 +579,9 @@
     "catalog.confirmDelete": "Permanently delete",
     "catalog.deleted": "League and its data deleted.",
     "catalog.error.league_busy": "A fetch or calculation is running. Wait for it to finish, then retry.",
-    "catalog.evidence.poe.ninja": "poe.ninja catalog"
+    "catalog.evidence.poe.ninja": "poe.ninja catalog",
+    "catalog.monitoringOn": "Enabled",
+    "catalog.monitoringOff": "Disabled",
+    "catalog.monitoringNote": "Monitoring follows the effective league status: archived leagues do not fetch new history or prices. Active and unknown leagues remain monitored."
   }
 }

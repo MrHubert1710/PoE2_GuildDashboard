@@ -38,9 +38,13 @@ katalogu albo wpisuje jej nazwę ręcznie (PoE 2, PC). Ponowienie dodania jest
 idempotentne. Mapowanie ID dostawców, game, realm i wariantów jest zachowane.
 Nie łączymy lig przez podobne nazwy i nie dziedziczymy stanów przedmiotów.
 
-Monitorowanie steruje pobieraniem historii i cen. Wyłączenie monitorowania
-nie usuwa danych ani nie ukrywa archiwum przed odczytem. Niezależnie można
-ustawić ręczny status ligi w grze. Opcję Local archive usunięto z panelu
+Monitorowanie wynika z efektywnego statusu ligi (po nadpisaniu Admina):
+Archiwalna oznacza wyłączone, Aktywna/Nieznana — włączone. Nie ma osobnego
+checkboxa ani zapisu monitored w żądaniu zmiany polityki. Zmiana statusu
+atomowo aktualizuje status i pochodną kolumnę monitored; API i kolejka
+korzystają z efektywnego statusu. Archiwizacja nie usuwa danych ani nie
+ukrywa ich przed odczytem. Niezależnie można ustawić ręczny status ligi.
+Opcję Local archive usunięto z panelu
 i kontraktu zapisu polityki; historyczna kolumna archived pozostaje tylko
 dla zgodności importów i nie steruje statusem ani pobieraniem. Zmiana
 polityki ma wersję; równoczesny zapis ze starym formularzem daje 409.
@@ -73,11 +77,27 @@ migracji i bez przypisywania obserwacji poe.ninja do źródła GGG. Offline rebu
 zachowuje katalog i polityki oraz ponownie wylicza statusy. Historyczne pola
 observed_* w tabeli leagues pozostają zapisem GGG/właściciela; odpowiedzi API
 uzupełniają je aktualnie wybraną obserwacją automatyczną. Wewnętrzny lifecycle
-ended jest prezentowany jako Archiwalna. Monitorowanie i usuwanie danych
-pozostają niezależnymi ustawieniami. Diagnostyka pokazuje stan monitorowania;
+ended jest prezentowany jako Archiwalna. Usuwanie danych jest osobną operacją.
+Diagnostyka pokazuje stan monitorowania wynikający ze statusu;
 selektor ligi korzysta wyłącznie ze statusu, bez starej flagi archived.
 Odświeżanie nadal korzysta ze wspólnego workera i dotychczasowego cache 1 h;
 nie dodano ruchu per klient ani automatycznego dodawania lig.
+
+Kolejka odrzuca fetch historii/cen ligi archiwalnej przy zlecaniu, pobraniu
+zadania przez workera oraz publikacji. Wysłanego już żądania HTTP nie można
+cofnąć, ale wynik nie zostanie opublikowany po archiwizacji. Odtwarzanie
+ilości i wycen istniejących danych pozostaje dostępne. Powrót do Aktywna
+lub Automatycznie wskazującego aktywną ligę przywraca monitorowanie.
+Wspólny endpoint gildii może nadal zwracać wpisy archiwalnej ligi podczas
+pobierania dla innych lig: raw zachowujemy do audytu, ale takich oczekujących
+wpisów nie importujemy do transakcji ligi archiwalnej. Katalog lig odświeża
+się niezależnie, więc może wykryć ponowne pojawienie się ligi.
+
+Weryfikacja powiązania monitorowania: zaliczono 73 testy katalogu/kolejki/
+usuwania/rebuildu, następnie 18 testów katalogu z blokadą zadań oraz 2 próby
+regresyjne blokady publikacji i wspólnej historii. Zaliczono 10 scenariuszy
+przeglądarkowych, 16 testów tłumaczeń i build. Po wdrożeniu przeliczono
+monitorowanie istniejących lig; HTTPS i kontrola spójności bazy poprawne.
 
 Weryfikacja tej zmiany: 218 testów backendu, 17 ponownie uruchomionych testów
 katalogu, 4 scenariusze przeglądarkowe panelu (w tym Archiwalna dla ligi

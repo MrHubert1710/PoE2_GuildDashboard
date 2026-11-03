@@ -170,7 +170,7 @@ class GuildHistoryAdapter:
                     if not same_event(prior,norm):raise AdapterFailure('history_conflict',retryable=False)
                 c.execute('INSERT OR IGNORE INTO guild_history_events VALUES(?,?,?,?,?,?,NULL,?)',(source,norm['League'],norm['Id'],norm['Date'],canonical(raw),canonical(csv),page_id))
             for event in c.execute('SELECT * FROM guild_history_events WHERE source_id=? AND transaction_id IS NULL ORDER BY occurred_at,external_id',(source,)).fetchall():
-                league=c.execute("SELECT * FROM leagues WHERE game='poe2' AND realm='pc' AND name=? AND monitored=1",(event['league_name'],)).fetchone()
+                league=c.execute("SELECT * FROM leagues WHERE game='poe2' AND realm='pc' AND name=? AND lifecycle!='ended'",(event['league_name'],)).fetchone()
                 if not league:continue
                 csv=json.loads(event['normalized_json']);norm=normalize(csv,league['name'])
                 old=c.execute('SELECT * FROM transactions WHERE source_id=? AND league_id=? AND external_id=?',(source,league['id'],norm['Id'])).fetchone()
