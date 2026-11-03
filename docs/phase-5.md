@@ -352,7 +352,10 @@ przedmiotów pasujących do filtrów. To suma jednostek, bez przeliczenia cenowe
 Przełącznik trybu wartości ukrywa wybór przedmiotu, wybiera All i pokazuje pusty
 wykres z informacją o przyszłej wycenie. Nie pobiera wykresu ilościowego jako
 zastępczej wyceny. Przełącznik cen historycznych/aktualnych jest zablokowany,
-wybrane są historyczne. Powrót do ilości przywraca poprzedni przedmiot.
+wybrane są historyczne. Aktualizacja 2026-11-03: tryb ilościowy domyślnie
+wybiera All; każda zmiana trybu ponownie ustawia All, zamiast przywracać
+poprzedni przedmiot. Jawny wybór przedmiotu w URL nadal działa do następnej
+zmiany trybu. Obliczenia i semantyka sumowania pozostają bez zmian.
 Domyślny tryb jest ilościowy; w fazie 6 zostanie zmieniony na wartościowy.
 
 Kliknięcie kolorowego koła w legendzie otwiera popup pickera. Kolor aktualizuje

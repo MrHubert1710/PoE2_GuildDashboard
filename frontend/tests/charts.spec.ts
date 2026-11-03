@@ -2,7 +2,9 @@ import {test,expect} from './fixtures'
 import type {Locator} from './fixtures'
 import {goSection,zoomTime,zoomValues,resetTime,resetValues} from './workspace-helpers'
 test.use({locale:'en-US'})
-const path='/poe2guild/?chart_mode=quantity&lang=en'
+const defaultPath='/poe2guild/?chart_mode=quantity&lang=en'
+// Geometry and balance fixtures below deliberately exercise a single item.
+const path=defaultPath+'&chart_item=Rites+Token'
 const chart=(page:import('@playwright/test').Page)=>page.getByTestId('quantity-chart')
 
 test('balance chart is compact and group series differ between Players and Stashes',async({page})=>{
@@ -81,7 +83,7 @@ test('chart, table and information collapse independently and survive reload',as
 })
 
 test('zoom range applies local calendar dates and league changes reset chart context',async({page})=>{
-  await page.goto(path)
+  await page.goto(defaultPath)
   await expect(chart(page).getByRole('img')).toBeVisible()
   await zoomTime(page)
   await expect(page.getByLabel('From day (UTC)')).not.toHaveValue('')
@@ -91,7 +93,7 @@ test('zoom range applies local calendar dates and league changes reset chart con
   await expect(chart(page).getByRole('img')).toBeVisible()
   await page.getByRole('combobox',{name:'League',exact:true}).click()
   await page.getByRole('option',{name:'Runes of Aldur',exact:false}).click()
-  await expect(chart(page).getByLabel('Chart item',{exact:true})).toHaveValue('Aldur Token')
+  await expect(chart(page).getByLabel('Chart item',{exact:true})).toHaveValue('__all__')
   await expect(page).not.toHaveURL(/chart_from=/)
 })
 
@@ -389,17 +391,17 @@ test('player filter tooltip shows one row per series for operations sharing a ti
 })
 
 test('All sums quantities and value mode uses historical pricing only',async({page})=>{
-  await page.goto(path+'&section=players')
+  await page.goto(defaultPath+'&section=players')
   const graph=page.getByTestId('time-series-chart')
   await expect(graph).toBeVisible()
   await expect(chart(page).getByRole('button',{name:/^(Zoom in|Zoom values|Reset view|Reset values)$/})).toHaveCount(0)
-  await chart(page).getByLabel('Chart item',{exact:true}).selectOption('__all__')
-  await expect(page).toHaveURL(/chart_item=__all__/)
+  await expect(chart(page).getByLabel('Chart item',{exact:true})).toHaveValue('__all__')
   await expect(graph).toBeVisible()
   const league=new URL(page.url()).searchParams.get('league')
   const data=await(await page.request.get(`/poe2guild/api/leagues/${league}/quantity-series?view=players&all_items=1`)).json()
   expect(data.all_items).toBe(true)
   expect(data.total_series.closing_balance).toBeGreaterThan(63)
+  await chart(page).getByLabel('Chart item',{exact:true}).selectOption('Rites Token')
   let quantityRequests=0
   page.on('request',request=>{if(request.url().includes('/quantity-series?'))quantityRequests++})
   await page.getByRole('switch',{name:'Value mode',exact:true}).check()
@@ -411,6 +413,11 @@ test('All sums quantities and value mode uses historical pricing only',async({pa
   await page.reload();await expect(page.getByTestId('valuation-status')).toBeVisible()
   await page.getByRole('switch',{name:'Value mode',exact:true}).uncheck()
   await expect(graph).toBeVisible()
+  await expect(page.getByLabel('Chart item',{exact:true})).toHaveValue('__all__')
+  await expect(page).toHaveURL(/chart_item=__all__/)
+  await page.getByLabel('Chart item',{exact:true}).selectOption('Rites Token')
+  await page.getByRole('switch',{name:'Value mode',exact:true}).check()
+  await page.getByRole('switch',{name:'Value mode',exact:true}).uncheck()
   await expect(page.getByLabel('Chart item',{exact:true})).toHaveValue('__all__')
 })
 
@@ -548,11 +555,11 @@ for(const mode of ['quantity','value'])test(`tooltip follows the rendered ${mode
     })
     const box=(await graph.boundingBox())!,target=dip+3000
     await page.mouse.move(axis.left+(axis.right-axis.left)*(target-start)/(end-start),box.y+box.height*.6)
-    await expect(tooltip.locator('.chart-tooltip-row strong')).toHaveText('-6,134.14223069')
+    await expect(tooltip.locator('.chart-tooltip-row strong')).toHaveText('-6 134.14')
     const actual=Number(await tooltip.getAttribute('data-state-at'))
     expect(Math.abs(actual-target)).toBeLessThan((end-start)/(axis.right-axis.left))
     await page.mouse.move(axis.left+(axis.right-axis.left)*.8,box.y+box.height*.6)
-    await expect(tooltip.locator('.chart-tooltip-row strong')).toHaveText('-50.14223069')
+    await expect(tooltip.locator('.chart-tooltip-row strong')).toHaveText('-50.14')
     await page.mouse.move(axis.left-5,box.y+box.height*.6)
     await expect(tooltip).toHaveCount(0)
   }

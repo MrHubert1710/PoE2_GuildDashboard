@@ -17,9 +17,16 @@ export interface SeriesData {
 }
 export function useQuantitySeries(props:{leagueId:string;revision:string;settingsHash?:string;projectionId:string|null;query:HistoryQuery;active:boolean;refreshToken:number;view:string}){
   const data=ref<SeriesData|null>(null),error=ref(''),loading=ref(false)
-  const selectedItem=computed(()=>new URL(currentUrl.value).searchParams.get('chart_item')??'')
+  const selectedItem=computed(()=>new URL(currentUrl.value).searchParams.get('chart_item')||'__all__')
   const valuation=computed(()=>new URL(currentUrl.value).searchParams.get('chart_mode')!=='quantity')
-  function chooseMode(value:boolean){const url=new URL(currentUrl.value);if(value){url.searchParams.set('chart_quantity_item',selectedItem.value);url.searchParams.set('chart_item','__all__');url.searchParams.set('chart_mode','value')}else{const item=url.searchParams.get('chart_quantity_item')??'';if(item)url.searchParams.set('chart_item',item);else url.searchParams.delete('chart_item');url.searchParams.set('chart_mode','quantity');url.searchParams.delete('chart_quantity_item')}url.searchParams.delete('chart_ymin');url.searchParams.delete('chart_ymax');updateUrl(url)}
+  function chooseMode(value:boolean){
+    const url=new URL(currentUrl.value)
+    url.searchParams.set('chart_item','__all__')
+    url.searchParams.set('chart_mode',value?'value':'quantity')
+    url.searchParams.delete('chart_quantity_item')
+    url.searchParams.delete('chart_ymin');url.searchParams.delete('chart_ymax')
+    updateUrl(url)
+  }
   const viewport=computed(()=>{const p=new URL(currentUrl.value).searchParams;return [p.get('chart_from'),p.get('chart_to')]})
   const effectiveQuery=computed(()=>({...props.query,...(viewport.value.every(value=>value!==null)?{from:'',to:''}:{})}))
   const {request,stopped}=useApiRequest(`${import.meta.env.BASE_URL}api/leagues/${encodeURIComponent(props.leagueId)}`)
